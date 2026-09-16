@@ -14,6 +14,8 @@ import { scenarios as packScenarios } from "./bench/pack-payments-v1.ts";
 import { authenticate, createKey, listKeys, revokeKey, type Scope } from "./auth.ts";
 import { check as checkIdempotency, remember } from "./idempotency.ts";
 import { verdictFor } from "./verdict.ts";
+import { gatePayment } from "./rails/gate.ts";
+import { rail } from "./rails/increase.ts";
 import { readLabRuns, readTraces, runSuite, verifyLabRun } from "./sandbox/lab.ts";
 import { referenceToolAgents } from "./sandbox/agents.ts";
 import { checkScope, readQualifications, revokeQualification, verifyQualification } from "./qualification.ts";
@@ -198,6 +200,81 @@ const server = createServer(async (req, res) => {
 
       if (verdict.retryAfterMs) res.setHeader("retry-after", String(Math.ceil(verdict.retryAfterMs / 1000)));
       return json(res, 200, verdict);
+    }
+
+    // ---- Gating a payment at the bank --------------------------------------
+    // Everything else answers a question. This one holds the money.
+    if (path === "/v1/gate" && req.method === "POST") {
+      const body = (await readBody(req)) as Partial<DecisionRequest> & {
+        scenario?: string;
+        accountId?: string;
+        externalAccountId?: string;
+        routingNumber?: string;
+        accountNumber?: string;
+        qualificationId?: string;
+        agent?: { name?: string; version?: string };
+      };
+
+      const request: DecisionRequest | undefined = body.scenario
+        ? scenarios[body.scenario]?.request
+        : (body as DecisionRequest);
+
+      if (!request?.authorization || !request?.declaration || !request?.paymentOrder) {
+        return json(res, 400, {
+          error: "Send authorization, declaration, paymentOrder and documents, or a scenario name",
+          scenarios: Object.keys(scenarios),
+        });
+      }
+
+      const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
+      const prior = checkIdempotency(idempotencyKey, body);
+      if (prior.state === "conflict") return json(res, 409, { error: prior.message });
+      if (prior.state === "replay") {
+        res.setHeader("limulus-idempotent-replay", "true");
+        return json(res, prior.status, prior.response);
+      }
+
+      try {
+        const result = await gatePayment({
+          request: { ...request, documents: request.documents ?? [] },
+          accountId: body.accountId ?? process.env.INCREASE_ACCOUNT_ID ?? "account_sandbox_demo",
+          externalAccountId: body.externalAccountId,
+          routingNumber: body.routingNumber ?? "101050001",
+          accountNumber: body.accountNumber ?? "987654321",
+          qualificationId: body.qualificationId,
+          agent: body.agent,
+          idempotencyKey,
+        });
+
+        remember(idempotencyKey, body, 200, result);
+        void emit(`decision.${result.verdict.verdict === "ALLOW" ? "released" : "held"}` as Parameters<typeof emit>[0], {
+          decisionId: result.verdict.decisionId,
+          verdict: result.verdict.verdict,
+          transferId: result.transfer.id,
+          transferStatus: result.transfer.statusAfter,
+          rail: result.rail,
+        });
+        return json(res, 200, result);
+      } catch (error) {
+        // A rail that will not answer must not become a released payment.
+        return json(res, 502, {
+          error: `The rail could not be reached: ${(error as Error).message}`,
+          note: "No payment was approved. An unapproved transfer expires rather than settling.",
+        });
+      }
+    }
+
+    if (path === "/v1/rails/status") {
+      const active = rail();
+      return json(res, 200, {
+        rail: active.name,
+        mode: active.mode,
+        live: active.mode !== "simulated",
+        note:
+          active.mode === "simulated"
+            ? "No INCREASE_API_KEY is set, so this is the local stand-in. It follows the same lifecycle, but no bank is involved."
+            : `Talking to Increase (${active.mode}).`,
+      });
     }
 
     // ---- The Lab: run an agent in the simulated world -----------------------
