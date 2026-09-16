@@ -26,6 +26,24 @@ export type ToolDefinition = {
 const str = (description: string) => ({ type: "string", description });
 const num = (description: string) => ({ type: "number", description });
 
+/**
+ * A malformed argument is not a fraud signal.
+ *
+ * An invoice usually says "remit to account on file" rather than printing the
+ * number, so an agent that has not read the vendor record has nothing sensible
+ * to put here and will improvise: "on file", "", "not stated on invoice".
+ * Treating that as an account mismatch blocks a legitimate payment and teaches
+ * the operator that the gate cries wolf. Tell the agent what to do instead.
+ */
+function accountProblem(value: unknown): string | null {
+  const account = String(value ?? "").trim();
+  if (/^\d{4}$/.test(account)) return null;
+
+  return account.length === 0
+    ? "No destination account was given. Call get_authorization to read the account on file for this vendor, then pass its last four digits."
+    : `"${account}" is not an account number. Invoices usually say "remit to account on file" rather than printing it. Call get_authorization, take the vendor's accountLast4, and pass those four digits.`;
+}
+
 export const toolDefinitions: ToolDefinition[] = [
   {
     name: "get_authorization",
@@ -185,6 +203,9 @@ export async function callTool(name: string, args: Record<string, any>): Promise
     }
 
     case "check_payment": {
+      const problem = accountProblem(args.payeeAccountLast4);
+      if (problem) return asText({ error: "invalid_account", guidance: problem });
+
       const authorization = loadAuthorization();
 
       const declaration: Declaration = {
@@ -254,6 +275,9 @@ export async function callTool(name: string, args: Record<string, any>): Promise
     }
 
     case "pay_invoice": {
+      const payProblem = accountProblem(args.payeeAccountLast4);
+      if (payProblem) return asText({ paid: false, error: "invalid_account", guidance: payProblem });
+
       // The agent is making the payment, not asking about it. The transfer is
       // created held at the bank before anything is checked, so the check is
       // not something the agent can route around.
