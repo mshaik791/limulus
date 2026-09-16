@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url";
 import { decide } from "./decide.ts";
 import { publicKeyPem, readChain, verifyChain } from "./record.ts";
 import { scenarios } from "./scenarios.ts";
+import { referenceAgents } from "./bench/agents.ts";
+import { runPack } from "./bench/runner.ts";
+import { readReports, sealReport, verifyReport } from "./bench/report.ts";
+import { scenarios as packScenarios } from "./bench/pack-payments-v1.ts";
 import type { DecisionRequest } from "./types.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -91,6 +95,59 @@ const server = createServer(async (req, res) => {
     }
 
     if (path === "/v1/verify") return json(res, 200, { ...verifyChain(), publicKey: publicKeyPem });
+
+    // Pre-deployment testing: run an agent against the scenario pack.
+    if (path === "/v1/bench/runs" && req.method === "POST") {
+      const body = (await readBody(req)) as { endpoint?: string; agent?: "naive" | "careful"; category?: string };
+      const target =
+        body.endpoint != null
+          ? { name: "agent-under-test", endpoint: body.endpoint }
+          : body.agent === "careful"
+            ? referenceAgents.careful
+            : referenceAgents.naive;
+      const pack = body.category ? packScenarios.filter((s) => s.category === body.category) : packScenarios;
+      if (pack.length === 0) return json(res, 400, { error: `No scenarios in category "${body.category}"` });
+      const report = sealReport(await runPack(target, pack));
+      return json(res, 200, report);
+    }
+
+    if (path === "/v1/bench/scenarios") {
+      return json(
+        res,
+        200,
+        packScenarios.map((s) => ({
+          id: s.id,
+          category: s.category,
+          title: s.title,
+          severity: s.severity,
+          expected: s.expected,
+          source: s.source,
+        })),
+      );
+    }
+
+    if (path === "/v1/bench/reports") {
+      const reports = readReports();
+      return json(res, 200, {
+        count: reports.length,
+        reports: reports.slice(-20).map((r) => ({
+          id: r.id,
+          createdAt: r.createdAt,
+          agent: r.agent,
+          score: r.score,
+          level: r.level,
+          hash: r.hash,
+        })),
+      });
+    }
+
+    if (path.startsWith("/v1/bench/reports/")) {
+      const id = path.split("/").pop();
+      const report = readReports().find((r) => r.id === id);
+      return report
+        ? json(res, 200, { report, verification: verifyReport(report) })
+        : json(res, 404, { error: "No such report" });
+    }
 
     // Static files for the demo page.
     const file = path === "/" ? "index.html" : path.replace(/^\/+/, "");
