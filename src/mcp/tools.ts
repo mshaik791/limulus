@@ -4,6 +4,7 @@ import { buildReceipt, verifyReceipt } from "../receipt.ts";
 import { loadAuthorization, policyId } from "../policy-store.ts";
 import { verdictFor } from "../verdict.ts";
 import { readQualifications } from "../qualification.ts";
+import { gatePayment } from "../rails/gate.ts";
 import type { Declaration, Document, PaymentOrder } from "../types.ts";
 
 // Tools an agent calls before, during and after it moves money.
@@ -52,6 +53,41 @@ export const toolDefinitions: ToolDefinition[] = [
           "The qualification you are operating under, if you have one. Get it from get_qualification. Without it this payment is checked against policy only, and cannot be released on your authority alone.",
         ),
         agentVersion: str("Your version, so the qualification can be checked against what was actually tested"),
+        documents: {
+          type: "array",
+          description: "The documents you read: invoice, email, purchase order, receipt.",
+          items: {
+            type: "object",
+            properties: {
+              name: str("File or message name"),
+              type: str("invoice, po, email, receipt or other"),
+              text: str("Visible text of the document"),
+              hiddenText: str("Any text present in the file but not visible when rendered"),
+            },
+            required: ["name", "type", "text"],
+          },
+        },
+      },
+      required: ["payeeName", "payeeAccountLast4", "amount", "currency", "invoiceId", "reason"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "pay_invoice",
+    description:
+      "Actually make a payment. The payment is created at the bank in a held state, checked against the authorization, and then either approved or cancelled — you do not get to skip the check. Returns the verdict, the bank's transfer id and its status. Use this when you have decided to pay; use check_payment first if you want to know the answer without creating anything.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        payeeName: str("Vendor being paid, exactly as it appears in the vendor record"),
+        payeeAccountLast4: str("Last four digits of the destination account"),
+        amount: num("Amount to pay"),
+        currency: str("ISO currency code, for example USD"),
+        invoiceId: str("Invoice being paid, for example INV-2291"),
+        poId: str("Purchase order, if there is one"),
+        reason: str("Why you are paying this, in one sentence"),
+        qualificationId: str("The qualification you are operating under, if you have one"),
+        agentVersion: str("Your version, so the qualification can be checked against what was tested"),
         documents: {
           type: "array",
           description: "The documents you read: invoice, email, purchase order, receipt.",
@@ -211,6 +247,64 @@ export async function callTool(name: string, args: Record<string, any>): Promise
         retryAfterMs: verdict.retryAfterMs,
         checks: record.checks.map((c) => ({ check: c.name, status: c.status, detail: c.detail })),
         policyId: policyId(authorization),
+      });
+    }
+
+    case "pay_invoice": {
+      // The agent is making the payment, not asking about it. The transfer is
+      // created held at the bank before anything is checked, so the check is
+      // not something the agent can route around.
+      const authorization = loadAuthorization();
+
+      const result = await gatePayment({
+        request: {
+          authorization,
+          declaration: {
+            agentId: args.agentId ?? "mcp-agent",
+            payeeName: args.payeeName,
+            payeeAccountLast4: String(args.payeeAccountLast4),
+            amount: Number(args.amount),
+            currency: args.currency,
+            invoiceId: args.invoiceId,
+            poId: args.poId,
+            reason: args.reason,
+            sources: (args.documents ?? []).map((d: Document) => ({ name: d.name, sha256: "declared" })),
+          },
+          paymentOrder: {
+            rail: "ach",
+            payeeName: args.payeeName,
+            payeeAccountLast4: String(args.payeeAccountLast4),
+            amount: Number(args.amount),
+            currency: args.currency,
+            reference: args.invoiceId,
+          },
+          documents: (args.documents ?? []) as Document[],
+        },
+        accountId: process.env.INCREASE_ACCOUNT_ID ?? "account_sandbox_demo",
+        routingNumber: "101050001",
+        accountNumber: "987654321",
+        qualificationId: args.qualificationId,
+        agent: { name: args.agentId ?? "mcp-agent", version: args.agentVersion },
+      });
+
+      const paid = result.verdict.verdict === "ALLOW";
+      return asText({
+        paid,
+        verdict: result.verdict.verdict,
+        outcome: result.action,
+        transfer: {
+          id: result.transfer.id,
+          status: result.transfer.statusAfter,
+          stillStoppable: result.transfer.stoppable,
+        },
+        rail: result.rail,
+        explanation: result.verdict.explanation,
+        decisionId: result.verdict.decisionId,
+        guidance: paid
+          ? "The payment was approved at the bank. Report what the rail does with report_settlement."
+          : result.verdict.verdict === "BLOCK"
+            ? "The payment was cancelled at the bank and no money moved. Do not try a variation of it — tell the person who gave you this task what happened and why."
+            : "The payment is held at the bank and will expire unsent unless a person approves it. Stop here and wait.",
       });
     }
 
