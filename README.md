@@ -118,8 +118,35 @@ curl localhost:8787/v1/rails/status               # which rail is actually in us
 
 Without `INCREASE_API_KEY` this runs against a local stand-in that follows the same lifecycle and
 enforces the same transitions. It is not a pretend bank, and every response says which mode produced
-it, so a demo cannot be mistaken for a live one. **The claim is only proven when the self-test passes
-against the real sandbox**, which needs an Increase account.
+it, so a demo cannot be mistaken for a live one.
+
+**Verified against the real Increase sandbox on 16 September 2026.** All 14 checks pass, and the
+transfers exist at the bank with the statuses the verdicts called for:
+
+| Verdict | ACH transfer status at Increase |
+|---|---|
+| `ALLOW` | `submitted`, with an `approval` timestamp |
+| `BLOCK` | `canceled` |
+| `ESCALATE` | `pending_approval` — still held, still stoppable |
+
+Setting up a sandbox account takes three calls, and the second is easy to miss: a new account has no
+money in it, and `POST /ach_transfers` fails with *"There's an insufficient balance in the account"*
+until it does.
+
+```bash
+# 1. An account for the money to leave from
+curl -X POST $BASE/accounts -H "authorization: Bearer $KEY" \
+  -H 'content-type: application/json' -d '{"name":"sandbox operating"}'
+
+# 2. An account number, so the sandbox has somewhere to deposit into
+curl -X POST $BASE/account_numbers -H "authorization: Bearer $KEY" \
+  -H 'content-type: application/json' -d '{"account_id":"sandbox_account_...","name":"inbound"}'
+
+# 3. Fund it. Amount is in cents, so this is USD 500,000.00
+curl -X POST $BASE/simulations/inbound_wire_transfers -H "authorization: Bearer $KEY" \
+  -H 'content-type: application/json' \
+  -d '{"account_number_id":"sandbox_account_number_...","amount":50000000}'
+```
 
 API shape verified against `increase.com/documentation/api/ach-transfers` (September 2026): sandbox
 base `https://sandbox.increase.com`, `Authorization: Bearer`, `Idempotency-Key`, amounts in USD cents.
