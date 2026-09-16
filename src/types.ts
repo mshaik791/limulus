@@ -20,6 +20,12 @@ export type Authorization = {
   principal: string;
   task: string;
   limitPerPayment: number;
+  /**
+   * Ceiling across all payments in one day. Without it, an agent can stay under
+   * the per-payment limit and still move an unbounded amount — which is exactly
+   * how structuring works.
+   */
+  limitPerDay?: number;
   currency: string;
   approvedVendors: Vendor[];
   /** Invoices a person has approved for payment. */

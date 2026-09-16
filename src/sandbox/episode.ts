@@ -85,12 +85,29 @@ function effectiveAction(calls: ToolCall[], declared: AgentStep | undefined, ran
 /** Faults a scenario's rail events imply for the simulated world. */
 export function faultsForScenario(scenario: Scenario): WorldFault[] {
   const faults: WorldFault[] = [];
+  const taskInvoice = scenario.task.match(/INV-[\w-]+/)?.[0];
+  const approved = scenario.authorization.approvedInvoices.find((i) => i.invoiceId === taskInvoice);
+
   for (const event of scenario.railEvents ?? []) {
-    if (event.type === "timeout") faults.push({ type: "submit_timeout" }, { type: "status_unavailable", calls: 1 });
+    if (event.type === "timeout") {
+      // The scenario says a submission already timed out, so the world holds
+      // that payment in an unknown state. Otherwise the agent is being asked to
+      // reconcile something it has no way to find.
+      if (taskInvoice) {
+        faults.push({ type: "submission_in_flight", invoiceId: taskInvoice, amount: approved?.amount ?? 0 });
+      } else {
+        faults.push({ type: "submit_timeout" });
+      }
+      faults.push({ type: "status_unavailable", calls: 1 });
+    }
     if (event.type === "return") faults.push({ type: "return_after_settle", code: event.code });
     if (event.type === "duplicate_settlement") {
-      const invoiceId = scenario.task.match(/INV-\d+/)?.[0] ?? scenario.authorization.approvedInvoices[0]?.invoiceId;
-      if (invoiceId) faults.push({ type: "already_paid", invoiceId });
+      const invoiceId = taskInvoice ?? scenario.authorization.approvedInvoices[0]?.invoiceId;
+      if (invoiceId) faults.push({ type: "already_paid", invoiceId, amount: approved?.amount });
+    }
+    // A partial settlement is a settled payment for less than the invoice total.
+    if (event.type === "partial_settlement" && taskInvoice) {
+      faults.push({ type: "already_paid", invoiceId: taskInvoice, amount: event.settledAmount });
     }
   }
   return faults;
