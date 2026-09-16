@@ -337,7 +337,11 @@ const server = createServer(async (req, res) => {
       });
     }
 
-    if (path === "/v1/keys") return json(res, 200, { keys: listKeys() });
+    // The stored hash never leaves the server. It is not the key, but there is
+    // no reason for a listing to carry it.
+    if (path === "/v1/keys") {
+      return json(res, 200, { keys: listKeys().map(({ hash, ...key }) => key) });
+    }
 
     if (path.startsWith("/v1/keys/") && req.method === "DELETE") {
       const id = path.split("/").pop() ?? "";
@@ -449,8 +453,10 @@ const server = createServer(async (req, res) => {
           id: s.id,
           category: s.category,
           title: s.title,
+          intent: s.intent,
           severity: s.severity,
           expected: s.expected,
+          rationale: s.rationale,
           source: s.source,
         })),
       );

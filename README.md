@@ -384,46 +384,44 @@ data/                          signing key, decision chain, reports (git-ignored
 - An outside timestamp on each record.
 - The guarantee. That comes after there is loss data to price it.
 
-## The Lab page
+## The console
 
-`node src/server.ts`, then open <http://localhost:8787/lab.html>.
+`node src/server.ts`, then open <http://localhost:8787/app.html>. The sidebar separates the two
+halves of the product, which are genuinely different jobs:
 
-| Panel | What it shows |
+**Monitor** — what the gate is doing right now.
+
+| View | What it shows |
 |---|---|
-| Latest run | The four axes, the readiness ladder with the earned rung marked, and why that rung and not the next one |
-| Critical violations | Grouped by code, with the scenario and an example, so a failure reads as a sentence rather than a number |
-| Scenarios | One cell per scenario, one dot per trial — red for a critical violation, amber for a lesser finding |
-| Episode trace | Every tool call with its arguments and result, with findings anchored to the exact call they were decided from |
-| Run history | Every run with all four axes and the change in safety against the same agent version |
-| Qualifications | Scope, what each is bound to, expiry, state and signature check |
+| Overview | Readiness of the selected agent, gate activity, qualifications in force, the latest run's four axes |
+| Decisions | Every payment ruled on; click one for its signed receipt, verified in place |
+| Outcomes | What the rail actually did, with payments that settled while held called out first |
 
-Clicking a scenario opens the trial that went wrong, not trial 1 — reading a clean trial of a
+**Test** — the Lab.
+
+| View | What it shows |
+|---|---|
+| Lab runs | The ladder with the earned rung marked, the four axes, critical violations grouped by code, run history |
+| Scenarios | One cell per scenario and one dot per trial, plus the library with the source behind each pattern |
+| Episode trace | Every tool call with its result, each finding anchored to the call it was decided from, and why the correct action is correct |
+| Compare versions | Two runs side by side, with the scenarios a change fixed and the ones it broke |
+| Qualifications | Scope, binding, expiry, state and signature check |
+
+**Configure** — keys and webhooks.
+
+The scenario grid opens the trial that went wrong rather than trial 1: reading a clean trial of a
 scenario the agent failed elsewhere is the least useful thing to show.
 
-## Dashboard
+`/dashboard.html` and `/lab.html` redirect into the console.
 
-The runtime side: `node src/server.ts`, then open <http://localhost:8787/dashboard.html>.
+### Why compare is the view that matters
 
-| Panel | What it shows |
-|---|---|
-| Agent readiness | Every agent tested: score, readiness level, wrong-allow rate, friction, and the change since its last run |
-| Score over time | Run history as a sparkline, so a model or prompt change shows up immediately |
-| Outcomes | Counts by state, with payments that settled while held called out first |
-| Recent decisions | The live stream of released, held and escalated payments, with the reason |
-| Receipt | Click any decision to see its signed receipt and verify it in place |
-
-Buttons across the top run the reference agents and send payments, so the whole system can be
-demonstrated from the page.
-
-### Allow/block accuracy
-
-Alongside the pass rate, each run reports the number a buyer cares about:
-
-- **wrong-allow rate** = payments the agent made that it should not have, over all payments it made
-- **friction rate** = payments it blocked or escalated that should have gone through
-
-The two reference agents show the spread: the naive agent has an **88.2% wrong-allow rate**, the
-careful one **0%**, with no added friction in either case.
+A summary can improve while something important quietly breaks. Comparing careful v0.2.0 with
+v0.3.0 on the same suite shows three critical scenarios fixed and nothing newly critical — and also
+that two operational scenarios went from clean to a finding, which the four axes did not show because
+neither finding was critical. Both turned out to be the same real bug: the agent asked a person for
+approval on every turn and never finished, burning its whole step budget. That is the kind of thing a
+score cannot tell you and a diff can.
 
 ## API keys, idempotency and webhooks
 
