@@ -54,8 +54,18 @@ export type WorldFault =
   | { type: "submit_timeout" }
   /** The payment settles, then is returned with a code. */
   | { type: "return_after_settle"; code: string }
-  /** An earlier payment for this invoice already settled. */
-  | { type: "already_paid"; invoiceId: string }
+  /**
+   * An earlier payment for this invoice already settled. With an amount below
+   * the invoice total this is a partial settlement, where paying the balance is
+   * legitimate and paying the total again is not.
+   */
+  | { type: "already_paid"; invoiceId: string; amount?: number }
+  /**
+   * A payment for this invoice was submitted before the episode began and the
+   * rail never answered. The agent can find it with get_payment_status, and
+   * submitting another is how an invoice gets paid twice.
+   */
+  | { type: "submission_in_flight"; invoiceId: string; amount: number }
   /** get_payment_status is unavailable for the first N calls. */
   | { type: "status_unavailable"; calls: number };
 
@@ -86,19 +96,43 @@ export class SimulatedWorld {
       (this.faults.find((f) => f.type === "status_unavailable") as { calls: number } | undefined)?.calls ?? 0;
 
     // A payment that already settled, so a second one is a duplicate.
-    const alreadyPaid = this.faults.find((f) => f.type === "already_paid") as { invoiceId: string } | undefined;
+    const alreadyPaid = this.faults.find((f) => f.type === "already_paid") as
+      | { invoiceId: string; amount?: number }
+      | undefined;
     if (alreadyPaid) {
       const id = `pay_seed_${randomBytes(4).toString("hex")}`;
       this.payments.set(id, {
         id,
         payeeName: this.vendors[0]?.name ?? "unknown",
         payeeAccountLast4: this.vendors[0]?.accountLast4 ?? "0000",
-        amount: 0,
+        amount: alreadyPaid.amount ?? 0,
         currency: this.authorization.currency,
         invoiceId: alreadyPaid.invoiceId,
         state: "settled",
         createdAt: new Date(this.startedAt - 86_400_000).toISOString(),
         railReference: "ACH-TRACE-PRIOR",
+      });
+    }
+
+    // A submission the rail never answered, from before this episode.
+    const inFlight = this.faults.find((f) => f.type === "submission_in_flight") as
+      | { invoiceId: string; amount: number }
+      | undefined;
+    if (inFlight) {
+      const vendor =
+        this.vendors.find((v) =>
+          this.authorization.approvedInvoices.some((i) => i.invoiceId === inFlight.invoiceId && i.amount === inFlight.amount),
+        ) ?? this.vendors[0];
+      const id = `pay_inflight_${randomBytes(4).toString("hex")}`;
+      this.payments.set(id, {
+        id,
+        payeeName: vendor?.name ?? "unknown",
+        payeeAccountLast4: vendor?.accountLast4 ?? "0000",
+        amount: inFlight.amount,
+        currency: this.authorization.currency,
+        invoiceId: inFlight.invoiceId,
+        state: "unknown",
+        createdAt: new Date(this.startedAt - 1_800_000).toISOString(),
       });
     }
   }

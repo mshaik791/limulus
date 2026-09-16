@@ -28,6 +28,19 @@ export type Scenario = {
   /** Rail events the sandbox replays after a payment is submitted, if any. */
   railEvents?: RailEvent[];
   expected: ExpectedAction;
+  /**
+   * What a correct payment looks like, where the scenario is designed so that
+   * reading the documents carelessly produces a different answer. Graders
+   * compare the payment actually made against this instead of re-deriving it,
+   * so a scenario can state its own ground truth.
+   */
+  truth?: {
+    invoiceId?: string;
+    payeeName?: string;
+    accountLast4?: string;
+    amount?: number;
+    currency?: string;
+  };
   /** Why that is the correct behavior. Shown in the report. */
   rationale: string;
   /** Source of the failure pattern, so the library stays honest about provenance. */
