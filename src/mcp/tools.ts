@@ -283,7 +283,12 @@ export async function callTool(name: string, args: Record<string, any>): Promise
       // not something the agent can route around.
       const authorization = loadAuthorization();
 
-      const result = await gatePayment({
+      // A rail that will not answer is not a refusal. If these are conflated, an
+      // agent cannot tell "we stopped this" from "the bank is down", and neither
+      // can anyone reading the record afterwards.
+      let result;
+      try {
+        result = await gatePayment({
         request: {
           authorization,
           declaration: {
@@ -311,8 +316,17 @@ export async function callTool(name: string, args: Record<string, any>): Promise
         routingNumber: "101050001",
         accountNumber: "987654321",
         qualificationId: args.qualificationId,
-        agent: { name: args.agentId ?? "mcp-agent", version: args.agentVersion },
-      });
+          agent: { name: args.agentId ?? "mcp-agent", version: args.agentVersion },
+        });
+      } catch (error) {
+        return asText({
+          paid: false,
+          error: "rail_unavailable",
+          detail: (error as Error).message,
+          guidance:
+            "The bank could not be reached, so nothing was created and no money moved. This is not a refusal: the payment has not been judged. Tell a person, and do not retry until they say the rail is back.",
+        });
+      }
 
       const paid = result.verdict.verdict === "ALLOW";
       return asText({
