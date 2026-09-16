@@ -123,11 +123,20 @@ it, so a demo cannot be mistaken for a live one.
 **Verified against the real Increase sandbox on 16 September 2026.** All 14 checks pass, and the
 transfers exist at the bank with the statuses the verdicts called for:
 
-| Verdict | ACH transfer status at Increase |
-|---|---|
-| `ALLOW` | `submitted`, with an `approval` timestamp |
-| `BLOCK` | `canceled` |
-| `ESCALATE` | `pending_approval` — still held, still stoppable |
+| Verdict | ACH transfer status at Increase | Funds reserved |
+|---|---|---|
+| `ALLOW` | `submitted`, with an `approval` timestamp | yes, on its way |
+| `BLOCK` | `canceled` | no — the reservation is released |
+| `ESCALATE` | `pending_approval`, still held and still stoppable | yes, ring-fenced while held |
+
+The reservation behaviour is worth knowing, because it is better than simply holding. Creating a
+transfer reserves the money immediately, *before* it is approved, so a payment waiting on a decision
+cannot be spent twice by something else. Cancelling releases the reservation and leaves **no
+transaction on the ledger at all** — nothing to reverse, nothing to claw back, no entry for anyone to
+reconcile. The cancelled transfer object remains as an audit trail.
+
+That is the difference from a tool that detects fraud after settlement: a blocked payment here never
+became a transaction.
 
 Setting up a sandbox account takes three calls, and the second is easy to miss: a new account has no
 money in it, and `POST /ach_transfers` fails with *"There's an insufficient balance in the account"*
