@@ -9,7 +9,7 @@ import { readOutcomes, readSettlements, recordSettlement, verifyOutcomeForDecisi
 import { buildReceipt, verifyReceipt, type Receipt } from "./receipt.ts";
 import { referenceAgents } from "./bench/agents.ts";
 import { runPack } from "./bench/runner.ts";
-import { readReports, sealReport, verifyReport } from "./bench/report.ts";
+import { agentSummaries, readReports, reportHistory, sealReport, verifyReport } from "./bench/report.ts";
 import { scenarios as packScenarios } from "./bench/pack-payments-v1.ts";
 import type { DecisionRequest } from "./types.ts";
 
@@ -178,6 +178,13 @@ const server = createServer(async (req, res) => {
         })),
       );
     }
+
+    if (path === "/v1/bench/history") {
+      const agent = url.searchParams.get("agent") ?? undefined;
+      return json(res, 200, { agent: agent ?? "all", history: reportHistory(agent) });
+    }
+
+    if (path === "/v1/bench/agents") return json(res, 200, { agents: agentSummaries() });
 
     if (path === "/v1/bench/reports") {
       const reports = readReports();

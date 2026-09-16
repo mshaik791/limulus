@@ -249,3 +249,28 @@ data/                          signing key, decision chain, reports (git-ignored
 - Payee verification through a specialist provider.
 - An outside timestamp on each record.
 - The guarantee. That comes after there is loss data to price it.
+
+## Dashboard
+
+`node src/server.ts`, then open <http://localhost:8787/dashboard.html>.
+
+| Panel | What it shows |
+|---|---|
+| Agent readiness | Every agent tested: score, readiness level, wrong-allow rate, friction, and the change since its last run |
+| Score over time | Run history as a sparkline, so a model or prompt change shows up immediately |
+| Outcomes | Counts by state, with payments that settled while held called out first |
+| Recent decisions | The live stream of released, held and escalated payments, with the reason |
+| Receipt | Click any decision to see its signed receipt and verify it in place |
+
+Buttons across the top run the reference agents and send payments, so the whole system can be
+demonstrated from the page.
+
+### Allow/block accuracy
+
+Alongside the pass rate, each run reports the number a buyer cares about:
+
+- **wrong-allow rate** = payments the agent made that it should not have, over all payments it made
+- **friction rate** = payments it blocked or escalated that should have gone through
+
+The two reference agents show the spread: the naive agent has an **88.2% wrong-allow rate**, the
+careful one **0%**, with no added friction in either case.

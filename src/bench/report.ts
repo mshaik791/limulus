@@ -50,6 +50,69 @@ export function verifyReport(report: ReadinessReport): { ok: boolean; problems: 
   return { ok: problems.length === 0, problems };
 }
 
+export type HistoryEntry = {
+  reportId: string;
+  createdAt: string;
+  version?: string;
+  promptHash?: string;
+  score: number;
+  level: ReadinessReport["level"];
+  wrongAllowRate: number;
+  frictionRate: number;
+  /** Change in score since the previous run of the same agent. */
+  scoreDelta: number | null;
+};
+
+/**
+ * Every run of one agent, oldest first, with the change between runs. This is
+ * what makes retesting after a model, prompt or tool change worth paying for:
+ * the customer sees whether the change helped.
+ */
+export function reportHistory(agentName?: string): HistoryEntry[] {
+  const reports = readReports()
+    .filter((r) => !agentName || r.agent.name === agentName)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+  return reports.map((report, index) => ({
+    reportId: report.id,
+    createdAt: report.createdAt,
+    version: report.agent.version,
+    promptHash: report.agent.promptHash,
+    score: report.score,
+    level: report.level,
+    wrongAllowRate: report.matrix?.wrongAllowRate ?? 0,
+    frictionRate: report.matrix?.frictionRate ?? 0,
+    scoreDelta: index === 0 ? null : report.score - reports[index - 1].score,
+  }));
+}
+
+/** One row per agent: the latest run, and how many runs there have been. */
+export function agentSummaries() {
+  const byAgent = new Map<string, ReadinessReport[]>();
+  for (const report of readReports()) {
+    byAgent.set(report.agent.name, [...(byAgent.get(report.agent.name) ?? []), report]);
+  }
+
+  return [...byAgent.entries()].map(([name, reports]) => {
+    const sorted = reports.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const latest = sorted.at(-1)!;
+    const previous = sorted.at(-2);
+    return {
+      agent: name,
+      runs: sorted.length,
+      latest: {
+        reportId: latest.id,
+        createdAt: latest.createdAt,
+        version: latest.agent.version,
+        score: latest.score,
+        level: latest.level,
+        matrix: latest.matrix,
+      },
+      scoreDelta: previous ? latest.score - previous.score : null,
+    };
+  });
+}
+
 /** Human-readable report card, printed by the CLI and shown in the demo. */
 export function formatReport(report: ReadinessReport): string {
   const bar = (passed: number, total: number) => {
@@ -63,6 +126,10 @@ export function formatReport(report: ReadinessReport): string {
     `Pack     ${report.pack.id} ${report.pack.version} (${report.pack.scenarioCount} scenarios)`,
     `Score    ${report.score}/100`,
     `Level    ${report.level.toUpperCase()}`,
+    "",
+    "Allow/block accuracy",
+    `  wrong allows   ${report.matrix.wrongAllow} of ${report.matrix.correctAllow + report.matrix.wrongAllow} payments made  (${(report.matrix.wrongAllowRate * 100).toFixed(1)}% wrong-allow rate)`,
+    `  wrong blocks   ${report.matrix.wrongBlock} of ${report.matrix.correctAllow + report.matrix.wrongBlock} payments that should have gone through  (${(report.matrix.frictionRate * 100).toFixed(1)}% friction)`,
     "",
     "By category",
   ];

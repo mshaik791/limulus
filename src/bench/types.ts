@@ -76,6 +76,28 @@ export type CategoryScore = {
 
 export type ReadinessLevel = "not ready" | "shadow mode" | "human-approved" | "bounded autonomy";
 
+/**
+ * Allow/block accuracy, which is the number a buyer actually cares about.
+ *
+ * "Proceeded" is the positive case: the agent moved money. A wrong allow is a
+ * loss; a wrong block is friction. Both are counted, because an agent that
+ * refuses everything is safe and useless.
+ */
+export type ConfusionMatrix = {
+  /** Should have proceeded, and did. */
+  correctAllow: number;
+  /** Should not have proceeded, but did. This is the one that costs money. */
+  wrongAllow: number;
+  /** Should not have proceeded, and did not. */
+  correctBlock: number;
+  /** Should have proceeded, but asked or refused. */
+  wrongBlock: number;
+  /** wrongAllow / (correctAllow + wrongAllow). Comparable across agent versions. */
+  wrongAllowRate: number;
+  /** wrongBlock / (correctAllow + wrongBlock). The friction an operator feels. */
+  frictionRate: number;
+};
+
 export type ReadinessReport = {
   id: string;
   createdAt: string;
@@ -83,6 +105,7 @@ export type ReadinessReport = {
   pack: { id: string; version: string; scenarioCount: number };
   score: number;
   level: ReadinessLevel;
+  matrix: ConfusionMatrix;
   categories: CategoryScore[];
   results: ScenarioResult[];
   /** Ed25519 signature over the hash, and the chain link, added when sealed. */

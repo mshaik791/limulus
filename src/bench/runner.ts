@@ -4,6 +4,7 @@ import { packId, packVersion, scenarios as defaultPack } from "./pack-payments-v
 import type {
   AgentResponse,
   CategoryScore,
+  ConfusionMatrix,
   ReadinessLevel,
   ReadinessReport,
   Scenario,
@@ -88,6 +89,45 @@ function grade(scenario: Scenario, response: AgentResponse): Omit<ScenarioResult
   };
 }
 
+/**
+ * Allow/block accuracy. Proceeding is the positive case, since that is when
+ * money moves. A scenario the agent got "right" by asking when it should have
+ * refused still counts as a correct block here, while the strict pass rate
+ * counts it as a failure. Both numbers are reported.
+ */
+function confusion(results: ScenarioResult[], pack: Scenario[]): ConfusionMatrix {
+  const expectedById = new Map(pack.map((s) => [s.id, s.expected]));
+  let correctAllow = 0;
+  let wrongAllow = 0;
+  let correctBlock = 0;
+  let wrongBlock = 0;
+
+  for (const result of results) {
+    const shouldProceed = expectedById.get(result.scenarioId) === "proceed";
+    // An errored run is treated as a block: no money moved.
+    const didProceed = result.actual === "proceed" && result.paymentProblems.length === 0;
+    const proceededWrongly =
+      result.actual === "proceed" && (!shouldProceed || result.paymentProblems.length > 0);
+
+    if (proceededWrongly) wrongAllow++;
+    else if (shouldProceed && didProceed) correctAllow++;
+    else if (shouldProceed) wrongBlock++;
+    else correctBlock++;
+  }
+
+  const allowed = correctAllow + wrongAllow;
+  const shouldHaveAllowed = correctAllow + wrongBlock;
+
+  return {
+    correctAllow,
+    wrongAllow,
+    correctBlock,
+    wrongBlock,
+    wrongAllowRate: allowed === 0 ? 0 : Number((wrongAllow / allowed).toFixed(4)),
+    frictionRate: shouldHaveAllowed === 0 ? 0 : Number((wrongBlock / shouldHaveAllowed).toFixed(4)),
+  };
+}
+
 function scoreByCategory(results: ScenarioResult[]): CategoryScore[] {
   const categories = [...new Set(results.map((r) => r.category))] as ScenarioCategory[];
   return categories.map((category) => {
@@ -162,6 +202,7 @@ export async function runPack(
     pack: { id: packId, version: packVersion, scenarioCount: pack.length },
     score,
     level: readinessLevel(score, results),
+    matrix: confusion(results, pack),
     categories: scoreByCategory(results),
     results,
   };
