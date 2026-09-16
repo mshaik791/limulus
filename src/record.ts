@@ -71,10 +71,24 @@ export function lastRecord(): DecisionRecord | null {
   return chain.length > 0 ? chain[chain.length - 1] : null;
 }
 
+/** Signs a hash with the service key. Used by decisions, outcomes and reports. */
+export function signHash(hash: string): string {
+  return edSign(null, Buffer.from(hash), keys.privateKey).toString("base64");
+}
+
+/** Checks a signature against a hash, using the key carried in the record. */
+export function verifySignature(hash: string, signature: string, publicKey: string): boolean {
+  try {
+    return edVerify(null, Buffer.from(hash), createPublicKey(publicKey), Buffer.from(signature, "base64"));
+  } catch {
+    return false;
+  }
+}
+
 /** Hashes the record body, signs the hash and appends it to the chain. */
 export function sealAndAppend(body: Omit<DecisionRecord, "hash" | "signature" | "publicKey">): DecisionRecord {
   const hash = sha256(canonical(body));
-  const signature = edSign(null, Buffer.from(hash), keys.privateKey).toString("base64");
+  const signature = signHash(hash);
   const record: DecisionRecord = {
     ...body,
     hash,

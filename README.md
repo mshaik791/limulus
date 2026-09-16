@@ -16,6 +16,13 @@ appended to a verifiable record.
 
 This is a pre-product prototype. All names, invoices and accounts in the examples are invented.
 
+Three things are compared, in order:
+
+1. **Mandate match.** Does the agent's declaration match what a person authorized?
+2. **Execution match.** Does the payment order reaching the bank match the declaration?
+3. **Outcome verification.** Did it settle once, for the right amount, to the right account, and only
+   because we released it?
+
 Limulus has two halves:
 
 1. **Pre-deployment testing.** Run a payment agent against a pack of failure scenarios in a sandbox
@@ -39,9 +46,46 @@ node src/bench-cli.ts careful --category adversarial
 # Runtime verification
 node src/demo.ts          # run all scenarios through the decision engine
 node src/demo.ts poisoned # one: clean, poisoned, altered, overlimit, duplicate
-node src/server.ts        # API + interactive demo on http://localhost:8787
+node src/outcome-demo.ts  # settlement outcomes and receipts, end to end
+node src/server.ts        # API + demos on http://localhost:8787 (and /verify.html)
 node src/verify-cli.ts    # recompute every hash and signature in the chain
+node src/verify-receipt.ts receipt.json   # verify a receipt with no network calls
 ```
+
+## Outcome verification
+
+A decision says what should have happened. A settlement says what did. Feeding settlement events
+back in produces one of six states:
+
+| State | Meaning |
+|---|---|
+| `verified` | Settled once, right amount, right account, under a released decision |
+| `unauthorized` | **Settled although the decision held or escalated it.** Something executed outside the control. |
+| `duplicate` | More than one settlement references the same decision |
+| `mismatch` | Settled to a different account or for a different amount than approved |
+| `returned` | Returned or reversed by the rail, so it needs reconciliation before any retry |
+| `unsettled` | Nothing has settled yet |
+
+`unauthorized` is the one that matters most. Every other tool in this space checks a payment before
+it moves and never learns whether its decision was honoured.
+
+## Receipts
+
+A receipt is the portable form of a decision: roughly 2.5 KB of JSON carrying the decision, the
+checks that ran, the payment, the outcome, a hash over all of it and an Ed25519 signature.
+
+Verification recomputes the hash from the receipt as received and checks the signature against
+**that** hash, so any edit fails both checks. It needs only the receipt and the public key inside it,
+so a customer can hand a receipt to their own customer, an auditor or a bank, and nobody has to call
+us to confirm it.
+
+```bash
+curl -s localhost:8787/v1/receipts/dec_... > receipt.json
+node src/verify-receipt.ts receipt.json
+```
+
+There is also a paste-and-check page at `/verify.html`, with a button that tampers with the receipt
+so you can watch verification fail.
 
 ## Pre-deployment testing
 
@@ -94,6 +138,13 @@ GET  /v1/records              the signed decision chain (most recent 50)
 GET  /v1/records/:id          one decision record
 GET  /v1/verify               recompute every hash and signature, and check the chain links
 
+POST /v1/settlements          report what the rail did; re-verifies the outcome immediately
+GET  /v1/settlements          recent settlement events
+GET  /v1/outcomes             recent outcome records
+GET  /v1/outcomes/:decisionId re-verify one decision against its settlements
+GET  /v1/receipts/:decisionId the portable signed receipt
+POST /v1/receipts/verify      verify a receipt someone hands you
+
 POST /v1/bench/runs           run an agent against the pack: {"endpoint":"..."} or {"agent":"careful"}
 GET  /v1/bench/scenarios      list the scenario pack
 GET  /v1/bench/reports        recent readiness reports
@@ -145,8 +196,12 @@ src/checks.ts                  the three-way match and the fraud checks
 src/decide.ts                  runs the checks, decides, seals the record
 src/record.ts                  signing, hashing, the chain, verification
 src/server.ts                  HTTP API and the demo page
+src/outcome.ts                 settlement ingestion and outcome verification
+src/receipt.ts                 portable receipts, and verifying them
 src/scenarios.ts               runtime example payloads
 src/demo.ts                    runtime CLI demo
+src/outcome-demo.ts            outcomes and receipts, end to end
+src/verify-receipt.ts          verify a receipt file offline
 src/bench/types.ts             scenario, response, result and report shapes
 src/bench/pack-payments-v1.ts  the scenario pack
 src/bench/runner.ts            runs a pack against an agent, grades and scores

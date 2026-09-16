@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify a Limulus receipt</title>
+<style>
+  :root{--paper:#F3F5F4;--surface:#fff;--ink:#151A22;--muted:#5B6370;--rule:#D7DCE0;--accent:#1F4AA8;--pass:#1C7349;--fail:#B0261B;--mono:ui-monospace,"SF Mono",Menlo,monospace}
+  @media (prefers-color-scheme: dark){:root{--paper:#0D1117;--surface:#151B24;--ink:#E5E9EF;--muted:#98A2AF;--rule:#28313D;--accent:#93AAFF;--pass:#5FC392;--fail:#F2806F}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;padding:24px}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:19px;letter-spacing:.14em;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:20px}
+  textarea{width:100%;height:220px;padding:12px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);font-family:var(--mono);font-size:12px;resize:vertical}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  button{font:inherit;padding:9px 16px;border-radius:5px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:transparent;color:var(--accent)}
+  .verdict{margin-top:20px;font-family:var(--mono);font-size:13px;letter-spacing:.1em;padding:10px 14px;border-radius:5px;border:1.5px solid currentColor;display:none}
+  .valid{color:var(--pass);display:inline-block} .invalid{color:var(--fail);display:inline-block}
+  ul{list-style:none;padding:0;margin:14px 0 0}
+  li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:13.5px}
+  .tag{font-family:var(--mono);font-size:11px;letter-spacing:.06em}
+  .ok{color:var(--pass)} .bad{color:var(--fail)}
+  .detail{color:var(--muted);font-family:var(--mono);font-size:11.5px;word-break:break-all}
+  .note{color:var(--muted);font-size:12.5px;margin-top:22px;border-top:1px solid var(--rule);padding-top:14px}
+  code{font-family:var(--mono);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>LIMULUS</h1>
+  <div class="sub">Paste a receipt to check it. Verification uses only the receipt and the public key inside it.</div>
+
+  <textarea id="input" placeholder='{"kind":"limulus.receipt.v1", ...}' spellcheck="false"></textarea>
+
+  <div class="row">
+    <button id="verify">Verify receipt</button>
+    <button class="ghost" id="sample">Load a sample</button>
+    <button class="ghost" id="tamper">Tamper with it</button>
+  </div>
+
+  <div id="verdict" class="verdict"></div>
+  <ul id="checks"></ul>
+
+  <div class="note">
+    <strong>How this works.</strong> A receipt carries a hash over its contents and an Ed25519 signature over that hash.
+    Verification recomputes the hash from what you pasted and checks the signature against it, so any edit fails both.
+    You can run the same check yourself with <code>node src/verify-receipt.ts receipt.json</code> without contacting us.
+  </div>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+
+async function verify() {
+  let receipt;
+  try {
+    receipt = JSON.parse($("input").value);
+  } catch {
+    return show(false, [{ name: "Receipt is valid JSON", ok: false, detail: "Could not parse the text above" }]);
+  }
+  const res = await fetch("/v1/receipts/verify", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(receipt),
+  });
+  const result = await res.json();
+  show(result.valid, result.checks ?? [{ name: "Verification", ok: false, detail: result.error ?? "unknown error" }]);
+}
+
+function show(valid, checks) {
+  const verdict = $("verdict");
+  verdict.textContent = valid ? "RECEIPT VERIFIED" : "RECEIPT NOT VALID";
+  verdict.className = `verdict ${valid ? "valid" : "invalid"}`;
+  $("checks").innerHTML = "";
+  for (const check of checks) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="tag ${check.ok ? "ok" : "bad"}">${check.ok ? "ok" : "fail"}</span>` +
+      `<span><strong>${check.name}</strong><br><span class="detail">${check.detail ?? ""}</span></span>`;
+    $("checks").append(li);
+  }
+}
+
+$("verify").addEventListener("click", verify);
+
+$("sample").addEventListener("click", async () => {
+  const records = await (await fetch("/v1/records")).json();
+  const latest = records.records?.at(-1);
+  if (!latest) return show(false, [{ name: "Sample available", ok: false, detail: "No decisions recorded yet. Run the demo first." }]);
+  const receipt = await (await fetch(`/v1/receipts/${latest.id}`)).json();
+  $("input").value = JSON.stringify(receipt, null, 2);
+  verify();
+});
+
+$("tamper").addEventListener("click", () => {
+  try {
+    const receipt = JSON.parse($("input").value);
+    receipt.payment.amount = 1;
+    $("input").value = JSON.stringify(receipt, null, 2);
+    verify();
+  } catch {
+    show(false, [{ name: "Receipt is valid JSON", ok: false, detail: "Load a sample first" }]);
+  }
+});
+</script>
+</body>
+</html>

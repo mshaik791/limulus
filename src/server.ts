@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { decide } from "./decide.ts";
 import { publicKeyPem, readChain, verifyChain } from "./record.ts";
 import { scenarios } from "./scenarios.ts";
+import { readOutcomes, readSettlements, recordSettlement, verifyOutcomeForDecision } from "./outcome.ts";
+import { buildReceipt, verifyReceipt, type Receipt } from "./receipt.ts";
 import { referenceAgents } from "./bench/agents.ts";
 import { runPack } from "./bench/runner.ts";
 import { readReports, sealReport, verifyReport } from "./bench/report.ts";
@@ -95,6 +97,57 @@ const server = createServer(async (req, res) => {
     }
 
     if (path === "/v1/verify") return json(res, 200, { ...verifyChain(), publicKey: publicKeyPem });
+
+    // Outcome verification: what the rail reported about a payment we decided on.
+    if (path === "/v1/settlements" && req.method === "POST") {
+      const body = (await readBody(req)) as Parameters<typeof recordSettlement>[0];
+      if (!body?.decisionId || !body?.status || body?.amount === undefined) {
+        return json(res, 400, {
+          error: "Send decisionId, status, amount, currency, payeeAccountLast4, occurredAt and railReference",
+        });
+      }
+      const settlement = recordSettlement({
+        ...body,
+        occurredAt: body.occurredAt ?? new Date().toISOString(),
+      });
+      // Re-verify the decision as soon as the rail reports anything.
+      const outcome = verifyOutcomeForDecision(body.decisionId);
+      return json(res, 200, { settlement, outcome });
+    }
+
+    if (path === "/v1/settlements") return json(res, 200, { settlements: readSettlements().slice(-50) });
+
+    if (path.startsWith("/v1/outcomes/")) {
+      const decisionId = path.split("/").pop() ?? "";
+      try {
+        return json(res, 200, verifyOutcomeForDecision(decisionId));
+      } catch (error) {
+        return json(res, 404, { error: (error as Error).message });
+      }
+    }
+
+    if (path === "/v1/outcomes") {
+      const outcomes = readOutcomes();
+      return json(res, 200, { count: outcomes.length, outcomes: outcomes.slice(-50) });
+    }
+
+    // Receipts: the portable, independently verifiable form of a decision.
+    if (path.startsWith("/v1/receipts/") && req.method === "GET") {
+      const decisionId = path.split("/").pop() ?? "";
+      try {
+        return json(res, 200, buildReceipt(decisionId));
+      } catch (error) {
+        return json(res, 404, { error: (error as Error).message });
+      }
+    }
+
+    if (path === "/v1/receipts/verify" && req.method === "POST") {
+      const receipt = (await readBody(req)) as Receipt;
+      if (!receipt?.hash || !receipt?.signature) {
+        return json(res, 400, { error: "Send a receipt object with hash, signature and publicKey" });
+      }
+      return json(res, 200, verifyReceipt(receipt));
+    }
 
     // Pre-deployment testing: run an agent against the scenario pack.
     if (path === "/v1/bench/runs" && req.method === "POST") {
