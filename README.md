@@ -505,6 +505,10 @@ src/rails/increase.ts          the Increase adapter, and a local stand-in for it
 src/rails/gate.ts              create held, decide, then approve or cancel at the bank
 src/rails/selftest.ts          14 checks that the gate controls money, not advises
 src/lab-cli.ts                 the Lab CLI
+src/experiments/run.ts         three-arm test: does the agent need us at all?
+src/experiments/neutral-server.ts  an ordinary payment tool, for the control arms
+src/experiments/log.ts         findings, sealed and chained like decisions are
+src/experiments/log-cli.ts     seal a result, read them back, check the chain
 public/index.html              interactive demo
 data/                          signing key, decision chain, reports (git-ignored)
 ```
