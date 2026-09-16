@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Limulus Console</title>
+<style>
+  :root{
+    --paper:#F4F6F5;--surface:#fff;--sunk:#EDF0EF;--ink:#131920;--muted:#5A646F;--faint:#8A939E;
+    --rule:#DDE2E5;--accent:#1F4AA8;--accent-soft:#E8EDF9;
+    --pass:#1C7349;--fail:#B0261B;--warn:#8F6200;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+    --sidebar:238px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--paper:#0B0F14;--surface:#141A22;--sunk:#0F141B;--ink:#E6EAEF;--muted:#98A2AE;--faint:#6F7A87;
+      --rule:#242D38;--accent:#93AAFF;--accent-soft:#1A2540;
+      --pass:#5FC392;--fail:#F2806F;--warn:#E2B455}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+
+  /* ---- shell ---- */
+  .shell{display:grid;grid-template-columns:var(--sidebar) 1fr;min-height:100vh}
+  aside{background:var(--surface);border-right:1px solid var(--rule);padding:18px 14px;
+    display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .brand{display:flex;align-items:center;gap:9px;padding:0 6px}
+  .mark{width:20px;height:20px;border-radius:5px;background:var(--accent);flex:none}
+  .brand b{font-size:14.5px;letter-spacing:.14em}
+  .agent-select{width:100%;font:inherit;font-size:13px;padding:8px 9px;border-radius:7px;
+    border:1px solid var(--rule);background:var(--sunk);color:var(--ink)}
+  nav{display:flex;flex-direction:column;gap:16px}
+  .group{display:flex;flex-direction:column;gap:2px}
+  .group h3{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);
+    margin:0 0 5px 8px;font-weight:600}
+  .group a{display:block;padding:6.5px 9px;border-radius:6px;color:var(--ink);text-decoration:none;font-size:13.5px}
+  .group a:hover{background:var(--sunk)}
+  .group a.on{background:var(--accent-soft);color:var(--accent);font-weight:500}
+  .side-foot{margin-top:auto;font-size:11.5px;color:var(--faint);padding:0 8px;line-height:1.5}
+  .side-foot a{color:var(--accent)}
+
+  main{padding:20px 26px 60px;max-width:1240px}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  .topbar h1{font-size:21px;margin:0;letter-spacing:-.01em}
+  .topbar .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;font-size:13px;padding:7px 13px;border-radius:7px;border:1px solid var(--rule);
+    background:var(--surface);color:var(--ink);cursor:pointer}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.solid{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.solid:hover{opacity:.9;color:#fff}
+  button:disabled{opacity:.5;cursor:default}
+  select.inline{font:inherit;font-size:13px;padding:6px 8px;border-radius:7px;border:1px solid var(--rule);
+    background:var(--surface);color:var(--ink);max-width:270px}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:14px}
+  .card{background:var(--surface);border:1px solid var(--rule);border-radius:11px;padding:16px 18px}
+  .card.wide{grid-column:1/-1}
+  .card h2{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);
+    margin:0 0 13px;font-weight:600}
+  .hero{font-size:52px;line-height:1.05;letter-spacing:-.03em;font-weight:600;margin:6px 0 2px}
+  .hero.small{font-size:38px}
+  .hero-label{color:var(--muted);font-size:12.5px}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);
+    font-weight:600;padding:0 10px 8px 0;border-bottom:1px solid var(--rule)}
+  td{padding:9px 10px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  tbody tr.clickable{cursor:pointer}
+  tbody tr.clickable:hover td{background:var(--sunk)}
+  .mono{font-family:var(--mono);font-size:12px}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+    padding:2.5px 7px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
+  .ok,.released,.verified,.valid,.ALLOW{color:var(--pass)}
+  .bad,.held,.unauthorized,.duplicate,.mismatch,.revoked,.BLOCK{color:var(--fail)}
+  .warn,.escalated,.returned,.expired,.ESCALATE,.WAIT{color:var(--warn)}
+  .muted{color:var(--muted)}
+  .faint{color:var(--faint)}
+  .empty{color:var(--muted);font-size:13px;padding:10px 0}
+
+  /* metric rows, the pattern that reads well at a glance */
+  .rows{display:flex;flex-direction:column}
+  .rows .r{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--rule)}
+  .rows .r:last-child{border-bottom:0}
+  .rows .r .k{color:var(--muted)}
+  .rows .r .v{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  /* ladder */
+  .ladder{display:flex;gap:4px;margin:2px 0 14px;flex-wrap:wrap}
+  .rung{flex:1;min-width:104px;text-align:center;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+    padding:8px 4px;border:1px solid var(--rule);border-radius:6px;color:var(--faint);background:var(--sunk)}
+  .rung.reached{border-color:var(--accent);color:var(--accent);background:transparent}
+  .rung.current{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+  .reason{color:var(--muted);font-size:13px;margin-bottom:16px;max-width:78ch}
+
+  /* axes */
+  .axes{display:grid;grid-template-columns:repeat(auto-fit,minmax(224px,1fr));gap:16px}
+  .axis .head{display:flex;justify-content:space-between;align-items:baseline}
+  .axis .name{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .axis .score{font-family:var(--mono);font-size:24px;font-variant-numeric:tabular-nums}
+  .axis .bar{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;margin:7px 0}
+  .axis .bar span{display:block;height:100%;background:var(--pass)}
+  .axis .bar span.mid{background:var(--warn)}
+  .axis .bar span.low{background:var(--fail)}
+  .axis .detail{color:var(--muted);font-size:12px}
+
+  /* scenario grid */
+  .matrix{display:grid;grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:8px}
+  .cell{border:1px solid var(--rule);border-radius:8px;padding:9px 10px;background:var(--surface);
+    cursor:pointer;text-align:left;font:inherit;color:inherit;display:block;width:100%}
+  .cell:hover{border-color:var(--accent)}
+  .cell.hasCritical{border-color:var(--fail)}
+  .cell .id{font-family:var(--mono);font-size:11.5px}
+  .cell .dots{display:flex;gap:3px;margin-top:6px}
+  .cell .dots i{width:9px;height:9px;border-radius:2px;background:var(--pass)}
+  .cell .dots i.fail{background:var(--fail)}
+  .cell .dots i.soft{background:var(--warn)}
+  .cell .ttl{color:var(--muted);font-size:11px;margin-top:5px;line-height:1.35;display:block}
+
+  /* trace */
+  .call{border:1px solid var(--rule);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--sunk)}
+  .call.flagged{border-color:var(--fail);background:var(--surface)}
+  .call .top{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+  .call .seq{font-family:var(--mono);color:var(--faint);font-size:11.5px}
+  .call .tool{font-family:var(--mono);font-size:13px}
+  .call .args,.call .res{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:5px;word-break:break-word}
+  .violation{border-left:2px solid var(--fail);padding-left:10px;margin-top:8px;font-size:12.5px}
+  .violation .code{font-family:var(--mono);color:var(--fail);font-size:11.5px}
+
+  /* compare */
+  .versus{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .versus .side{border:1px solid var(--rule);border-radius:10px;padding:14px 16px;background:var(--sunk)}
+  .versus .side.winner{border-color:var(--pass)}
+  .versus .side .who{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+  .badge{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;
+    background:var(--pass);color:#fff;white-space:nowrap}
+  .delta{font-family:var(--mono);font-size:12px}
+  .chg{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--rule)}
+  .chg:last-child{border-bottom:0}
+  .chg .mark{width:auto;height:auto;background:none;font-family:var(--mono);font-size:11px;
+    padding:2px 7px;border-radius:4px;border:1px solid currentColor;flex:none}
+
+  pre{font-family:var(--mono);font-size:11px;line-height:1.45;background:var(--sunk);border:1px solid var(--rule);
+    border-radius:8px;padding:12px;overflow:auto;max-height:280px;margin:0}
+  code{font-family:var(--mono);font-size:12px}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr}
+    aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--rule)}
+    nav{flex-direction:row;flex-wrap:wrap;gap:10px}
+    .group{flex:1;min-width:150px}
+    main{padding:18px 16px 50px}
+    .versus{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="brand"><span class="mark"></span><b>LIMULUS</b></div>
+    <select class="agent-select" id="agent-filter"></select>
+
+    <nav id="nav"></nav>
+
+    <div class="side-foot">
+      Pre-product demo, example data.<br>
+      <a href="/verify.html">Verify a receipt</a> · <a href="/index.html">Tamper demo</a>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div>
+        <h1 id="view-title">Overview</h1>
+        <div class="sub" id="view-sub"></div>
+      </div>
+      <div class="actions" id="view-actions"></div>
+    </div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const get = (path) => fetch(path).then((r) => r.json()).catch(() => null);
+const post = (path, body) =>
+  fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+    .then((r) => r.json()).catch(() => null);
+
+const esc = (v) => String(v ?? "").replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+const money = (a, c) => `${c} ${Number(a).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+const when = (iso) => new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const clock = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const LADDER = ["experimental", "shadow-ready", "human-supervised", "limited-autonomous", "expanded-autonomous"];
+
+// ---- shared state -------------------------------------------------------
+const state = { agent: "all", runs: [], scenarios: [], run: null, compare: { a: null, b: null } };
+
+const VIEWS = [
+  { group: "Monitor", id: "overview", title: "Overview", sub: "What the gate is doing, and what the Lab last found." },
+  { group: "Monitor", id: "decisions", title: "Decisions", sub: "Every payment the gate ruled on, with its signed receipt." },
+  { group: "Monitor", id: "outcomes", title: "Outcomes", sub: "What the rail actually did, checked against what we allowed." },
+  { group: "Test", id: "runs", title: "Lab runs", sub: "Agents acting in a simulated world, graded on what they did." },
+  { group: "Test", id: "scenarios", title: "Scenarios", sub: "Per-scenario results for the selected run, and the library behind them." },
+  { group: "Test", id: "trace", title: "Episode trace", sub: "Every tool call, with each finding anchored to the call it came from." },
+  { group: "Test", id: "compare", title: "Compare versions", sub: "Two runs side by side: what a change fixed, and what it broke." },
+  { group: "Test", id: "qualifications", title: "Qualifications", sub: "What each agent is cleared to do, and until when." },
+  { group: "Configure", id: "keys", title: "API keys", sub: "Keys are stored as hashes. The key itself is shown once." },
+  { group: "Configure", id: "webhooks", title: "Webhooks", sub: "Signed deliveries, and what we tried to send." },
+];
+
+function renderNav() {
+  const groups = [...new Set(VIEWS.map((v) => v.group))];
+  $("nav").innerHTML = groups.map((group) => `
+    <div class="group">
+      <h3>${group}</h3>
+      ${VIEWS.filter((v) => v.group === group).map((v) =>
+        `<a href="#/${v.id}" data-view="${v.id}">${v.title}</a>`).join("")}
+    </div>`).join("");
+}
+
+function setActive(id) {
+  for (const link of document.querySelectorAll("[data-view]")) {
+    link.classList.toggle("on", link.dataset.view === id);
+  }
+  const view = VIEWS.find((v) => v.id === id) ?? VIEWS[0];
+  $("view-title").textContent = view.title;
+  $("view-sub").textContent = view.sub;
+}
+
+// ---- small pieces -------------------------------------------------------
+const bar = (score) => {
+  const grade = score >= 95 ? "" : score >= 70 ? "mid" : "low";
+  return `<div class="bar"><span class="${grade}" style="width:${Math.max(2, score)}%"></span></div>`;
+};
+
+const axisBlock = (name, dimension) => dimension === null || dimension === undefined
+  ? `<div class="axis"><div class="head"><span class="name">${name}</span><span class="score faint">—</span></div>
+     ${bar(0)}<div class="detail">Not measured: needs at least two trials per scenario.</div></div>`
+  : `<div class="axis">
+      <div class="head"><span class="name">${name}</span><span class="score">${dimension.score}</span></div>
+      ${bar(dimension.score)}
+      <div class="detail">${esc(dimension.detail)}</div>
+    </div>`;
+
+const ladderRow = (level) => {
+  const at = LADDER.indexOf(level);
+  return `<div class="ladder">${LADDER.map((rung, i) =>
+    `<div class="rung ${i === at ? "current" : i < at ? "reached" : ""}">${rung.replace("-", " ")}</div>`).join("")}</div>`;
+};
+
+const levelClass = (level) =>
+  level?.includes("autonomous") ? "ok" : level === "experimental" ? "bad" : "warn";
+
+/** Runs for the agent chosen in the sidebar. */
+const visibleRuns = () =>
+  state.agent === "all" ? state.runs : state.runs.filter((r) => r.agent.name === state.agent);
+
+async function loadRun(id) {
+  state.run = await get(`/v1/lab/runs/${id}`);
+  return state.run;
+}
+
+// ---- views --------------------------------------------------------------
+const views = {};
+
+views.overview = async () => {
+  const runs = visibleRuns();
+  const latest = runs.at(-1);
+  const [{ records } = {}, { outcomes } = {}, { qualifications } = {}] = await Promise.all([
+    get("/v1/records"), get("/v1/outcomes"), get("/v1/qualifications"),
+  ]);
+
+  const byOutcome = {};
+  for (const record of records ?? []) byOutcome[record.outcome] = (byOutcome[record.outcome] ?? 0) + 1;
+  const unauthorized = (outcomes ?? []).filter((o) => o.status === "unauthorized").length;
+  const live = (qualifications ?? []).filter((q) => !q.revokedAt && Date.parse(q.expiresAt) > Date.now());
+
+  $("view-actions").innerHTML = `
+    <button class="solid" data-act="run-careful">Run careful</button>
+    <button data-act="run-naive">Run naive</button>
+    <button data-act="send-clean">Send clean payment</button>
+    <button data-act="send-poisoned">Send poisoned invoice</button>`;
+
+  $("view").innerHTML = `
+    <div class="cards">
+      <div class="card">
+        <h2>Readiness</h2>
+        ${latest ? `
+          <div class="hero ${levelClass(latest.axes.level)}">${latest.axes.safety.score}</div>
+          <div class="hero-label">safety, ${esc(latest.agent.name)} v${esc(latest.agent.version)}</div>
+          <div style="margin-top:12px"><span class="tag ${levelClass(latest.axes.level)}">${esc(latest.axes.level)}</span></div>`
+        : `<div class="empty">No runs yet.</div>`}
+      </div>
+
+      <div class="card">
+        <h2>Gate activity</h2>
+        <div class="rows">
+          <div class="r"><span class="k">Released</span><span class="v ok">${byOutcome.released ?? 0}</span></div>
+          <div class="r"><span class="k">Held</span><span class="v bad">${byOutcome.held ?? 0}</span></div>
+          <div class="r"><span class="k">Escalated</span><span class="v warn">${byOutcome.escalated ?? 0}</span></div>
+          <div class="r"><span class="k">Settled while held</span><span class="v ${unauthorized ? "bad" : "ok"}">${unauthorized}</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Qualifications in force</h2>
+        <div class="hero small">${live.length}</div>
+        <div class="hero-label">${live.length === 1 ? "agent cleared to release" : "agents cleared to release"}</div>
+        ${live.slice(0, 2).map((q) => `<div class="faint mono" style="margin-top:8px;font-size:11.5px">
+          ${esc(q.binding.agent.name)} v${esc(q.binding.agent.version)} · up to
+          ${q.binding.amountLimit.toLocaleString()} ${esc(q.binding.currency)} · to ${q.expiresAt.slice(0, 10)}
+        </div>`).join("")}
+      </div>
+
+      ${latest ? `<div class="card wide">
+        <h2>Latest run — ${esc(latest.agent.name)} v${esc(latest.agent.version)}</h2>
+        ${ladderRow(latest.axes.level)}
+        <div class="reason">${esc(latest.axes.levelReason)}</div>
+        <div class="axes">
+          ${axisBlock("Safety", latest.axes.safety)}
+          ${axisBlock("Capability", latest.axes.capability)}
+          ${axisBlock("Recovery", latest.axes.recovery)}
+          ${axisBlock("Reliability", latest.axes.reliability)}
+        </div>
+      </div>` : ""}
+
+      <div class="card wide">
+        <h2>Recent decisions</h2>
+        ${decisionTable((records ?? []).slice(-6).reverse())}
+      </div>
+    </div>`;
+};
+
+const decisionTable = (records) => records.length === 0
+  ? `<div class="empty">No decisions yet.</div>`
+  : `<table>
+      <thead><tr><th>Time</th><th>Outcome</th><th>Payee</th><th>Amount</th><th>Invoice</th><th>Why</th></tr></thead>
+      <tbody>${records.map((r) => `<tr class="clickable" data-receipt="${r.id}">
+        <td class="mono faint">${clock(r.createdAt)}</td>
+        <td><span class="tag ${r.outcome}">${r.outcome}</span></td>
+        <td>${esc(r.paymentOrder.payeeName)}<span class="faint mono"> ****${esc(r.paymentOrder.payeeAccountLast4)}</span></td>
+        <td class="num">${money(r.paymentOrder.amount, r.paymentOrder.currency)}</td>
+        <td class="mono">${esc(r.declaration.invoiceId)}</td>
+        <td class="muted">${esc(r.reasons[0] ?? "")}</td>
+      </tr>`).join("")}</tbody>
+    </table>`;
+
+views.decisions = async () => {
+  const { records } = (await get("/v1/records")) ?? { records: [] };
+  $("view-actions").innerHTML = `
+    <button data-act="send-clean">Send clean payment</button>
+    <button data-act="send-poisoned">Send poisoned invoice</button>
+    <button data-act="send-altered">Send altered order</button>`;
+  $("view").innerHTML = `
+    <div class="cards">
+      <div class="card wide">
+        <h2>All decisions <span class="faint" style="text-transform:none;letter-spacing:0">— click one for its receipt</span></h2>
+        ${decisionTable([...(records ?? [])].reverse())}
+      </div>
+      <div class="card wide" id="receipt-card">
+        <h2>Receipt</h2>
+        <div class="empty">Select a decision to see the signed receipt and verify it here.</div>
+      </div>
+    </div>`;
+};
+
+async function showReceipt(decisionId) {
+  const card = $("receipt-card") ?? $("view");
+  const receipt = await get(`/v1/receipts/${decisionId}`);
+  if (!receipt || receipt.error) return;
+  const verification = await post("/v1/receipts/verify", receipt);
+  card.innerHTML = `
+    <h2>Receipt — ${esc(receipt.receiptId)}</h2>
+    <div class="rows" style="margin-bottom:12px">
+      <div class="r"><span class="k">Signature</span>
+        <span class="v ${verification?.valid ? "ok" : "bad"}">${verification?.valid ? "verifies" : "invalid"}</span></div>
+      <div class="r"><span class="k">Size</span><span class="v">${JSON.stringify(receipt).length} bytes</span></div>
+      <div class="r"><span class="k">Checks recorded</span><span class="v">${receipt.checks.length}</span></div>
+      <div class="r"><span class="k">Verifiable offline</span><span class="v ok">yes</span></div>
+    </div>
+    <pre>${esc(JSON.stringify(receipt, null, 2))}</pre>`;
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+views.outcomes = async () => {
+  const { outcomes } = (await get("/v1/outcomes")) ?? { outcomes: [] };
+  const counts = {};
+  for (const o of outcomes ?? []) counts[o.status] = (counts[o.status] ?? 0) + 1;
+  $("view-actions").innerHTML = "";
+  $("view").innerHTML = `
+    <div class="cards">
+      <div class="card">
+        <h2>Settled while held</h2>
+        <div class="hero ${counts.unauthorized ? "bad" : "ok"}">${counts.unauthorized ?? 0}</div>
+        <div class="hero-label">payments that moved without a release</div>
+      </div>
+      <div class="card">
+        <h2>Verified</h2>
+        <div class="hero ok">${counts.verified ?? 0}</div>
+        <div class="hero-label">settled exactly as allowed</div>
+      </div>
+      <div class="card">
+        <h2>Duplicate or mismatched</h2>
+        <div class="hero ${(counts.duplicate ?? 0) + (counts.mismatch ?? 0) ? "warn" : ""}">${(counts.duplicate ?? 0) + (counts.mismatch ?? 0)}</div>
+        <div class="hero-label">settled, but not as described</div>
+      </div>
+      <div class="card wide">
+        <h2>Outcome records</h2>
+        ${(outcomes ?? []).length === 0 ? `<div class="empty">No settlements reported yet.</div>` : `
+        <table>
+          <thead><tr><th>Status</th><th>Decision</th><th>Finding</th></tr></thead>
+          <tbody>${[...outcomes].reverse().slice(0, 15).map((o) => `<tr>
+            <td><span class="tag ${o.status}">${o.status}</span></td>
+            <td class="mono">${esc(o.decisionId)}</td>
+            <td class="muted">${esc(o.findings[0]?.detail ?? "as allowed")}</td>
+          </tr>`).join("")}</tbody>
+        </table>`}
+      </div>
+    </div>`;
+};
+
+views.runs = async () => {
+  const runs = visibleRuns();
+  $("view-actions").innerHTML = `
+    <select class="inline" id="trials"><option value="1">1 trial</option><option value="3" selected>3 trials</option><option value="5">5 trials</option></select>
+    <button class="solid" data-act="run-careful">Run careful</button>
+    <button data-act="run-naive">Run naive</button>
+    <button data-act="qualify">Run and qualify</button>`;
+
+  if (runs.length === 0) {
+    $("view").innerHTML = `<div class="card"><div class="empty">No runs for this agent yet.</div></div>`;
+    return;
+  }
+
+  const run = state.run ?? (await loadRun(runs.at(-1).id));
+  const criticals = new Map();
+  for (const violation of run.axes.criticalViolations) {
+    const seen = criticals.get(violation.code) ?? { count: 0, example: violation };
+    criticals.set(violation.code, { count: seen.count + 1, example: seen.example });
+  }
+
+  const previous = runs.filter((r) => r.agent.name === run.agent.name && r.createdAt < run.createdAt).at(-1);
+
+  $("view").innerHTML = `
+    <div class="cards">
+      <div class="card wide">
+        <h2>${esc(run.agent.name)} v${esc(run.agent.version)} — ${esc(run.suite.id)} ${esc(run.suite.version)},
+          ${run.suite.scenarioCount} scenarios x ${run.suite.trials} trials</h2>
+        ${ladderRow(run.axes.level)}
+        <div class="reason">${esc(run.axes.levelReason)}</div>
+        <div class="axes">
+          ${axisBlock("Safety", run.axes.safety)}
+          ${axisBlock("Capability", run.axes.capability)}
+          ${axisBlock("Recovery", run.axes.recovery)}
+          ${axisBlock("Reliability", run.axes.reliability)}
+        </div>
+        <div class="faint mono" style="margin-top:14px;font-size:11.5px">
+          ${esc(run.id)} · sealed ${when(run.createdAt)} ·
+          signature ${run.verification?.ok ? '<span class="ok">verifies</span>' : '<span class="bad">BROKEN</span>'}
+          ${previous ? ` · previous run v${esc(previous.agent.version)} safety ${previous.axes.safety.score}` : ""}
+        </div>
+      </div>
+
+      ${criticals.size === 0 ? "" : `<div class="card wide">
+        <h2>Critical violations</h2>
+        <table>
+          <thead><tr><th>Code</th><th>Count</th><th>Example</th></tr></thead>
+          <tbody>${[...criticals.entries()].map(([code, { count, example }]) => `<tr>
+            <td class="mono bad">${esc(code)}</td>
+            <td class="num">${count}</td>
+            <td class="muted">${esc(example.scenarioId)} — ${esc(example.detail)}</td>
+          </tr>`).join("")}</tbody>
+        </table>
+      </div>`}
+
+      <div class="card wide">
+        <h2>Run history</h2>
+        <table>
+          <thead><tr><th>When</th><th>Agent</th><th>Suite</th><th>Safety</th><th>Capability</th><th>Recovery</th><th>Reliability</th><th>Level</th></tr></thead>
+          <tbody>${[...runs].reverse().slice(0, 15).map((r) => `<tr class="clickable" data-run="${r.id}">
+            <td class="mono faint">${when(r.createdAt)}</td>
+            <td>${esc(r.agent.name)} <span class="mono faint">v${esc(r.agent.version)}</span></td>
+            <td class="mono faint">${esc(r.suite.version)} x${r.suite.trials}</td>
+            <td class="num">${r.axes.safety.score}</td>
+            <td class="num">${r.axes.capability.score}</td>
+            <td class="num">${r.axes.recovery.score}</td>
+            <td class="num">${r.axes.reliability?.score ?? "—"}</td>
+            <td><span class="tag ${levelClass(r.axes.level)}">${esc(r.axes.level)}</span></td>
+          </tr>`).join("")}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+views.scenarios = async () => {
+  const runs = visibleRuns();
+  if (runs.length === 0) {
+    $("view").innerHTML = `<div class="card"><div class="empty">Run an agent to see per-scenario results.</div></div>`;
+    return;
+  }
+  const run = state.run ?? (await loadRun(runs.at(-1).id));
+  $("view-actions").innerHTML = `<span class="faint mono" style="font-size:11.5px">${esc(run.id)}</span>`;
+
+  const byScenario = new Map();
+  for (const grade of run.grades) byScenario.set(grade.scenarioId, [...(byScenario.get(grade.scenarioId) ?? []), grade]);
+
+  $("view").innerHTML = `
+    <div class="cards">
+      <div class="card wide">
+        <h2>${esc(run.agent.name)} v${esc(run.agent.version)} — one dot per trial, click to replay</h2>
+        <div class="matrix">${[...byScenario.entries()].map(([id, grades]) => {
+          const meta = state.scenarios.find((s) => s.id === id);
+          const critical = grades.some((g) => g.criticalCount > 0);
+          return `<button class="cell ${critical ? "hasCritical" : ""}" data-scenario="${id}">
+            <span class="id">${id}</span>
+            <span class="dots">${grades.map((g) =>
+              `<i class="${g.criticalCount > 0 ? "fail" : g.violations.length > 0 ? "soft" : ""}"
+                  title="trial ${g.trial}: ${g.effective}"></i>`).join("")}</span>
+            <span class="ttl">${esc(meta?.title ?? "")}</span>
+          </button>`;
+        }).join("")}</div>
+      </div>
+
+      <div class="card wide">
+        <h2>Scenario library — ${state.scenarios.length} scenarios, with where each pattern comes from</h2>
+        <table>
+          <thead><tr><th>ID</th><th>Category</th><th>Title</th><th>Severity</th><th>Correct action</th><th>Source</th></tr></thead>
+          <tbody>${state.scenarios.map((s) => `<tr>
+            <td class="mono">${esc(s.id)}</td>
+            <td class="muted">${esc(s.category)}</td>
+            <td>${esc(s.title)}</td>
+            <td class="${s.severity === "critical" ? "bad" : s.severity === "high" ? "warn" : "muted"}">${esc(s.severity)}</td>
+            <td class="mono">${esc(s.expected)}</td>
+            <td class="faint" style="font-size:11.5px">${esc(s.source)}</td>
+          </tr>`).join("")}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+views.trace = async () => {
+  const runs = visibleRuns();
+  if (runs.length === 0) {
+    $("view").innerHTML = `<div class="card"><div class="empty">No runs yet.</div></div>`;
+    return;
+  }
+  const run = state.run ?? (await loadRun(runs.at(-1).id));
+  const ids = [...new Set(run.grades.map((g) => g.scenarioId))];
+  const chosen = state.traceScenario ?? ids.find((id) => run.grades.some((g) => g.scenarioId === id && g.criticalCount > 0)) ?? ids[0];
+
+  $("view-actions").innerHTML = `
+    <select class="inline" id="scenario-pick">${ids.map((id) => {
+      const meta = state.scenarios.find((s) => s.id === id);
+      const failed = run.grades.some((g) => g.scenarioId === id && g.criticalCount > 0);
+      return `<option value="${id}" ${id === chosen ? "selected" : ""}>${id}${failed ? " ⚠" : ""} — ${esc(meta?.title ?? "")}</option>`;
+    }).join("")}</select>`;
+
+  await renderTrace(run, chosen);
+  $("scenario-pick")?.addEventListener("change", (e) => {
+    state.traceScenario = e.target.value;
+    renderTrace(run, e.target.value);
+  });
+};
+
+async function renderTrace(run, scenarioId) {
+  const meta = state.scenarios.find((s) => s.id === scenarioId);
+  const { episodes } = (await get(`/v1/lab/episodes?runId=${run.id}&scenarioId=${scenarioId}`)) ?? { episodes: [] };
+  const grades = run.grades.filter((g) => g.scenarioId === scenarioId);
+
+  // Show the trial that went wrong: a clean trial of a scenario the agent
+  // failed elsewhere is the least useful thing to put in front of someone.
+  const grade = grades.find((g) => g.criticalCount > 0) ?? grades.find((g) => g.violations.length > 0) ?? grades[0];
+  const episode = episodes.find((e) => e.episodeId === grade?.episodeId) ?? episodes[0];
+
+  if (!episode) {
+    $("view").innerHTML = `<div class="card"><div class="empty">No trace stored for ${esc(scenarioId)}.</div></div>`;
+    return;
+  }
+
+  const anchored = new Map();
+  for (const violation of grade?.violations ?? []) {
+    if (violation.evidence) anchored.set(violation.evidence.seq, [...(anchored.get(violation.evidence.seq) ?? []), violation]);
+  }
+  const loose = (grade?.violations ?? []).filter((v) => !v.evidence);
+
+  $("view").innerHTML = `
+    <div class="cards">
+      <div class="card">
+        <h2>Episode</h2>
+        <div class="rows">
+          <div class="r"><span class="k">Scenario</span><span class="v">${esc(scenarioId)}</span></div>
+          <div class="r"><span class="k">Correct action</span><span class="v">${esc(meta?.expected ?? "?")}</span></div>
+          <div class="r"><span class="k">What it did</span>
+            <span class="v ${grade?.criticalCount ? "bad" : "ok"}">${esc(episode.effective)}</span></div>
+          <div class="r"><span class="k">Tool calls</span><span class="v">${episode.calls.length}</span></div>
+          <div class="r"><span class="k">Trial</span><span class="v">${episode.trial} of ${grades.length}</span></div>
+          <div class="r"><span class="k">Findings</span>
+            <span class="v ${grade?.criticalCount ? "bad" : "muted"}">${grade?.violations.length ?? 0}</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>What this tests</h2>
+        <div style="font-size:14px;margin-bottom:8px">${esc(meta?.title ?? "")}</div>
+        <div class="muted" style="font-size:13px">${esc(meta?.intent ?? "")}</div>
+        <div class="muted" style="font-size:13px;margin-top:10px">
+          <strong style="font-weight:600">Why that is correct.</strong> ${esc(meta?.rationale ?? "")}
+        </div>
+        <div class="faint" style="font-size:11.5px;margin-top:12px">${esc(meta?.source ?? "")}</div>
+      </div>
+
+      <div class="card wide">
+        <h2>Tool calls</h2>
+        ${episode.calls.map((call) => {
+          const findings = anchored.get(call.seq) ?? [];
+          return `<div class="call ${findings.length ? "flagged" : ""}">
+            <div class="top"><span class="seq">${String(call.seq).padStart(2, "0")}</span>
+              <span class="tool">${esc(call.tool)}</span></div>
+            <div class="args">${esc(JSON.stringify(call.args))}</div>
+            <div class="res">→ ${esc(JSON.stringify(call.result).slice(0, 240))}</div>
+            ${findings.map((f) => `<div class="violation">
+              <span class="code">${esc(f.code)} (${esc(f.severity)})</span><br>${esc(f.detail)}</div>`).join("")}
+          </div>`;
+        }).join("") || `<div class="empty">The agent made no tool calls.</div>`}
+        ${episode.declared ? `<div class="muted" style="font-size:12.5px;margin-top:10px">
+          Finished: <span class="mono">${esc(episode.declared.action)}</span> — ${esc(episode.declared.reason ?? "")}</div>` : ""}
+        ${loose.map((f) => `<div class="violation" style="margin-top:10px">
+          <span class="code">${esc(f.code)} (${esc(f.severity)})</span><br>${esc(f.detail)}</div>`).join("")}
+      </div>
+    </div>`;
+}
+
+views.compare = async () => {
+  const runs = state.runs;
+  if (runs.length < 2) {
+    $("view").innerHTML = `<div class="card"><div class="empty">Two runs are needed to compare.</div></div>`;
+    return;
+  }
+
+  // Default to the most useful pair: the last two runs of the same agent on the
+  // same suite, which is what a version change actually looks like.
+  const latest = runs.at(-1);
+  const sameSuite = runs.filter((r) => r.suite.version === latest.suite.version);
+  const defaultB = state.compare.b ?? sameSuite.at(-1).id;
+  const earlier = sameSuite.filter((r) => r.id !== defaultB && r.agent.name === latest.agent.name);
+  const defaultA = state.compare.a ?? (earlier.find((r) => r.agent.version !== latest.agent.version) ?? earlier[0] ?? runs[0]).id;
+
+  const option = (run, selected) =>
+    `<option value="${run.id}" ${run.id === selected ? "selected" : ""}>
+      ${esc(run.agent.name)} v${esc(run.agent.version)} · suite ${esc(run.suite.version)} · ${when(run.createdAt)}
+    </option>`;
+
+  $("view-actions").innerHTML = `
+    <select class="inline" id="pick-a">${runs.map((r) => option(r, defaultA)).join("")}</select>
+    <span class="faint">vs</span>
+    <select class="inline" id="pick-b">${runs.map((r) => option(r, defaultB)).join("")}</select>`;
+
+  await renderCompare(defaultA, defaultB);
+  for (const id of ["pick-a", "pick-b"]) {
+    $(id)?.addEventListener("change", () => {
+      state.compare = { a: $("pick-a").value, b: $("pick-b").value };
+      renderCompare(state.compare.a, state.compare.b);
+    });
+  }
+};
+
+async function renderCompare(idA, idB) {
+  const [a, b] = await Promise.all([get(`/v1/lab/runs/${idA}`), get(`/v1/lab/runs/${idB}`)]);
+  if (!a || !b || a.error || b.error) {
+    $("view").innerHTML = `<div class="card"><div class="empty">Could not load both runs.</div></div>`;
+    return;
+  }
+
+  const rank = (run) => LADDER.indexOf(run.axes.level);
+  const winner = rank(b) > rank(a) ? "b" : rank(a) > rank(b) ? "a" : null;
+
+  // What changed, scenario by scenario. This is the part worth reading: an
+  // average can improve while something important quietly breaks.
+  const worst = (run, scenarioId) => {
+    const grades = run.grades.filter((g) => g.scenarioId === scenarioId);
+    if (grades.length === 0) return null;
+    return grades.some((g) => g.criticalCount > 0) ? "critical"
+      : grades.some((g) => g.violations.length > 0) ? "finding" : "clean";
+  };
+  const scenarioIds = [...new Set([...a.grades, ...b.grades].map((g) => g.scenarioId))];
+  const changes = scenarioIds.map((id) => ({ id, from: worst(a, id), to: worst(b, id) }))
+    .filter((c) => c.from !== c.to);
+  const fixed = changes.filter((c) => c.from === "critical" && c.to !== "critical");
+  const broke = changes.filter((c) => c.to === "critical" && c.from !== "critical");
+
+  const side = (run, key) => `
+    <div class="side ${winner === key ? "winner" : ""}">
+      <div class="who">
+        <div>
+          <div style="font-size:14.5px">${esc(run.agent.name)} <span class="mono faint">v${esc(run.agent.version)}</span></div>
+          <div class="faint" style="font-size:11.5px">suite ${esc(run.suite.version)} · ${run.suite.trials} trials · ${when(run.createdAt)}</div>
+        </div>
+        ${winner === key ? `<span class="badge">better</span>` : ""}
+      </div>
+      <div style="margin-bottom:10px"><span class="tag ${levelClass(run.axes.level)}">${esc(run.axes.level)}</span></div>
+      <div class="rows">
+        ${["safety", "capability", "recovery"].map((axis) => `
+          <div class="r"><span class="k">${axis[0].toUpperCase()}${axis.slice(1)}</span>
+            <span class="v">${run.axes[axis].score}</span></div>`).join("")}
+        <div class="r"><span class="k">Reliability</span>
+          <span class="v">${run.axes.reliability?.score ?? "—"}</span></div>
+        <div class="r"><span class="k">Critical violations</span>
+          <span class="v ${run.axes.criticalViolations.length ? "bad" : "ok"}">${run.axes.criticalViolations.length}</span></div>
+      </div>
+    </div>`;
+
+  const deltaRow = (label, from, to) => {
+    const change = to - from;
+    return `<div class="r"><span class="k">${label}</span>
+      <span class="v ${change > 0 ? "ok" : change < 0 ? "bad" : "muted"}">
+        ${from} → ${to} ${change === 0 ? "" : `(${change > 0 ? "+" : ""}${change})`}
+      </span></div>`;
+  };
+
+  $("view").innerHTML = `
+    <div class="cards">
+      <div class="card wide">
+        <h2>Side by side</h2>
+        <div class="versus">${side(a, "a")}${side(b, "b")}</div>
+      </div>
+
+      <div class="card">
+        <h2>Change</h2>
+        <div class="rows">
+          ${deltaRow("Safety", a.axes.safety.score, b.axes.safety.score)}
+          ${deltaRow("Capability", a.axes.capability.score, b.axes.capability.score)}
+          ${deltaRow("Recovery", a.axes.recovery.score, b.axes.recovery.score)}
+          ${deltaRow("Critical violations", a.axes.criticalViolations.length, b.axes.criticalViolations.length)}
+        </div>
+        ${a.suite.version !== b.suite.version ? `<div class="warn" style="font-size:12.5px;margin-top:10px">
+          These runs used different suite versions (${esc(a.suite.version)} and ${esc(b.suite.version)}), so the
+          scores are not directly comparable.</div>` : ""}
+      </div>
+
+      <div class="card">
+        <h2>Fixed and broken</h2>
+        <div class="hero small ${broke.length ? "bad" : "ok"}">${fixed.length} / ${broke.length}</div>
+        <div class="hero-label">scenarios fixed / newly failing</div>
+      </div>
+
+      <div class="card wide">
+        <h2>Scenario changes</h2>
+        ${changes.length === 0 ? `<div class="empty">No scenario changed state between these runs.</div>` :
+          changes.map((c) => {
+            const meta = state.scenarios.find((s) => s.id === c.id);
+            const better = c.from === "critical" || (c.from === "finding" && c.to === "clean");
+            return `<div class="chg">
+              <span class="mark ${better ? "ok" : "bad"}">${better ? "fixed" : "worse"}</span>
+              <div>
+                <div class="mono">${esc(c.id)} <span class="faint">${esc(meta?.title ?? "")}</span></div>
+                <div class="muted" style="font-size:12.5px">${esc(c.from ?? "absent")} → ${esc(c.to ?? "absent")}</div>
+              </div>
+            </div>`;
+          }).join("")}
+      </div>
+    </div>`;
+}
+
+views.qualifications = async () => {
+  const { qualifications } = (await get("/v1/qualifications")) ?? { qualifications: [] };
+  $("view-actions").innerHTML = `<button class="solid" data-act="qualify">Run and qualify careful</button>`;
+  $("view").innerHTML = `
+    <div class="cards">
+      <div class="card wide">
+        <h2>Issued qualifications</h2>
+        ${(qualifications ?? []).length === 0 ? `<div class="empty">None issued yet.</div>` : `
+        <table>
+          <thead><tr><th>ID</th><th>Level</th><th>Scope</th><th>Bound to</th><th>Expires</th><th>State</th><th>Signature</th></tr></thead>
+          <tbody>${[...qualifications].reverse().slice(0, 12).map((q) => `<tr>
+            <td class="mono">${esc(q.id)}</td>
+            <td>${esc(q.level)}</td>
+            <td class="muted">${esc(q.binding.workflow)} · ${esc(q.binding.rail)} · up to
+              ${q.binding.amountLimit.toLocaleString()} ${esc(q.binding.currency)} · vendors ${esc(q.binding.payeeScope)}</td>
+            <td class="mono faint">v${esc(q.binding.agent.version)} · tools ${esc(q.binding.agent.toolConfigHash.slice(0, 8))} · suite ${esc(q.binding.suite.version)}</td>
+            <td class="mono">${q.expiresAt.slice(0, 10)}</td>
+            <td class="${q.state}">${esc(q.state)}</td>
+            <td class="${q.verification.ok ? "ok" : "bad"}">${q.verification.ok ? "verifies" : "broken"}</td>
+          </tr>`).join("")}</tbody>
+        </table>`}
+      </div>
+      <div class="card wide">
+        <h2>What a qualification binds</h2>
+        <div class="muted" style="font-size:13px;max-width:78ch">
+          A qualification is deliberately narrow. "This agent is safe" is not a claim anyone can stand behind;
+          "cleared for ACH up to 5,000 USD to vendors already on file, until the date shown, on suite payments-v1"
+          is. Change the agent version, the prompt, the tool list, the rail or the amount and the gate escalates
+          to a person instead of releasing.
+        </div>
+      </div>
+    </div>`;
+};
+
+views.keys = async () => {
+  const { keys } = (await get("/v1/keys")) ?? { keys: [] };
+  $("view-actions").innerHTML = `<button data-act="new-key">Create a test key</button>`;
+  $("view").innerHTML = `
+    <div class="cards">
+      <div class="card wide" id="new-key-card" hidden></div>
+      <div class="card wide">
+        <h2>Keys</h2>
+        ${(keys ?? []).length === 0 ? `<div class="empty">No keys yet.</div>` : `
+        <table>
+          <thead><tr><th>ID</th><th>Prefix</th><th>Name</th><th>Scopes</th><th>State</th><th>Last used</th></tr></thead>
+          <tbody>${keys.map((k) => `<tr>
+            <td class="mono">${esc(k.id)}</td>
+            <td class="mono faint">${esc(k.prefix)}…</td>
+            <td>${esc(k.name)}</td>
+            <td class="mono faint">${esc((k.scopes ?? []).join(", "))}</td>
+            <td class="${k.revokedAt ? "bad" : "ok"}">${k.revokedAt ? "revoked" : "active"}</td>
+            <td class="mono faint">${k.lastUsedAt ? when(k.lastUsedAt) : "never"}</td>
+          </tr>`).join("")}</tbody>
+        </table>`}
+      </div>
+      <div class="card wide">
+        <h2>How keys are stored</h2>
+        <div class="muted" style="font-size:13px;max-width:78ch">
+          Only a SHA-256 hash and the first characters are kept, so a stolen database does not yield working keys,
+          and we cannot show you a key again after it is created. Auth is off in this demo; set
+          <code>LIMULUS_REQUIRE_AUTH=1</code> to enforce it.
+        </div>
+      </div>
+    </div>`;
+};
+
+views.webhooks = async () => {
+  const hooks = (await get("/v1/webhooks")) ?? {};
+  const endpoints = hooks.endpoints ?? hooks.webhooks ?? [];
+  const { deliveries } = (await get("/v1/webhooks/deliveries")) ?? { deliveries: [] };
+  $("view-actions").innerHTML = "";
+  $("view").innerHTML = `
+    <div class="cards">
+      <div class="card wide">
+        <h2>Endpoints</h2>
+        ${endpoints.length === 0 ? `<div class="empty">None registered. Add one with
+          <code>node src/keys-cli.ts hook-add https://example.com/limulus</code>.</div>` : `
+        <table>
+          <thead><tr><th>ID</th><th>URL</th><th>Events</th></tr></thead>
+          <tbody>${endpoints.map((e) => `<tr>
+            <td class="mono">${esc(e.id)}</td>
+            <td class="mono">${esc(e.url)}</td>
+            <td class="faint">${(e.events ?? []).length} subscribed</td>
+          </tr>`).join("")}</tbody>
+        </table>`}
+      </div>
+      <div class="card wide">
+        <h2>Recent deliveries</h2>
+        ${(deliveries ?? []).length === 0 ? `<div class="empty">Nothing delivered yet.</div>` : `
+        <table>
+          <thead><tr><th>When</th><th>Event</th><th>Status</th><th>Attempts</th><th>Error</th></tr></thead>
+          <tbody>${[...deliveries].reverse().slice(0, 15).map((d) => `<tr>
+            <td class="mono faint">${when(d.at)}</td>
+            <td class="mono">${esc(d.event)}</td>
+            <td class="${d.status === "delivered" ? "ok" : "bad"}">${esc(d.status)}</td>
+            <td class="num">${d.attempts}</td>
+            <td class="muted">${esc(d.error ?? "")}</td>
+          </tr>`).join("")}</tbody>
+        </table>`}
+      </div>
+      <div class="card wide">
+        <h2>Signature</h2>
+        <div class="muted" style="font-size:13px;max-width:78ch">
+          Every delivery carries <code>limulus-signature: t=&lt;unix&gt;,v1=&lt;hmac&gt;</code>, an HMAC-SHA256 over
+          <code>timestamp.body</code> with the endpoint secret. Verify it before trusting a delivery, and reject
+          anything older than five minutes.
+        </div>
+      </div>
+    </div>`;
+};
+
+// ---- actions ------------------------------------------------------------
+const trials = () => Number($("trials")?.value ?? 3);
+
+const QUALIFY_SCOPE = {
+  workflow: "invoice-payment",
+  rail: "ach",
+  currency: "USD",
+  amountLimit: 5000,
+  approvalPolicy: "A person approves anything above the ceiling or off the vendor file.",
+  payeeScope: "on-file",
+};
+
+const ACTIONS = {
+  "run-careful": () => post("/v1/lab/runs", { agent: "careful", trials: trials() }),
+  "run-naive": () => post("/v1/lab/runs", { agent: "naive", trials: trials() }),
+  "qualify": () => post("/v1/lab/runs", { agent: "careful", trials: trials(), qualifyFor: QUALIFY_SCOPE }),
+  "send-clean": () => post("/v1/decisions", { scenario: "clean" }),
+  "send-poisoned": () => post("/v1/decisions", { scenario: "poisoned" }),
+  "send-altered": () => post("/v1/decisions", { scenario: "altered" }),
+  "new-key": async () => {
+    const created = await post("/v1/keys", { name: `console ${new Date().toISOString().slice(0, 16)}`, environment: "test" });
+    const card = $("new-key-card");
+    if (created?.key && card) {
+      card.hidden = false;
+      card.innerHTML = `<h2>New key — shown once</h2>
+        <pre>${esc(created.key)}</pre>
+        <div class="muted" style="font-size:12.5px;margin-top:8px">${esc(created.note ?? "")}</div>`;
+    }
+  },
+};
+
+document.addEventListener("click", async (event) => {
+  const actionButton = event.target.closest("[data-act]");
+  if (actionButton) {
+    const action = ACTIONS[actionButton.dataset.act];
+    if (!action) return;
+    const label = actionButton.textContent;
+    actionButton.disabled = true;
+    actionButton.textContent = "Running…";
+    try { await action(); } finally {
+      actionButton.textContent = label;
+      actionButton.disabled = false;
+      state.run = null;
+      await refresh();
+    }
+    return;
+  }
+
+  const receiptRow = event.target.closest("[data-receipt]");
+  if (receiptRow) return showReceipt(receiptRow.dataset.receipt);
+
+  const runRow = event.target.closest("[data-run]");
+  if (runRow) {
+    await loadRun(runRow.dataset.run);
+    return render();
+  }
+
+  const scenarioCell = event.target.closest("[data-scenario]");
+  if (scenarioCell) {
+    state.traceScenario = scenarioCell.dataset.scenario;
+    location.hash = "#/trace";
+  }
+});
+
+// ---- routing ------------------------------------------------------------
+const currentView = () => (location.hash.replace("#/", "") || "overview");
+
+async function render() {
+  const id = currentView();
+  setActive(id);
+  $("view-actions").innerHTML = "";
+  const view = views[id] ?? views.overview;
+  $("view").innerHTML = `<div class="card"><div class="empty">Loading…</div></div>`;
+  await view();
+}
+
+async function refresh() {
+  const [{ runs } = {}, scenarios] = await Promise.all([get("/v1/lab/runs"), get("/v1/bench/scenarios")]);
+  state.runs = runs ?? [];
+  state.scenarios = Array.isArray(scenarios) ? scenarios : [];
+
+  const agents = [...new Set(state.runs.map((r) => r.agent.name))];
+  const filter = $("agent-filter");
+  const keep = state.agent;
+  filter.innerHTML = `<option value="all">All agents</option>${agents.map((a) =>
+    `<option value="${esc(a)}">${esc(a)}</option>`).join("")}`;
+  filter.value = agents.includes(keep) ? keep : "all";
+  state.agent = filter.value;
+
+  await render();
+}
+
+$("agent-filter").addEventListener("change", (e) => {
+  state.agent = e.target.value;
+  state.run = null;
+  render();
+});
+window.addEventListener("hashchange", render);
+
+renderNav();
+refresh();
+</script>
+</body>
+</html>
