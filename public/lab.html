@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Limulus Lab</title>
+<style>
+  :root{
+    --paper:#F2F4F3;--surface:#fff;--ink:#141A21;--muted:#59636F;--rule:#D6DBDF;
+    --accent:#1F4AA8;--pass:#1C7349;--fail:#B0261B;--warn:#8F6200;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--paper:#0C1016;--surface:#141A23;--ink:#E5E9EF;--muted:#96A0AD;--rule:#252E3A;
+      --accent:#93AAFF;--pass:#5FC392;--fail:#F2806F;--warn:#E2B455}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;
+    border-bottom:1px solid var(--rule);padding-bottom:14px;margin-bottom:20px}
+  h1{font-size:18px;letter-spacing:.16em;margin:0}
+  .tagline{color:var(--muted);font-size:13px;margin-top:2px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;font-size:13px;padding:7px 13px;border-radius:5px;border:1px solid var(--accent);
+    background:transparent;color:var(--accent);cursor:pointer}
+  button.solid{background:var(--accent);color:#fff}
+  button:disabled{opacity:.5;cursor:default}
+  select{font:inherit;font-size:13px;padding:6px 8px;border-radius:5px;border:1px solid var(--rule);
+    background:var(--surface);color:var(--ink)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+  section.panel{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:15px 17px}
+  section.panel.wide{grid-column:1/-1}
+  h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+    font-weight:600;padding:0 8px 7px 0;border-bottom:1px solid var(--rule)}
+  td{padding:8px 8px 8px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  .mono{font-family:var(--mono);font-size:12px}
+  .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:3px;border:1px solid currentColor;white-space:nowrap}
+  .ok,.valid,.proceed{color:var(--pass)}
+  .bad,.revoked,.critical{color:var(--fail)}
+  .warn,.expired,.ask{color:var(--warn)}
+  .muted{color:var(--muted)}
+  .empty{color:var(--muted);font-size:13px;padding:6px 0}
+
+  /* The ladder: five rungs, the earned one filled. */
+  .ladder{display:flex;gap:4px;margin:4px 0 16px}
+  .rung{flex:1;text-align:center;font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    padding:7px 4px;border:1px solid var(--rule);border-radius:4px;color:var(--muted);background:var(--paper)}
+  .rung.reached{border-color:var(--accent);color:var(--accent)}
+  .rung.current{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+  .reason{color:var(--muted);font-size:12.5px;margin-bottom:16px;max-width:76ch}
+
+  /* Four axes. */
+  .axes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+  .axis .head{display:flex;justify-content:space-between;align-items:baseline}
+  .axis .name{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .axis .score{font-family:var(--mono);font-size:22px}
+  .axis .bar{height:6px;background:var(--rule);border-radius:3px;overflow:hidden;margin:6px 0 6px}
+  .axis .bar span{display:block;height:100%;background:var(--accent)}
+  .axis .bar span.low{background:var(--fail)}
+  .axis .bar span.mid{background:var(--warn)}
+  .axis .detail{color:var(--muted);font-size:12px}
+  .axis .unmeasured{color:var(--muted);font-family:var(--mono);font-size:13px;margin:8px 0 6px}
+
+  /* Scenario grid: one cell per scenario, one dot per trial. */
+  .matrix{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:7px}
+  .cell{border:1px solid var(--rule);border-radius:5px;padding:7px 8px;background:var(--paper);
+    cursor:pointer;text-align:left;font:inherit;color:inherit;display:block;width:100%}
+  .cell:hover{border-color:var(--accent)}
+  .cell.hasCritical{border-color:var(--fail)}
+  .cell .id{font-family:var(--mono);font-size:11.5px}
+  .cell .dots{display:flex;gap:3px;margin-top:5px}
+  .cell .dots i{width:9px;height:9px;border-radius:2px;background:var(--pass)}
+  .cell .dots i.fail{background:var(--fail)}
+  .cell .dots i.soft{background:var(--warn)}
+  .cell .ttl{color:var(--muted);font-size:11px;margin-top:4px;line-height:1.3}
+
+  /* Trace. */
+  .call{border:1px solid var(--rule);border-radius:6px;padding:9px 11px;margin-bottom:7px;background:var(--paper)}
+  .call.flagged{border-color:var(--fail)}
+  .call .top{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+  .call .seq{font-family:var(--mono);color:var(--muted);font-size:11.5px}
+  .call .tool{font-family:var(--mono);font-size:13px}
+  .call .args,.call .res{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+    margin-top:4px;word-break:break-word}
+  .call .thought{font-size:12px;color:var(--muted);font-style:italic;margin-top:4px}
+  .violation{border-left:2px solid var(--fail);padding-left:9px;margin:7px 0 0;font-size:12.5px}
+  .violation .code{font-family:var(--mono);color:var(--fail);font-size:11.5px}
+  .foot{color:var(--muted);font-size:12px;margin-top:22px;border-top:1px solid var(--rule);padding-top:12px}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>LIMULUS LAB</h1>
+      <div class="tagline">What the agent did, not what it said it would do. Example data.</div>
+    </div>
+    <div class="controls">
+      <select id="trials">
+        <option value="1">1 trial</option>
+        <option value="3" selected>3 trials</option>
+        <option value="5">5 trials</option>
+      </select>
+      <button class="solid" id="run-careful">Run careful</button>
+      <button id="run-naive">Run naive</button>
+      <button id="qualify">Qualify careful</button>
+      <button id="refresh">Refresh</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="panel wide">
+      <h2>Latest run</h2>
+      <div id="latest"><div class="empty">No runs yet. Use the buttons above.</div></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Scenarios <span class="muted" style="text-transform:none;letter-spacing:0">— click one to replay the episode</span></h2>
+      <div id="matrix"><div class="empty">Run an agent to see per-scenario results.</div></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Episode trace</h2>
+      <div id="trace"><div class="empty">Select a scenario above.</div></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Run history</h2>
+      <div id="history"><div class="empty">No runs recorded.</div></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Qualifications</h2>
+      <div id="quals"><div class="empty">None issued. "Qualify careful" runs the suite and issues one.</div></div>
+    </section>
+  </div>
+
+  <div class="foot">
+    Runtime decisions and receipts are on the <a href="/dashboard.html">dashboard</a>.
+    Every run is signed and chained; verify one with
+    <span class="mono">GET /v1/lab/runs/:id</span>.
+  </div>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const get = (path) => fetch(path).then((r) => r.json());
+const post = (path, body) =>
+  fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
+
+const escape = (text) => String(text).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+const date = (iso) => new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const LADDER = ["experimental", "shadow-ready", "human-supervised", "limited-autonomous", "expanded-autonomous"];
+
+let scenarios = [];
+let currentRun = null;
+
+function axis(name, dimension) {
+  if (!dimension) {
+    return `<div class="axis">
+      <div class="head"><span class="name">${name}</span></div>
+      <div class="unmeasured">not measured</div>
+      <div class="detail">Needs at least two trials per scenario.</div>
+    </div>`;
+  }
+  const grade = dimension.score >= 95 ? "" : dimension.score >= 70 ? "mid" : "low";
+  return `<div class="axis">
+    <div class="head"><span class="name">${name}</span><span class="score">${dimension.score}</span></div>
+    <div class="bar"><span class="${grade}" style="width:${dimension.score}%"></span></div>
+    <div class="detail">${escape(dimension.detail)}</div>
+  </div>`;
+}
+
+function ladder(level) {
+  const reached = LADDER.indexOf(level);
+  return `<div class="ladder">${LADDER.map((rung, index) => {
+    const state = index === reached ? "current" : index < reached ? "reached" : "";
+    return `<div class="rung ${state}">${rung.replace("-", " ")}</div>`;
+  }).join("")}</div>`;
+}
+
+async function loadLatest() {
+  const { runs } = await get("/v1/lab/runs");
+  if (!runs || runs.length === 0) return;
+
+  // The list view omits grades, so pull the full run for the scenario grid.
+  currentRun = await get(`/v1/lab/runs/${runs.at(-1).id}`);
+  const { axes, agent, suite } = currentRun;
+
+  const criticalByCode = new Map();
+  for (const violation of axes.criticalViolations) {
+    const existing = criticalByCode.get(violation.code) ?? { count: 0, example: violation };
+    criticalByCode.set(violation.code, { count: existing.count + 1, example: existing.example });
+  }
+
+  $("latest").innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+      <div>
+        <div style="font-size:15px">${escape(agent.name)} <span class="mono muted">v${escape(agent.version)}</span></div>
+        <div class="muted" style="font-size:12.5px">
+          ${escape(suite.id)} ${escape(suite.version)} — ${suite.scenarioCount} scenarios x ${suite.trials} trials = ${suite.episodes} episodes
+        </div>
+      </div>
+      <div class="muted mono" style="font-size:11.5px;text-align:right">
+        ${escape(currentRun.id)}<br>
+        signature ${currentRun.verification?.ok ? '<span class="ok">verifies</span>' : '<span class="bad">BROKEN</span>'}
+      </div>
+    </div>
+    ${ladder(axes.level)}
+    <div class="reason">${escape(axes.levelReason)}</div>
+    <div class="axes">
+      ${axis("Safety", axes.safety)}
+      ${axis("Capability", axes.capability)}
+      ${axis("Recovery", axes.recovery)}
+      ${axis("Reliability", axes.reliability)}
+    </div>
+    ${criticalByCode.size === 0 ? "" : `
+      <table style="margin-top:18px">
+        <thead><tr><th>Critical violation</th><th>Count</th><th>Example</th></tr></thead>
+        <tbody>
+          ${[...criticalByCode.entries()].map(([code, { count, example }]) => `<tr>
+            <td class="mono bad">${escape(code)}</td>
+            <td class="mono">${count}</td>
+            <td class="muted">${escape(example.scenarioId)} — ${escape(example.detail)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>`}
+    ${axes.inconsistentScenarios.length === 0 ? "" : `
+      <table style="margin-top:14px">
+        <thead><tr><th>Inconsistent across trials</th><th>Outcomes</th></tr></thead>
+        <tbody>
+          ${axes.inconsistentScenarios.map((s) => `<tr>
+            <td class="mono warn">${escape(s.scenarioId)}</td>
+            <td class="mono muted">${s.outcomes.map(escape).join(" / ")}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>`}`;
+}
+
+function loadMatrix() {
+  if (!currentRun) return;
+  const byScenario = new Map();
+  for (const grade of currentRun.grades) {
+    byScenario.set(grade.scenarioId, [...(byScenario.get(grade.scenarioId) ?? []), grade]);
+  }
+
+  $("matrix").innerHTML = `<div class="matrix">${[...byScenario.entries()].map(([id, grades]) => {
+    const meta = scenarios.find((s) => s.id === id);
+    const hasCritical = grades.some((g) => g.criticalCount > 0);
+    const dots = grades.map((g) => {
+      const cls = g.criticalCount > 0 ? "fail" : g.violations.length > 0 ? "soft" : "";
+      return `<i class="${cls}" title="trial ${g.trial}: ${g.effective}, ${g.violations.length} finding(s)"></i>`;
+    }).join("");
+    return `<button class="cell ${hasCritical ? "hasCritical" : ""}" data-scenario="${id}">
+      <span class="id">${id}</span>
+      <span class="dots">${dots}</span>
+      <span class="ttl">${escape(meta?.title ?? "")}</span>
+    </button>`;
+  }).join("")}</div>`;
+
+  for (const cell of document.querySelectorAll("[data-scenario]")) {
+    cell.addEventListener("click", () => showTrace(cell.dataset.scenario));
+  }
+}
+
+async function showTrace(scenarioId) {
+  const meta = scenarios.find((s) => s.id === scenarioId);
+  const { episodes } = await get(`/v1/lab/episodes?runId=${currentRun.id}&scenarioId=${scenarioId}`);
+  const grades = currentRun.grades.filter((g) => g.scenarioId === scenarioId);
+
+  // Open the trial that went wrong. Reading a clean trial of a scenario the
+  // agent failed on another trial is the least useful thing to show.
+  const grade = grades.find((g) => g.criticalCount > 0) ?? grades.find((g) => g.violations.length > 0) ?? grades[0];
+  const episode = episodes.find((e) => e.episodeId === grade?.episodeId) ?? episodes[0];
+
+  if (!episode) {
+    $("trace").innerHTML = `<div class="empty">No trace stored for ${scenarioId}.</div>`;
+    return;
+  }
+
+  // Findings are anchored to the call they were decided from.
+  const flagged = new Map();
+  for (const violation of grade?.violations ?? []) {
+    if (violation.evidence) flagged.set(violation.evidence.seq, [...(flagged.get(violation.evidence.seq) ?? []), violation]);
+  }
+  const unanchored = (grade?.violations ?? []).filter((v) => !v.evidence);
+
+  $("trace").innerHTML = `
+    <div style="margin-bottom:12px">
+      <div style="font-size:15px">${escape(scenarioId)} — ${escape(meta?.title ?? "")}</div>
+      <div class="muted" style="font-size:12.5px">
+        expected <span class="mono">${escape(meta?.expected ?? "?")}</span>,
+        agent <span class="mono ${grade?.criticalCount ? "bad" : "ok"}">${escape(episode.effective)}</span>,
+        ${episode.calls.length} tool call(s), trial ${episode.trial} of ${grades.length}
+      </div>
+    </div>
+    ${episode.calls.map((call) => {
+      const findings = flagged.get(call.seq) ?? [];
+      return `<div class="call ${findings.length ? "flagged" : ""}">
+        <div class="top">
+          <span class="seq">${String(call.seq).padStart(2, "0")}</span>
+          <span class="tool">${escape(call.tool)}</span>
+        </div>
+        <div class="args">${escape(JSON.stringify(call.args))}</div>
+        <div class="res">→ ${escape(JSON.stringify(call.result).slice(0, 220))}</div>
+        ${findings.map((f) => `<div class="violation">
+          <span class="code">${escape(f.code)} (${escape(f.severity)})</span><br>${escape(f.detail)}
+        </div>`).join("")}
+      </div>`;
+    }).join("") || `<div class="empty">The agent made no tool calls.</div>`}
+    ${episode.declared ? `<div class="muted" style="font-size:12.5px;margin-top:8px">
+      Finished: <span class="mono">${escape(episode.declared.action)}</span> — ${escape(episode.declared.reason ?? "")}
+    </div>` : ""}
+    ${unanchored.map((f) => `<div class="violation" style="margin-top:10px">
+      <span class="code">${escape(f.code)} (${escape(f.severity)})</span><br>${escape(f.detail)}
+    </div>`).join("")}`;
+}
+
+async function loadHistory() {
+  const { runs } = await get("/v1/lab/runs");
+  if (!runs || runs.length === 0) return;
+
+  const previousByAgent = new Map();
+  const rows = runs.slice(-14).map((run) => {
+    const key = `${run.agent.name}@${run.agent.version}`;
+    const previous = previousByAgent.get(key);
+    previousByAgent.set(key, run);
+    const delta = previous ? run.axes.safety.score - previous.axes.safety.score : null;
+    return { run, delta };
+  }).reverse();
+
+  $("history").innerHTML = `
+    <table>
+      <thead><tr><th>When</th><th>Agent</th><th>Suite</th><th>Safety</th><th>Capability</th><th>Recovery</th><th>Reliability</th><th>Level</th><th>Δ safety</th></tr></thead>
+      <tbody>
+        ${rows.map(({ run, delta }) => `<tr>
+          <td class="mono muted">${date(run.createdAt)}</td>
+          <td>${escape(run.agent.name)} <span class="mono muted">v${escape(run.agent.version)}</span></td>
+          <td class="mono muted">${escape(run.suite.version)} x${run.suite.trials}</td>
+          <td class="mono">${run.axes.safety.score}</td>
+          <td class="mono">${run.axes.capability.score}</td>
+          <td class="mono">${run.axes.recovery.score}</td>
+          <td class="mono">${run.axes.reliability?.score ?? "—"}</td>
+          <td><span class="tag ${run.axes.level.includes("autonomous") ? "ok" : run.axes.level === "experimental" ? "bad" : "warn"}">${escape(run.axes.level)}</span></td>
+          <td class="mono ${delta === null ? "muted" : delta >= 0 ? "ok" : "bad"}">${delta === null ? "—" : `${delta >= 0 ? "+" : ""}${delta}`}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+async function loadQualifications() {
+  const { qualifications } = await get("/v1/qualifications");
+  if (!qualifications || qualifications.length === 0) return;
+
+  $("quals").innerHTML = `
+    <table>
+      <thead><tr><th>Qualification</th><th>Level</th><th>Scope</th><th>Bound to</th><th>Expires</th><th>State</th><th>Signature</th></tr></thead>
+      <tbody>
+        ${qualifications.slice(-8).reverse().map((q) => `<tr>
+          <td class="mono">${escape(q.id)}</td>
+          <td>${escape(q.level)}</td>
+          <td class="muted">${escape(q.binding.workflow)} / ${escape(q.binding.rail)} / up to
+            ${q.binding.amountLimit.toLocaleString()} ${escape(q.binding.currency)} / vendors ${escape(q.binding.payeeScope)}</td>
+          <td class="mono muted">v${escape(q.binding.agent.version)}, tools ${escape(q.binding.agent.toolConfigHash.slice(0, 8))}, suite ${escape(q.binding.suite.version)}</td>
+          <td class="mono">${q.expiresAt.slice(0, 10)}</td>
+          <td class="${q.state}">${escape(q.state)}</td>
+          <td class="${q.verification.ok ? "ok" : "bad"}">${q.verification.ok ? "verifies" : "broken"}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+async function refresh() {
+  scenarios = await get("/v1/bench/scenarios");
+  await loadLatest();
+  loadMatrix();
+  await Promise.all([loadHistory(), loadQualifications()]);
+}
+
+async function withBusy(button, work) {
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = "Running...";
+  try { await work(); } finally {
+    button.textContent = label;
+    button.disabled = false;
+    await refresh();
+  }
+}
+
+const trials = () => Number($("trials").value);
+
+$("run-careful").addEventListener("click", (e) =>
+  withBusy(e.target, () => post("/v1/lab/runs", { agent: "careful", trials: trials() })));
+$("run-naive").addEventListener("click", (e) =>
+  withBusy(e.target, () => post("/v1/lab/runs", { agent: "naive", trials: trials() })));
+$("qualify").addEventListener("click", (e) =>
+  withBusy(e.target, () => post("/v1/lab/runs", {
+    agent: "careful",
+    trials: trials(),
+    qualifyFor: {
+      workflow: "invoice-payment",
+      rail: "ach",
+      currency: "USD",
+      amountLimit: 5000,
+      approvalPolicy: "A person approves anything above the ceiling or off the vendor file.",
+      payeeScope: "on-file",
+    },
+  })));
+$("refresh").addEventListener("click", refresh);
+
+refresh();
+</script>
+</body>
+</html>
