@@ -97,10 +97,9 @@
   .reason{color:var(--muted);font-size:13px;margin-bottom:16px;max-width:78ch}
 
   /* axes */
-  .axes{display:grid;grid-template-columns:repeat(auto-fit,minmax(224px,1fr));gap:16px}
-  .axis .head{display:flex;justify-content:space-between;align-items:baseline}
+  .axes{display:grid;grid-template-columns:repeat(auto-fit,minmax(224px,1fr));gap:22px}
   .axis .name{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
-  .axis .score{font-family:var(--mono);font-size:24px;font-variant-numeric:tabular-nums}
+  .axis .score{font-family:var(--mono);font-size:30px;line-height:1.15;font-variant-numeric:tabular-nums;margin-top:2px}
   .axis .bar{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;margin:7px 0}
   .axis .bar span{display:block;height:100%;background:var(--pass)}
   .axis .bar span.mid{background:var(--warn)}
@@ -237,11 +236,14 @@ const bar = (score) => {
   return `<div class="bar"><span class="${grade}" style="width:${Math.max(2, score)}%"></span></div>`;
 };
 
+// Score sits directly under its label. Pushing it to the far right of a wide
+// column separates the number from the thing it measures.
 const axisBlock = (name, dimension) => dimension === null || dimension === undefined
-  ? `<div class="axis"><div class="head"><span class="name">${name}</span><span class="score faint">—</span></div>
+  ? `<div class="axis"><div class="name">${name}</div><div class="score faint">—</div>
      ${bar(0)}<div class="detail">Not measured: needs at least two trials per scenario.</div></div>`
   : `<div class="axis">
-      <div class="head"><span class="name">${name}</span><span class="score">${dimension.score}</span></div>
+      <div class="name">${name}</div>
+      <div class="score ${dimension.score >= 95 ? "ok" : dimension.score >= 70 ? "warn" : "bad"}">${dimension.score}</div>
       ${bar(dimension.score)}
       <div class="detail">${esc(dimension.detail)}</div>
     </div>`;
@@ -258,6 +260,40 @@ const levelClass = (level) =>
 /** Runs for the agent chosen in the sidebar. */
 const visibleRuns = () =>
   state.agent === "all" ? state.runs : state.runs.filter((r) => r.agent.name === state.agent);
+
+/** The most recent run of each agent, which is what "where do we stand" means. */
+function latestPerAgent(runs) {
+  const byAgent = new Map();
+  for (const run of runs) byAgent.set(`${run.agent.name}@${run.agent.version}`, run);
+  return [...byAgent.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * With one agent in view the readiness of that agent is the headline. With
+ * several, a single number would be whichever happened to run last, which is
+ * not a fact about anything.
+ */
+function readinessCard(runs) {
+  const latest = latestPerAgent(runs);
+  if (latest.length === 0) return `<div class="empty">No runs yet.</div>`;
+
+  if (latest.length === 1) {
+    const run = latest[0];
+    return `
+      <div class="hero ${levelClass(run.axes.level)}">${run.axes.safety.score}</div>
+      <div class="hero-label">safety score · ${esc(run.agent.name)} v${esc(run.agent.version)}</div>
+      <div style="margin-top:12px"><span class="tag ${levelClass(run.axes.level)}">${esc(run.axes.level)}</span></div>`;
+  }
+
+  return `<table>
+    <thead><tr><th>Agent</th><th>Safety</th><th>Readiness</th></tr></thead>
+    <tbody>${latest.slice(0, 5).map((run) => `<tr>
+      <td>${esc(run.agent.name.replace("reference-", ""))} <span class="mono faint">v${esc(run.agent.version)}</span></td>
+      <td class="num">${run.axes.safety.score}</td>
+      <td><span class="tag ${levelClass(run.axes.level)}">${esc(run.axes.level)}</span></td>
+    </tr>`).join("")}</tbody>
+  </table>`;
+}
 
 async function loadRun(id) {
   state.run = await get(`/v1/lab/runs/${id}`);
@@ -289,11 +325,7 @@ views.overview = async () => {
     <div class="cards">
       <div class="card">
         <h2>Readiness</h2>
-        ${latest ? `
-          <div class="hero ${levelClass(latest.axes.level)}">${latest.axes.safety.score}</div>
-          <div class="hero-label">safety, ${esc(latest.agent.name)} v${esc(latest.agent.version)}</div>
-          <div style="margin-top:12px"><span class="tag ${levelClass(latest.axes.level)}">${esc(latest.axes.level)}</span></div>`
-        : `<div class="empty">No runs yet.</div>`}
+        ${readinessCard(runs)}
       </div>
 
       <div class="card">
@@ -309,7 +341,10 @@ views.overview = async () => {
       <div class="card">
         <h2>Qualifications in force</h2>
         <div class="hero small">${live.length}</div>
-        <div class="hero-label">${live.length === 1 ? "agent cleared to release" : "agents cleared to release"}</div>
+        <div class="hero-label">
+          not revoked, not expired —
+          ${live.filter((q) => q.level.includes("autonomous")).length} carrying release authority
+        </div>
         ${live.slice(0, 2).map((q) => `<div class="faint mono" style="margin-top:8px;font-size:11.5px">
           ${esc(q.binding.agent.name)} v${esc(q.binding.agent.version)} · up to
           ${q.binding.amountLimit.toLocaleString()} ${esc(q.binding.currency)} · to ${q.expiresAt.slice(0, 10)}
