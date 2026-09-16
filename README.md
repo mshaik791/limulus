@@ -87,6 +87,46 @@ Two tools are deliberately **absent**. An agent cannot set its own policy, and i
 a qualification — it may read both. Widening your own authority is not a capability we hand to the
 thing being constrained.
 
+## Holding the payment at the bank
+
+Everything else here answers a question. This holds the money.
+
+Increase supports creating an ACH transfer with `require_approval: true`. The transfer lands in
+`pending_approval` and **expires unapproved rather than settling**, so the default is to fail closed.
+That makes the approval a control point rather than a recommendation something else has to honour.
+
+```
+1. Agent creates the transfer held      POST /ach_transfers  {require_approval: true}  → pending_approval
+2. Limulus runs the three-way match
+3. ALLOW     POST /ach_transfers/{id}/approve   → pending_submission, money moves
+   BLOCK     POST /ach_transfers/{id}/cancel    → canceled, money cannot move
+   ESCALATE  leave it                           → stays held until a person decides
+   WAIT      leave it                           → stays held until the earlier payment is confirmed
+```
+
+The transfer is created **before** the decision, on purpose. Deciding first and creating afterwards
+leaves the gap between the two unguarded, and gives us nothing to cancel when the answer is no.
+
+```bash
+node src/rails/selftest.ts                        # against the local stand-in
+INCREASE_API_KEY=... INCREASE_ACCOUNT_ID=... \
+  node src/rails/selftest.ts                      # against the real Increase sandbox
+
+curl -X POST localhost:8787/v1/gate -H 'content-type: application/json' -d '{"scenario":"poisoned"}'
+curl localhost:8787/v1/rails/status               # which rail is actually in use
+```
+
+Without `INCREASE_API_KEY` this runs against a local stand-in that follows the same lifecycle and
+enforces the same transitions. It is not a pretend bank, and every response says which mode produced
+it, so a demo cannot be mistaken for a live one. **The claim is only proven when the self-test passes
+against the real sandbox**, which needs an Increase account.
+
+API shape verified against `increase.com/documentation/api/ach-transfers` (September 2026): sandbox
+base `https://sandbox.increase.com`, `Authorization: Bearer`, `Idempotency-Key`, amounts in USD cents.
+
+Column supports the same pattern with `hold: true` on creation and a later release, and would be the
+second adapter. Modern Treasury's approvals are human-only, so it cannot be gated this way.
+
 ## Outcome verification
 
 A decision says what should have happened. A settlement says what did. Feeding settlement events
@@ -377,6 +417,9 @@ src/sandbox/agents.ts          two tool-using reference agents
 src/sandbox/selftest.ts        graders tested against agents written to fail
 src/qualification.ts           scope-bound, expiring qualifications and the scope check
 src/verdict.ts                 ALLOW, BLOCK, ESCALATE, WAIT and the explanation codes
+src/rails/increase.ts          the Increase adapter, and a local stand-in for it
+src/rails/gate.ts              create held, decide, then approve or cancel at the bank
+src/rails/selftest.ts          13 checks that the gate controls money, not advises
 src/lab-cli.ts                 the Lab CLI
 public/index.html              interactive demo
 data/                          signing key, decision chain, reports (git-ignored)
@@ -384,10 +427,6 @@ data/                          signing key, decision chain, reports (git-ignored
 
 ## Not built yet
 
-- Holding a real payment at a bank API. Increase supports ACH transfers that wait in a
-  pending-approval state and are approved through the API, and Column supports ACH credits created
-  on hold and released later. Whether either will accept a third party's approval is the first
-  thing to test.
 - The MCP gateway that captures what an agent reads, so declarations are produced automatically.
 - The Lab in the dashboard: the four axes, and a replayable tool-call trace per episode.
 - Model-based graders for reasoning quality, and human review for genuinely ambiguous cases. The
@@ -482,6 +521,7 @@ node src/mcp/selftest.ts       # 22 checks: the MCP server, driven as a client
 node src/api-selftest.ts       # 13 checks: auth, scopes, idempotency, signed webhooks
 node src/sandbox/selftest.ts   # 30 checks: the graders, the ladder, qualifications
 node src/verdict-selftest.ts   # 12 checks: all four release verdicts, end to end
+node src/rails/selftest.ts     # 13 checks: holding, approving and cancelling at the bank
 ```
 
 `src/sandbox/selftest.ts` grades agents written specifically to fail — paying an account other than
