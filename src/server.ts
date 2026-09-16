@@ -11,6 +11,9 @@ import { referenceAgents } from "./bench/agents.ts";
 import { runPack } from "./bench/runner.ts";
 import { agentSummaries, readReports, reportHistory, sealReport, verifyReport } from "./bench/report.ts";
 import { scenarios as packScenarios } from "./bench/pack-payments-v1.ts";
+import { authenticate, createKey, listKeys, revokeKey, type Scope } from "./auth.ts";
+import { check as checkIdempotency, remember } from "./idempotency.ts";
+import { addEndpoint, emit, listEndpoints, readDeliveries, removeEndpoint } from "./webhooks.ts";
 import type { DecisionRequest } from "./types.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -55,7 +58,32 @@ const server = createServer(async (req, res) => {
       return res.end();
     }
 
-    if (path === "/health") return json(res, 200, { ok: true, service: "limulus", version: "0.1.0" });
+    if (path === "/health") {
+      return json(res, 200, {
+        ok: true,
+        service: "limulus",
+        version: "0.1.0",
+        authRequired: process.env.LIMULUS_REQUIRE_AUTH === "1",
+      });
+    }
+
+    // Everything under /v1 needs a key when auth is enforced. Receipt
+    // verification stays open on purpose: anyone holding a receipt must be able
+    // to check it, including people who are not our customers.
+    if (path.startsWith("/v1/") && path !== "/v1/receipts/verify") {
+      const scope: Scope = path.startsWith("/v1/keys") || path.startsWith("/v1/webhooks")
+        ? "admin"
+        : req.method === "POST"
+          ? path.startsWith("/v1/settlements")
+            ? "settlements:write"
+            : path.startsWith("/v1/bench")
+              ? "bench:run"
+              : "decisions:write"
+          : "read";
+
+      const auth = authenticate(req.headers.authorization ?? (req.headers["x-api-key"] as string), scope);
+      if (!auth.ok) return json(res, auth.status, { error: auth.message });
+    }
 
     // Decide on one payment. This is the call an agent's gateway makes before
     // a payment order is released.
@@ -73,7 +101,29 @@ const server = createServer(async (req, res) => {
         });
       }
 
+      // A retry after a timeout must not create a second decision.
+      const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
+      const prior = checkIdempotency(idempotencyKey, body);
+      if (prior.state === "conflict") return json(res, 409, { error: prior.message });
+      if (prior.state === "replay") {
+        res.setHeader("limulus-idempotent-replay", "true");
+        return json(res, prior.status, prior.response);
+      }
+
       const record = decide({ ...request, documents: request.documents ?? [] });
+      remember(idempotencyKey, body, 200, record);
+
+      void emit(`decision.${record.outcome}` as Parameters<typeof emit>[0], {
+        decisionId: record.id,
+        outcome: record.outcome,
+        reasons: record.reasons,
+        payee: record.paymentOrder.payeeName,
+        amount: record.paymentOrder.amount,
+        currency: record.paymentOrder.currency,
+        invoiceId: record.declaration.invoiceId,
+        recordHash: record.hash,
+      });
+
       return json(res, 200, record);
     }
 
@@ -98,6 +148,47 @@ const server = createServer(async (req, res) => {
 
     if (path === "/v1/verify") return json(res, 200, { ...verifyChain(), publicKey: publicKeyPem });
 
+    // Key management. The key itself is returned once, at creation.
+    if (path === "/v1/keys" && req.method === "POST") {
+      const body = (await readBody(req)) as { name?: string; scopes?: Scope[]; environment?: "live" | "test" };
+      if (!body?.name) return json(res, 400, { error: "Send a name for the key" });
+      const { key, record } = createKey(body.name, body.scopes, body.environment ?? "test");
+      return json(res, 200, {
+        key,
+        record,
+        note: "This is the only time the key is shown. Store it now.",
+      });
+    }
+
+    if (path === "/v1/keys") return json(res, 200, { keys: listKeys() });
+
+    if (path.startsWith("/v1/keys/") && req.method === "DELETE") {
+      const id = path.split("/").pop() ?? "";
+      return revokeKey(id) ? json(res, 200, { revoked: id }) : json(res, 404, { error: "No such key" });
+    }
+
+    // Webhook endpoints.
+    if (path === "/v1/webhooks" && req.method === "POST") {
+      const body = (await readBody(req)) as { url?: string; events?: Parameters<typeof addEndpoint>[1] };
+      if (!body?.url) return json(res, 400, { error: "Send the url to deliver to" });
+      const endpoint = addEndpoint(body.url, body.events);
+      return json(res, 200, {
+        endpoint,
+        note: "Store the secret now. Verify deliveries with the limulus-signature header.",
+      });
+    }
+
+    if (path === "/v1/webhooks") return json(res, 200, { endpoints: listEndpoints() });
+
+    if (path === "/v1/webhooks/deliveries") {
+      return json(res, 200, { deliveries: readDeliveries().slice(-50) });
+    }
+
+    if (path.startsWith("/v1/webhooks/") && req.method === "DELETE") {
+      const id = path.split("/").pop() ?? "";
+      return removeEndpoint(id) ? json(res, 200, { removed: id }) : json(res, 404, { error: "No such endpoint" });
+    }
+
     // Outcome verification: what the rail reported about a payment we decided on.
     if (path === "/v1/settlements" && req.method === "POST") {
       const body = (await readBody(req)) as Parameters<typeof recordSettlement>[0];
@@ -112,6 +203,15 @@ const server = createServer(async (req, res) => {
       });
       // Re-verify the decision as soon as the rail reports anything.
       const outcome = verifyOutcomeForDecision(body.decisionId);
+
+      void emit(`outcome.${outcome.status}` as Parameters<typeof emit>[0], {
+        decisionId: outcome.decisionId,
+        outcomeId: outcome.id,
+        status: outcome.status,
+        findings: outcome.findings,
+        railReference: settlement.railReference,
+      });
+
       return json(res, 200, { settlement, outcome });
     }
 

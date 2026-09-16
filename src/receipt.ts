@@ -118,7 +118,27 @@ export type ReceiptVerification = {
 export function verifyReceipt(receipt: Receipt): ReceiptVerification {
   const checks: ReceiptVerification["checks"] = [];
 
+  // This runs on a public endpoint, so treat the input as untrusted and never
+  // assume a field is present.
+  if (!receipt || typeof receipt !== "object") {
+    return {
+      valid: false,
+      checks: [{ name: "Input is a receipt object", ok: false, detail: "Expected a JSON object" }],
+    };
+  }
+
   const { hash, signature, publicKey, ...body } = receipt;
+
+  for (const [field, value] of [
+    ["hash", hash],
+    ["signature", signature],
+    ["publicKey", publicKey],
+  ] as const) {
+    if (typeof value !== "string" || value.length === 0) {
+      checks.push({ name: `Receipt carries a ${field}`, ok: false, detail: "missing or not a string" });
+    }
+  }
+  if (checks.length > 0) return { valid: false, checks };
   const recomputed = sha256(canonical(body));
 
   const hashOk = recomputed === hash;
@@ -147,7 +167,7 @@ export function verifyReceipt(receipt: Receipt): ReceiptVerification {
   });
 
   // If we happen to hold the decision, confirm the receipt describes it.
-  const ourCopy = readChain().find((r) => r.id === receipt.decision.id);
+  const ourCopy = receipt.decision?.id ? readChain().find((r) => r.id === receipt.decision.id) : undefined;
   let matchesOurRecord: boolean | undefined;
   if (ourCopy) {
     matchesOurRecord = ourCopy.hash === receipt.decision.recordHash;

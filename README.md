@@ -274,3 +274,50 @@ Alongside the pass rate, each run reports the number a buyer cares about:
 
 The two reference agents show the spread: the naive agent has an **88.2% wrong-allow rate**, the
 careful one **0%**, with no added friction in either case.
+
+## API keys, idempotency and webhooks
+
+### Keys
+
+Auth is off by default so the local demo needs no setup. Set `LIMULUS_REQUIRE_AUTH=1` to enforce it.
+
+```bash
+node src/keys-cli.ts create "design partner acme"   # shows the key once
+node src/keys-cli.ts list
+node src/keys-cli.ts revoke key_...
+```
+
+Only the SHA-256 of a key is stored, so the key file cannot be used to call the API. Scopes are
+`decisions:write`, `settlements:write`, `bench:run`, `read` and `admin`.
+
+**Receipt verification never requires a key.** Anyone holding a receipt must be able to check it,
+including people who are not customers.
+
+### Idempotency
+
+Send an `Idempotency-Key` header with a decision. A retry with the same key returns the original
+decision and sets `limulus-idempotent-replay: true`. The same key with a different body is rejected
+with 409, which is what stops a timeout-and-retry from paying twice.
+
+### Webhooks
+
+```bash
+node src/keys-cli.ts hook-add https://example.com/limulus   # shows the secret once
+node src/keys-cli.ts deliveries
+```
+
+Events: `decision.released`, `decision.held`, `decision.escalated`, `outcome.verified`,
+`outcome.unauthorized`, `outcome.duplicate`, `outcome.mismatch`, `outcome.returned`,
+`bench.completed`.
+
+Each delivery carries `limulus-signature: t=<unix>,v1=<hmac>`, an HMAC-SHA256 over
+`timestamp.body`. Verify it with a constant-time comparison and reject timestamps older than five
+minutes. `verifySignature` in `src/webhooks.ts` is the reference implementation; copy it into your
+receiver. Failed deliveries are retried three times with backoff and then recorded.
+
+### Self-tests
+
+```bash
+node src/mcp/selftest.ts   # 15 checks: the MCP server, driven as a client
+node src/api-selftest.ts   # 13 checks: auth, scopes, idempotency, signed webhooks
+```
