@@ -130,7 +130,9 @@ export function runChecks(
   if (declaration.payeeName.toLowerCase() !== paymentOrder.payeeName.toLowerCase()) {
     mismatches.push(`payee ${declaration.payeeName} declared, ${paymentOrder.payeeName} in the payment order`);
   }
-  if (!paymentOrder.reference.includes(declaration.invoiceId)) {
+  // A reference is optional on the rail, so an absent one is not a mismatch —
+  // but a reference that names a different invoice is.
+  if (paymentOrder.reference && !paymentOrder.reference.includes(declaration.invoiceId)) {
     mismatches.push(`reference ${paymentOrder.reference} does not carry ${declaration.invoiceId}`);
   }
   checks.push(

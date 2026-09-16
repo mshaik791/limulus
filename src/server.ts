@@ -13,6 +13,10 @@ import { agentSummaries, readReports, reportHistory, sealReport, verifyReport } 
 import { scenarios as packScenarios } from "./bench/pack-payments-v1.ts";
 import { authenticate, createKey, listKeys, revokeKey, type Scope } from "./auth.ts";
 import { check as checkIdempotency, remember } from "./idempotency.ts";
+import { verdictFor } from "./verdict.ts";
+import { readLabRuns, readTraces, runSuite, verifyLabRun } from "./sandbox/lab.ts";
+import { referenceToolAgents } from "./sandbox/agents.ts";
+import { checkScope, readQualifications, revokeQualification, verifyQualification } from "./qualification.ts";
 import { addEndpoint, emit, listEndpoints, readDeliveries, removeEndpoint } from "./webhooks.ts";
 import type { DecisionRequest } from "./types.ts";
 
@@ -71,12 +75,14 @@ const server = createServer(async (req, res) => {
     // verification stays open on purpose: anyone holding a receipt must be able
     // to check it, including people who are not our customers.
     if (path.startsWith("/v1/") && path !== "/v1/receipts/verify") {
-      const scope: Scope = path.startsWith("/v1/keys") || path.startsWith("/v1/webhooks")
+      const scope: Scope = path.startsWith("/v1/keys") ||
+        path.startsWith("/v1/webhooks") ||
+        (req.method === "POST" && path.startsWith("/v1/qualifications"))
         ? "admin"
         : req.method === "POST"
           ? path.startsWith("/v1/settlements")
             ? "settlements:write"
-            : path.startsWith("/v1/bench")
+            : path.startsWith("/v1/bench") || path.startsWith("/v1/lab")
               ? "bench:run"
               : "decisions:write"
           : "read";
@@ -125,6 +131,177 @@ const server = createServer(async (req, res) => {
       });
 
       return json(res, 200, record);
+    }
+
+    // The release gate. Same evidence as /v1/decisions, but the answer is one
+    // of four words a caller can branch on, with the qualification checked.
+    if (path === "/v1/release" && req.method === "POST") {
+      const body = (await readBody(req)) as Partial<DecisionRequest> & {
+        scenario?: string;
+        qualificationId?: string;
+        agent?: { name?: string; version?: string; promptHash?: string; toolConfigHash?: string };
+        workflow?: string;
+      };
+
+      const request: DecisionRequest | undefined = body.scenario
+        ? scenarios[body.scenario]?.request
+        : (body as DecisionRequest);
+
+      if (!request?.authorization || !request?.declaration || !request?.paymentOrder) {
+        return json(res, 400, {
+          error: "Send authorization, declaration, paymentOrder and documents, or a scenario name",
+          scenarios: Object.keys(scenarios),
+        });
+      }
+
+      const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
+      const prior = checkIdempotency(idempotencyKey, body);
+      if (prior.state === "conflict") return json(res, 409, { error: prior.message });
+      if (prior.state === "replay") {
+        res.setHeader("limulus-idempotent-replay", "true");
+        return json(res, prior.status, prior.response);
+      }
+
+      const record = decide({ ...request, documents: request.documents ?? [] });
+      const verdict = verdictFor(record, {
+        qualificationId: body.qualificationId,
+        requireQualification: process.env.LIMULUS_REQUIRE_QUALIFICATION === "1",
+        baseUrl: `http://${req.headers.host ?? `localhost:${port}`}`,
+        scope: body.agent
+          ? {
+              agentName: body.agent.name ?? "unknown",
+              agentVersion: body.agent.version ?? "unknown",
+              promptHash: body.agent.promptHash,
+              toolConfigHash: body.agent.toolConfigHash,
+              workflow: body.workflow ?? "invoice-payment",
+              rail: record.paymentOrder.rail,
+              payeeOnFile: record.authorization.approvedVendors.some(
+                (v) => v.name.toLowerCase() === record.paymentOrder.payeeName.toLowerCase(),
+              ),
+            }
+          : undefined,
+      });
+
+      remember(idempotencyKey, body, 200, verdict);
+
+      void emit(`decision.${record.outcome}` as Parameters<typeof emit>[0], {
+        decisionId: record.id,
+        outcome: record.outcome,
+        verdict: verdict.verdict,
+        reasons: record.reasons,
+        payee: record.paymentOrder.payeeName,
+        amount: record.paymentOrder.amount,
+        currency: record.paymentOrder.currency,
+        invoiceId: record.declaration.invoiceId,
+        recordHash: record.hash,
+      });
+
+      if (verdict.retryAfterMs) res.setHeader("retry-after", String(Math.ceil(verdict.retryAfterMs / 1000)));
+      return json(res, 200, verdict);
+    }
+
+    // ---- The Lab: run an agent in the simulated world -----------------------
+    if (path === "/v1/lab/runs" && req.method === "POST") {
+      const body = (await readBody(req)) as {
+        agent?: string;
+        endpoint?: string;
+        version?: string;
+        promptHash?: string;
+        trials?: number;
+        qualifyFor?: Parameters<typeof runSuite>[1] extends { qualifyFor?: infer Q } ? Q : never;
+      };
+
+      const target = body.endpoint
+        ? { name: body.agent ?? new URL(body.endpoint).host, version: body.version ?? "external", endpoint: body.endpoint, promptHash: body.promptHash }
+        : referenceToolAgents[body.agent ?? "careful"];
+
+      if (!target) {
+        return json(res, 400, {
+          error: "Send an endpoint, or an agent name",
+          agents: Object.keys(referenceToolAgents),
+        });
+      }
+
+      const { run, qualification } = await runSuite(target, {
+        trials: body.trials ?? 3,
+        qualifyFor: body.qualifyFor,
+      });
+      return json(res, 200, { run, qualification });
+    }
+
+    if (path === "/v1/lab/runs") {
+      const runs = readLabRuns();
+      return json(res, 200, {
+        count: runs.length,
+        // Grades are large; the list view gets the summary and the axes only.
+        runs: runs.slice(-25).map(({ grades, ...rest }) => ({ ...rest, episodes: grades.length })),
+      });
+    }
+
+    if (path.startsWith("/v1/lab/runs/")) {
+      const id = path.split("/")[4];
+      const run = readLabRuns().find((r) => r.id === id);
+      if (!run) return json(res, 404, { error: "No such run" });
+      return json(res, 200, { ...run, verification: verifyLabRun(run) });
+    }
+
+    if (path === "/v1/lab/episodes") {
+      const runId = url.searchParams.get("runId") ?? undefined;
+      const scenarioId = url.searchParams.get("scenarioId");
+      const episodes = readTraces(runId).filter((t) => !scenarioId || t.scenarioId === scenarioId);
+      return json(res, 200, { count: episodes.length, episodes: episodes.slice(-50) });
+    }
+
+    if (path === "/v1/lab/agents") {
+      return json(
+        res,
+        200,
+        Object.entries(referenceToolAgents).map(([key, a]) => ({ key, name: a.name, version: a.version })),
+      );
+    }
+
+    // ---- Qualifications ----------------------------------------------------
+    if (path === "/v1/qualifications" && req.method === "GET") {
+      const quals = readQualifications();
+      return json(res, 200, {
+        count: quals.length,
+        qualifications: quals.map((q) => ({
+          ...q,
+          state: q.revokedAt ? "revoked" : Date.parse(q.expiresAt) < Date.now() ? "expired" : "valid",
+          verification: verifyQualification(q),
+        })),
+      });
+    }
+
+    if (path.endsWith("/revoke") && path.startsWith("/v1/qualifications/") && req.method === "POST") {
+      const id = path.split("/")[3];
+      const body = (await readBody(req)) as { reason?: string };
+      const revoked = revokeQualification(id, body.reason ?? "revoked through the API");
+      return revoked
+        ? json(res, 200, revoked)
+        : json(res, 404, { error: "No active qualification with that id" });
+    }
+
+    if (path.startsWith("/v1/qualifications/") && req.method === "GET") {
+      const id = path.split("/")[3];
+      const qualification = readQualifications().find((q) => q.id === id);
+      if (!qualification) return json(res, 404, { error: "No such qualification" });
+
+      // A caller can ask whether a specific payment is in scope before making it.
+      const amount = url.searchParams.get("amount");
+      const scope = amount
+        ? checkScope(id, {
+            agentName: qualification.binding.agent.name,
+            agentVersion: url.searchParams.get("agentVersion") ?? qualification.binding.agent.version,
+            workflow: url.searchParams.get("workflow") ?? qualification.binding.workflow,
+            rail: url.searchParams.get("rail") ?? qualification.binding.rail,
+            currency: url.searchParams.get("currency") ?? qualification.binding.currency,
+            amount: Number(amount),
+            payeeOnFile: url.searchParams.get("payeeOnFile") !== "false",
+          })
+        : undefined;
+
+      return json(res, 200, { ...qualification, verification: verifyQualification(qualification), scope });
     }
 
     if (path === "/v1/scenarios") {
