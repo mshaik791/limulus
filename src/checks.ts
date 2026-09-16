@@ -50,13 +50,13 @@ export function runChecks(
     vendor
       ? {
           id: "vendor_approved",
-          name: "Vendor is on the approved list",
+          name: "Approved vendor",
           status: "pass",
           detail: `${vendor.name} (${vendor.vendorId})`,
         }
       : {
           id: "vendor_approved",
-          name: "Vendor is on the approved list",
+          name: "Approved vendor",
           status: "fail",
           detail: `${declaration.payeeName} is not in policy ${authorization.policyVersion}`,
         },
@@ -67,7 +67,7 @@ export function runChecks(
     declaration.amount <= authorization.limitPerPayment
       ? {
           id: "within_limit",
-          name: "Within the per-payment limit",
+          name: "Per-payment limit",
           status: "pass",
           detail: `${money(declaration.amount, declaration.currency)} of ${money(
             authorization.limitPerPayment,
@@ -76,7 +76,7 @@ export function runChecks(
         }
       : {
           id: "within_limit",
-          name: "Within the per-payment limit",
+          name: "Per-payment limit",
           status: "fail",
           detail: `${money(declaration.amount, declaration.currency)} exceeds ${money(
             authorization.limitPerPayment,
@@ -89,14 +89,14 @@ export function runChecks(
   if (!approvedInvoice) {
     checks.push({
       id: "invoice_approved",
-      name: "Invoice approved by a person",
+      name: "Human approval",
       status: "fail",
       detail: `No approval on file for ${declaration.invoiceId}`,
     });
   } else if (Math.abs(approvedInvoice.amount - declaration.amount) > 0.005) {
     checks.push({
       id: "invoice_approved",
-      name: "Invoice approved by a person",
+      name: "Human approval",
       status: "fail",
       detail: `Approved ${money(approvedInvoice.amount, authorization.currency)}, declared ${money(
         declaration.amount,
@@ -106,7 +106,7 @@ export function runChecks(
   } else {
     checks.push({
       id: "invoice_approved",
-      name: "Invoice approved by a person",
+      name: "Human approval",
       status: "pass",
       detail: `${declaration.invoiceId} approved by ${approvedInvoice.approvedBy}`,
     });
@@ -139,13 +139,13 @@ export function runChecks(
     mismatches.length === 0
       ? {
           id: "declaration_matches_order",
-          name: "Payment order matches the declaration",
+          name: "Payment order vs declaration",
           status: "pass",
           detail: `payee, amount, account and reference agree`,
         }
       : {
           id: "declaration_matches_order",
-          name: "Payment order matches the declaration",
+          name: "Payment order vs declaration",
           status: "fail",
           detail: mismatches.join("; "),
         },
@@ -155,21 +155,21 @@ export function runChecks(
   if (!vendor) {
     checks.push({
       id: "payee_account",
-      name: "Account matches the vendor record",
+      name: "Payee account",
       status: "skip",
       detail: "No vendor record to compare against",
     });
   } else if (vendor.accountLast4 !== paymentOrder.payeeAccountLast4) {
     checks.push({
       id: "payee_account",
-      name: "Account matches the vendor record",
+      name: "Payee account",
       status: "fail",
       detail: `vendor record ****${vendor.accountLast4}, payment order ****${paymentOrder.payeeAccountLast4}`,
     });
   } else {
     checks.push({
       id: "payee_account",
-      name: "Account matches the vendor record",
+      name: "Payee account",
       status: "pass",
       detail: `****${vendor.accountLast4}`,
     });
@@ -182,7 +182,7 @@ export function runChecks(
       age <= 30
         ? {
             id: "bank_detail_change",
-            name: "No recent bank detail change",
+            name: "Bank detail change",
             status: "review",
             detail: `vendor bank details changed ${age} day(s) ago; callback to ${
               vendor.callbackPhone ?? "the number on file"
@@ -190,7 +190,7 @@ export function runChecks(
           }
         : {
             id: "bank_detail_change",
-            name: "No recent bank detail change",
+            name: "Bank detail change",
             status: "pass",
             detail: `last changed ${age} day(s) ago`,
           },
@@ -202,13 +202,13 @@ export function runChecks(
     previousInvoiceIds.has(declaration.invoiceId)
       ? {
           id: "duplicate",
-          name: "Not a duplicate payment",
+          name: "Duplicate payment",
           status: "fail",
           detail: `${declaration.invoiceId} was already paid`,
         }
       : {
           id: "duplicate",
-          name: "Not a duplicate payment",
+          name: "Duplicate payment",
           status: "pass",
           detail: `${declaration.invoiceId} has not been paid`,
         },
@@ -235,13 +235,13 @@ export function runChecks(
     findings.length === 0
       ? {
           id: "embedded_instructions",
-          name: "No embedded payment instructions",
+          name: "Embedded instructions",
           status: "pass",
           detail: `${documents.length} document(s) scanned`,
         }
       : {
           id: "embedded_instructions",
-          name: "No embedded payment instructions",
+          name: "Embedded instructions",
           status: "fail",
           detail: findings.join("; "),
         },
@@ -252,13 +252,13 @@ export function runChecks(
     declaration.sources.length > 0
       ? {
           id: "sources_cited",
-          name: "Declaration cites its source documents",
+          name: "Source documents",
           status: "pass",
           detail: declaration.sources.map((s) => s.name).join(", "),
         }
       : {
           id: "sources_cited",
-          name: "Declaration cites its source documents",
+          name: "Source documents",
           status: "review",
           detail: "The agent did not cite any documents",
         },
