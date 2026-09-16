@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { runChecks } from "./checks.ts";
+import { normalizeReference, runChecks } from "./checks.ts";
 import { lastRecord, readChain, sealAndAppend, sha256 } from "./record.ts";
 import type { DecisionOutcome, DecisionRecord, DecisionRequest } from "./types.ts";
 
@@ -11,11 +11,18 @@ import type { DecisionOutcome, DecisionRecord, DecisionRequest } from "./types.t
  * following the documented flow (check, then pay) would otherwise be blocked by
  * its own check.
  */
+/** What this payer has released recently, for the similar-payment check. */
+function recentPayments(): { payeeName: string; amount: number; at: string }[] {
+  return readChain()
+    .filter((r) => r.outcome === "released" && !r.preview)
+    .map((r) => ({ payeeName: r.paymentOrder.payeeName, amount: r.paymentOrder.amount, at: r.createdAt }));
+}
+
 function paidInvoiceIds(): Set<string> {
   return new Set(
     readChain()
       .filter((r) => r.outcome === "released" && !r.preview)
-      .map((r) => r.declaration.invoiceId),
+      .map((r) => normalizeReference(r.declaration.invoiceId)),
   );
 }
 
@@ -28,7 +35,14 @@ function paidInvoiceIds(): Set<string> {
 export function decide(request: DecisionRequest): DecisionRecord {
   const { authorization, declaration, paymentOrder, documents, preview } = request;
 
-  const checks = runChecks(authorization, declaration, paymentOrder, documents, paidInvoiceIds());
+  const checks = runChecks(
+    authorization,
+    declaration,
+    paymentOrder,
+    documents,
+    paidInvoiceIds(),
+    recentPayments(),
+  );
 
   const failed = checks.filter((c) => c.status === "fail");
   const review = checks.filter((c) => c.status === "review");

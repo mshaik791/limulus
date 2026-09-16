@@ -16,6 +16,15 @@ const INSTRUCTION_PATTERNS: RegExp[] = [
   /account\s+ending\s+\d{4}/i,
 ];
 
+/**
+ * References are written by people and by other systems, so the same purchase
+ * order arrives as "PO 44812", "PO-44812", "po44812" and "44812". Comparing
+ * them literally means a duplicate check that answers "no prior payment" for a
+ * payment that was already made — which is how an invoice gets paid twice.
+ */
+export const normalizeReference = (reference: string) =>
+  String(reference ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/^(PO|INV|INVOICE)0*/, "");
+
 const money = (amount: number, currency: string) =>
   `${currency} ${amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
 
@@ -36,6 +45,8 @@ export function runChecks(
   paymentOrder: PaymentOrder,
   documents: Document[],
   previousInvoiceIds: Set<string>,
+  /** What this payer has paid recently, for spotting a charge billed twice. */
+  recentPayments: { payeeName: string; amount: number; at: string }[] = [],
 ): CheckResult[] {
   const checks: CheckResult[] = [];
   const vendor = authorization.approvedVendors.find(
@@ -199,7 +210,7 @@ export function runChecks(
 
   // 7. Duplicate payment.
   checks.push(
-    previousInvoiceIds.has(declaration.invoiceId)
+    previousInvoiceIds.has(normalizeReference(declaration.invoiceId))
       ? {
           id: "duplicate",
           name: "Duplicate payment",
@@ -213,6 +224,57 @@ export function runChecks(
           detail: `${declaration.invoiceId} has not been paid`,
         },
   );
+
+  // 7b. The same charge billed again under a different reference.
+  //
+  // The duplicate check compares references, and a reference is exactly what a
+  // rebilled charge changes. A monthly retainer invoiced twice in one month has
+  // two invoice numbers and one obligation, and neither document reveals the
+  // other. What gives it away is the shape: same payee, same amount, days
+  // apart. Paying a vendor the same amount twice is sometimes perfectly
+  // ordinary, so this asks a person rather than refusing.
+  //
+  // It is off unless the authorization asks for it. Paying a vendor the same
+  // amount twice in a month is ordinary for anything recurring, so switched on
+  // everywhere this would escalate a great many correct payments — and a check
+  // that cries wolf gets turned off, taking the useful ones with it.
+  const SIMILAR_WINDOW_DAYS = 14;
+  const wantsSimilarCheck = authorization.requiredChecks.includes("similar_recent_payment");
+  const lookalike = !wantsSimilarCheck
+    ? undefined
+    : recentPayments.find(
+        (p) =>
+          p.payeeName.toLowerCase() === declaration.payeeName.toLowerCase() &&
+          Math.abs(p.amount - declaration.amount) < 0.005 &&
+          daysSince(p.at) <= SIMILAR_WINDOW_DAYS,
+      );
+
+  if (!wantsSimilarCheck) {
+    checks.push({
+      id: "similar_recent_payment",
+      name: "Similar recent payment",
+      status: "skip",
+      detail: "not enabled in this policy",
+    });
+  } else {
+    checks.push(
+      lookalike
+        ? {
+          id: "similar_recent_payment",
+          name: "Similar recent payment",
+          status: "review",
+          detail: `${money(declaration.amount, declaration.currency)} already paid to ${
+            declaration.payeeName
+          } ${daysSince(lookalike.at)} day(s) ago under a different reference`,
+        }
+      : {
+          id: "similar_recent_payment",
+          name: "Similar recent payment",
+          status: "pass",
+          detail: `nothing of this amount paid to ${declaration.payeeName} in ${SIMILAR_WINDOW_DAYS} days`,
+        },
+    );
+  }
 
   // 8. Hidden or embedded instructions in any document the agent read.
   const findings: string[] = [];
