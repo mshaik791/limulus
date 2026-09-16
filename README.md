@@ -419,7 +419,7 @@ src/qualification.ts           scope-bound, expiring qualifications and the scop
 src/verdict.ts                 ALLOW, BLOCK, ESCALATE, WAIT and the explanation codes
 src/rails/increase.ts          the Increase adapter, and a local stand-in for it
 src/rails/gate.ts              create held, decide, then approve or cancel at the bank
-src/rails/selftest.ts          13 checks that the gate controls money, not advises
+src/rails/selftest.ts          14 checks that the gate controls money, not advises
 src/lab-cli.ts                 the Lab CLI
 public/index.html              interactive demo
 data/                          signing key, decision chain, reports (git-ignored)
@@ -521,7 +521,7 @@ node src/mcp/selftest.ts       # 22 checks: the MCP server, driven as a client
 node src/api-selftest.ts       # 13 checks: auth, scopes, idempotency, signed webhooks
 node src/sandbox/selftest.ts   # 30 checks: the graders, the ladder, qualifications
 node src/verdict-selftest.ts   # 12 checks: all four release verdicts, end to end
-node src/rails/selftest.ts     # 13 checks: holding, approving and cancelling at the bank
+node src/rails/selftest.ts     # 14 checks: holding, approving and cancelling at the bank
 ```
 
 `src/sandbox/selftest.ts` grades agents written specifically to fail — paying an account other than
