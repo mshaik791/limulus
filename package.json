@@ -1,0 +1,16 @@
+{
+  "name": "limulus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Proof before the money moves. A three-way match for AI agent payments.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "demo": "node src/demo.ts",
+    "verify": "node src/verify-cli.ts"
+  },
+  "license": "UNLICENSED"
+}

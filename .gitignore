@@ -1,0 +1,15 @@
+# Signing key and the record chain: never commit these
+data/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Editors and OS
+.DS_Store
+.vscode/
+.idea/
+
+# Env
+.env
+.env.*
