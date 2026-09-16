@@ -384,9 +384,25 @@ data/                          signing key, decision chain, reports (git-ignored
 - An outside timestamp on each record.
 - The guarantee. That comes after there is loss data to price it.
 
+## The Lab page
+
+`node src/server.ts`, then open <http://localhost:8787/lab.html>.
+
+| Panel | What it shows |
+|---|---|
+| Latest run | The four axes, the readiness ladder with the earned rung marked, and why that rung and not the next one |
+| Critical violations | Grouped by code, with the scenario and an example, so a failure reads as a sentence rather than a number |
+| Scenarios | One cell per scenario, one dot per trial — red for a critical violation, amber for a lesser finding |
+| Episode trace | Every tool call with its arguments and result, with findings anchored to the exact call they were decided from |
+| Run history | Every run with all four axes and the change in safety against the same agent version |
+| Qualifications | Scope, what each is bound to, expiry, state and signature check |
+
+Clicking a scenario opens the trial that went wrong, not trial 1 — reading a clean trial of a
+scenario the agent failed elsewhere is the least useful thing to show.
+
 ## Dashboard
 
-`node src/server.ts`, then open <http://localhost:8787/dashboard.html>.
+The runtime side: `node src/server.ts`, then open <http://localhost:8787/dashboard.html>.
 
 | Panel | What it shows |
 |---|---|
