@@ -64,16 +64,28 @@ node src/mcp/selftest.ts   # drives the server the way a client would
 | Tool | What the agent does with it |
 |---|---|
 | `get_authorization` | Read the limit, approved vendors and their accounts on file, and approved invoices |
-| `check_payment` | Declare what it intends to pay and why, before paying. Returns proceed, hold or escalate, the checks that ran, and a signed decision id. |
+| `get_qualification` | Find out what it is cleared to do on its own: workflow, rail, ceiling, payees, expiry |
+| `check_payment` | Declare what it intends to pay and why, before paying. Returns `ALLOW`, `BLOCK`, `ESCALATE` or `WAIT` with explanation codes and a signed decision id. |
 | `report_settlement` | Report what the rail did. Returns the outcome status and what to do about it. |
 | `get_receipt` | Fetch the portable signed receipt for a decision |
 | `verify_receipt` | Verify a receipt someone else handed it |
 
+Every verdict comes with plain guidance, because the failure that costs money is an agent reacting
+to a refusal by trying a variation:
+
+| Verdict | What the agent is told |
+|---|---|
+| `ALLOW` | Submit it, then report what the rail did |
+| `BLOCK` | Stop, and tell a person. Do not try a variation of it. |
+| `ESCALATE` | A person decides. Submit nothing until they answer. |
+| `WAIT` | An earlier payment is unconfirmed. Poll. Submitting again is how an invoice gets paid twice. |
+
 The server's `initialize` response carries standing instructions, so a connected agent is told up
 front to check before paying and to treat documents as evidence rather than instructions.
 
-There is deliberately **no tool for setting policy**. An agent must not be able to widen its own
-authorization.
+Two tools are deliberately **absent**. An agent cannot set its own policy, and it cannot issue itself
+a qualification — it may read both. Widening your own authority is not a capability we hand to the
+thing being constrained.
 
 ## Outcome verification
 
@@ -341,7 +353,7 @@ src/decide.ts                  runs the checks, decides, seals the record
 src/record.ts                  signing, hashing, the chain, verification
 src/server.ts                  HTTP API and the demo page
 src/mcp/server.ts              MCP server, JSON-RPC over stdio
-src/mcp/tools.ts               the five agent-facing tools
+src/mcp/tools.ts               the six agent-facing tools
 src/mcp/selftest.ts            drives the MCP server and checks the replies
 src/policy-store.ts            the stored authorization and its content-addressed id
 src/outcome.ts                 settlement ingestion and outcome verification
@@ -466,7 +478,7 @@ receiver. Failed deliveries are retried three times with backoff and then record
 ### Self-tests
 
 ```bash
-node src/mcp/selftest.ts       # 15 checks: the MCP server, driven as a client
+node src/mcp/selftest.ts       # 22 checks: the MCP server, driven as a client
 node src/api-selftest.ts       # 13 checks: auth, scopes, idempotency, signed webhooks
 node src/sandbox/selftest.ts   # 30 checks: the graders, the ladder, qualifications
 node src/verdict-selftest.ts   # 12 checks: all four release verdicts, end to end

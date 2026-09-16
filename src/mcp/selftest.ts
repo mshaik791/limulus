@@ -72,7 +72,12 @@ notify("notifications/initialized");
 // 2. Tool discovery
 const tools = await call("tools/list");
 const names = tools.result.tools.map((t: any) => t.name);
-check("tools/list returns the five tools", names.length === 5, names.join(", "));
+check("tools/list returns the six tools", names.length === 6, names.join(", "));
+check(
+  "no tool lets an agent widen its own authority",
+  !names.some((n: string) => /set_|update_|issue_|grant_/.test(n)),
+  names.join(", "),
+);
 
 // 3. Authorization
 const auth = parse(await call("tools/call", { name: "get_authorization", arguments: {} }));
@@ -102,7 +107,70 @@ const clean = parse(
     },
   }),
 );
-check("clean payment is released", clean.outcome === "released", clean.verdict);
+check("clean payment is allowed", clean.verdict === "ALLOW", clean.verdict);
+check("an allowed verdict tells the agent to submit", /submit/i.test(clean.guidance ?? ""), clean.guidance);
+
+// 4b. The same invoice again, before the rail has said anything. This is the
+// sequence that pays an invoice twice, so the answer must not be a flat no —
+// an agent told "no" tries something else, and an agent told "wait" waits.
+const retry = parse(
+  await call("tools/call", {
+    name: "check_payment",
+    arguments: {
+      payeeName: "Northline Steel",
+      payeeAccountLast4: "2210",
+      amount: 64000,
+      currency: "USD",
+      invoiceId: freshInvoice,
+      reason: `Retrying ${freshInvoice} after no response`,
+      rail: "ach",
+    },
+  }),
+);
+check("a retry before the rail answers returns WAIT", retry.verdict === "WAIT", retry.verdict);
+check("WAIT tells the agent to submit nothing", /submit nothing|do not submit/i.test(retry.guidance ?? ""), retry.guidance);
+check("WAIT carries a retry delay", (retry.retryAfterMs ?? 0) > 0, String(retry.retryAfterMs));
+
+// 4c. Once the rail confirms, the same attempt is a real duplicate.
+await call("tools/call", {
+  name: "report_settlement",
+  arguments: {
+    decisionId: clean.decisionId,
+    status: "settled",
+    amount: 64000,
+    currency: "USD",
+    payeeAccountLast4: "2210",
+    railReference: `ACH-MCP-${Date.now().toString().slice(-6)}`,
+  },
+});
+
+const afterSettlement = parse(
+  await call("tools/call", {
+    name: "check_payment",
+    arguments: {
+      payeeName: "Northline Steel",
+      payeeAccountLast4: "2210",
+      amount: 64000,
+      currency: "USD",
+      invoiceId: freshInvoice,
+      reason: `Third attempt at ${freshInvoice}`,
+      rail: "ach",
+    },
+  }),
+);
+check("once settlement is confirmed the duplicate is blocked", afterSettlement.verdict === "BLOCK", afterSettlement.verdict);
+
+// 4d. What am I cleared to do on my own?
+const qualification = parse(await call("tools/call", { name: "get_qualification", arguments: {} }));
+check(
+  "get_qualification answers whether the agent is cleared, either way",
+  typeof qualification.qualified === "boolean",
+  qualification.qualified ? `${qualification.level} to ${qualification.expiresAt?.slice(0, 10)}` : qualification.note,
+);
+if (qualification.qualified) {
+  check("a qualification states its scope, not just a level", Boolean(qualification.cleared?.upTo), JSON.stringify(qualification.cleared));
+  check("a qualification names what it is bound to", Boolean(qualification.boundTo?.agent), qualification.boundTo?.agent);
+}
 
 // 5. A poisoned invoice is held
 const poisoned = parse(
@@ -127,7 +195,17 @@ const poisoned = parse(
     },
   }),
 );
-check("poisoned invoice is held", poisoned.outcome === "held", poisoned.verdict);
+check("poisoned invoice is blocked", poisoned.verdict === "BLOCK", poisoned.verdict);
+check(
+  "a blocked verdict tells the agent not to try a variation",
+  /do not try a variation/i.test(poisoned.guidance ?? ""),
+  poisoned.guidance,
+);
+check(
+  "the block carries explanation codes a caller can branch on",
+  Array.isArray(poisoned.explanation) && poisoned.explanation.some((e: any) => e.code === "instruction_in_document"),
+  (poisoned.explanation ?? []).map((e: any) => e.code).join(","),
+);
 check(
   "hold names the failing checks",
   poisoned.checks.some((c: any) => c.status === "fail" && /instruction|vendor record/i.test(c.check)),

@@ -2,14 +2,19 @@ import { decide } from "../decide.ts";
 import { recordSettlement, verifyOutcomeForDecision } from "../outcome.ts";
 import { buildReceipt, verifyReceipt } from "../receipt.ts";
 import { loadAuthorization, policyId } from "../policy-store.ts";
+import { verdictFor } from "../verdict.ts";
+import { readQualifications } from "../qualification.ts";
 import type { Declaration, Document, PaymentOrder } from "../types.ts";
 
 // Tools an agent calls before, during and after it moves money.
 //
 // The important one is check_payment. An agent declares what it intends to pay
 // and why; Limulus compares that with the authorization and the payment order
-// and answers proceed, hold or escalate. The agent's stated reason is recorded
-// as a commitment, never treated as proof.
+// and answers ALLOW, BLOCK, ESCALATE or WAIT. The agent's stated reason is
+// recorded as a commitment, never treated as proof.
+//
+// Two tools are deliberately absent. An agent cannot set its own policy, and it
+// cannot issue itself a qualification. It may read both.
 
 export type ToolDefinition = {
   name: string;
@@ -30,7 +35,7 @@ export const toolDefinitions: ToolDefinition[] = [
   {
     name: "check_payment",
     description:
-      "Declare a payment before making it, and get a decision. Provide what you intend to pay and why, the payment order you would submit, and the documents you relied on. Returns proceed, hold or escalate, the checks that ran, and a signed decision id. Never submit a payment that returns hold or escalate.",
+      "Declare a payment before making it, and get a verdict. Provide what you intend to pay and why, the payment order you would submit, and the documents you relied on. Returns ALLOW, BLOCK, ESCALATE or WAIT, with explanation codes, the checks that ran, and a signed decision id. Submit only on ALLOW. On WAIT, poll and do not submit anything: an earlier payment has not been confirmed and submitting again is how an invoice gets paid twice.",
     inputSchema: {
       type: "object",
       properties: {
@@ -43,6 +48,10 @@ export const toolDefinitions: ToolDefinition[] = [
         reason: str("Why you are paying this, in one sentence"),
         rail: str("Payment rail: ach, wire, card or stablecoin"),
         reference: str("Reference that will appear on the payment order"),
+        qualificationId: str(
+          "The qualification you are operating under, if you have one. Get it from get_qualification. Without it this payment is checked against policy only, and cannot be released on your authority alone.",
+        ),
+        agentVersion: str("Your version, so the qualification can be checked against what was actually tested"),
         documents: {
           type: "array",
           description: "The documents you read: invoice, email, purchase order, receipt.",
@@ -59,6 +68,16 @@ export const toolDefinitions: ToolDefinition[] = [
         },
       },
       required: ["payeeName", "payeeAccountLast4", "amount", "currency", "invoiceId", "reason"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_qualification",
+    description:
+      "Find out what you are cleared to do on your own: which workflow, which rail, up to what amount, to which payees, and until when. Call this once at the start of a run and pass the qualificationId to check_payment. If you are not qualified, you can still work — payments needing judgment will go to a person.",
+    inputSchema: {
+      type: "object",
+      properties: { agentName: str("Your agent name, if you know it") },
       additionalProperties: false,
     },
   },
@@ -160,21 +179,71 @@ export async function callTool(name: string, args: Record<string, any>): Promise
         documents: (args.documents ?? []) as Document[],
       });
 
-      const verdict =
-        record.outcome === "released"
-          ? "proceed"
-          : record.outcome === "escalated"
-            ? "escalate to a person"
-            : "hold, do not submit this payment";
+      const verdict = verdictFor(record, {
+        qualificationId: args.qualificationId,
+        scope: args.qualificationId
+          ? {
+              agentName: declaration.agentId,
+              agentVersion: args.agentVersion ?? "unknown",
+              workflow: "invoice-payment",
+              rail: paymentOrder.rail,
+              payeeOnFile: authorization.approvedVendors.some(
+                (v) => v.name.toLowerCase() === paymentOrder.payeeName.toLowerCase(),
+              ),
+            }
+          : undefined,
+      });
+
+      const guidance = {
+        ALLOW: "Submit this payment, then report what the rail did with report_settlement.",
+        BLOCK: "Do not submit this payment, and do not try a variation of it. Tell the person who gave you this task.",
+        ESCALATE: "A person has to decide. Do not submit anything until they answer.",
+        WAIT: "An earlier payment for this invoice has not been confirmed. Poll get_receipt or check again later. Do not submit another payment.",
+      }[verdict.verdict];
 
       return asText({
-        decisionId: record.id,
-        verdict,
-        outcome: record.outcome,
-        reasons: record.reasons,
+        verdict: verdict.verdict,
+        guidance,
+        explanation: verdict.explanation,
+        decisionId: verdict.decisionId,
+        decisionHash: verdict.decisionHash,
+        qualification: verdict.qualification,
+        retryAfterMs: verdict.retryAfterMs,
         checks: record.checks.map((c) => ({ check: c.name, status: c.status, detail: c.detail })),
         policyId: policyId(authorization),
-        recordHash: record.hash,
+      });
+    }
+
+    case "get_qualification": {
+      // Read-only on purpose. An agent may know what it is cleared for; it may
+      // not grant itself more. Issuing a qualification requires a Lab run.
+      const all = readQualifications().filter((q) => !q.revokedAt && Date.parse(q.expiresAt) > Date.now());
+      const mine = args.agentName ? all.filter((q) => q.binding.agent.name === args.agentName) : all;
+      const current = mine.at(-1);
+
+      if (!current) {
+        return asText({
+          qualified: false,
+          note: "No qualification is in force. Payments will be checked against policy, and anything needing judgment goes to a person. To be qualified, this agent version has to be run through the Lab.",
+        });
+      }
+
+      return asText({
+        qualified: true,
+        qualificationId: current.id,
+        level: current.level,
+        expiresAt: current.expiresAt,
+        cleared: {
+          workflow: current.binding.workflow,
+          rail: current.binding.rail,
+          upTo: `${current.binding.amountLimit.toLocaleString()} ${current.binding.currency}`,
+          payees: current.binding.payeeScope === "on-file" ? "vendors already on file" : "any payee",
+        },
+        boundTo: {
+          agent: `${current.binding.agent.name} v${current.binding.agent.version}`,
+          suite: `${current.binding.suite.id} ${current.binding.suite.version}`,
+        },
+        note: "Pass this qualificationId to check_payment. Anything outside this scope goes to a person, which is expected and not an error.",
       });
     }
 
