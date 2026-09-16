@@ -110,9 +110,62 @@ const clean = parse(
 check("clean payment is allowed", clean.verdict === "ALLOW", clean.verdict);
 check("an allowed verdict tells the agent to submit", /submit/i.test(clean.guidance ?? ""), clean.guidance);
 
-// 4b. The same invoice again, before the rail has said anything. This is the
-// sequence that pays an invoice twice, so the answer must not be a flat no —
-// an agent told "no" tries something else, and an agent told "wait" waits.
+// 4a. Checking twice is not paying twice. A check is a question, and asking it
+// must not make the payment itself look like a duplicate of the question — the
+// documented flow is check, then pay, so that flow has to work.
+const checkedAgain = parse(
+  await call("tools/call", {
+    name: "check_payment",
+    arguments: {
+      payeeName: "Northline Steel",
+      payeeAccountLast4: "2210",
+      amount: 64000,
+      currency: "USD",
+      invoiceId: freshInvoice,
+      reason: `Checking ${freshInvoice} a second time`,
+      rail: "ach",
+      documents: [
+        {
+          name: `${freshInvoice}.pdf`,
+          type: "invoice",
+          text: `Northline Steel. Invoice ${freshInvoice}. Total USD 64,000.00.`,
+        },
+      ],
+    },
+  }),
+);
+check(
+  "checking a payment twice still says ALLOW, not duplicate",
+  checkedAgain.verdict === "ALLOW",
+  `${checkedAgain.verdict} ${(checkedAgain.explanation ?? []).map((e: any) => e.code).join(",")}`,
+);
+
+// 4b. A real payment, then the same invoice again before the rail has answered.
+// This is the sequence that pays an invoice twice, so the answer must not be a
+// flat no — an agent told "no" tries something else, one told "wait" waits.
+const released = parse(
+  await call("tools/call", {
+    name: "pay_invoice",
+    arguments: {
+      payeeName: "Northline Steel",
+      payeeAccountLast4: "2210",
+      amount: 64000,
+      currency: "USD",
+      invoiceId: freshInvoice,
+      reason: `Paying ${freshInvoice}`,
+      documents: [
+        {
+          name: `${freshInvoice}.pdf`,
+          type: "invoice",
+          text: `Northline Steel. Invoice ${freshInvoice}. Total USD 64,000.00.`,
+        },
+      ],
+    },
+  }),
+);
+check("the payment the check allowed actually goes through", released.paid === true, `${released.verdict} ${released.outcome ?? ""}`);
+check("it was approved at the bank", /pending_submission|submitted/.test(released.transfer?.status ?? ""), released.transfer?.status);
+
 const retry = parse(
   await call("tools/call", {
     name: "check_payment",
@@ -124,6 +177,13 @@ const retry = parse(
       invoiceId: freshInvoice,
       reason: `Retrying ${freshInvoice} after no response`,
       rail: "ach",
+      documents: [
+        {
+          name: `${freshInvoice}.pdf`,
+          type: "invoice",
+          text: `Northline Steel. Invoice ${freshInvoice}. Total USD 64,000.00.`,
+        },
+      ],
     },
   }),
 );
@@ -135,7 +195,7 @@ check("WAIT carries a retry delay", (retry.retryAfterMs ?? 0) > 0, String(retry.
 await call("tools/call", {
   name: "report_settlement",
   arguments: {
-    decisionId: clean.decisionId,
+    decisionId: released.decisionId,
     status: "settled",
     amount: 64000,
     currency: "USD",
@@ -155,6 +215,13 @@ const afterSettlement = parse(
       invoiceId: freshInvoice,
       reason: `Third attempt at ${freshInvoice}`,
       rail: "ach",
+      documents: [
+        {
+          name: `${freshInvoice}.pdf`,
+          type: "invoice",
+          text: `Northline Steel. Invoice ${freshInvoice}. Total USD 64,000.00.`,
+        },
+      ],
     },
   }),
 );

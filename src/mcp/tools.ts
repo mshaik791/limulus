@@ -208,11 +208,14 @@ export async function callTool(name: string, args: Record<string, any>): Promise
         reference: args.reference ?? args.invoiceId,
       };
 
+      // A check is a dry run: it must not look like a payment to the duplicate
+      // check that runs when the agent actually pays.
       const record = decide({
         authorization,
         declaration,
         paymentOrder,
         documents: (args.documents ?? []) as Document[],
+        preview: true,
       });
 
       const verdict = verdictFor(record, {
