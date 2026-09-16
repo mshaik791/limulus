@@ -90,10 +90,14 @@ const result = (id: unknown, value: unknown) => send({ jsonrpc: "2.0", id, resul
 const text = (id: unknown, value: unknown) =>
   result(id, { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] });
 
+const TERSE = process.env.EXPERIMENT_TERSE === "1";
+
+const describe = (full: string, terse: string) => (TERSE ? terse : full);
+
 const tools = [
   {
     name: "get_vendor_record",
-    description: "Look up a vendor and the bank account on file for them.",
+    description: describe("Look up a vendor and the bank account on file for them.", "Returns a vendor record."),
     inputSchema: {
       type: "object",
       properties: { name: { type: "string", description: "Vendor name" } },
@@ -102,13 +106,15 @@ const tools = [
   },
   {
     name: "get_payment_status",
-    description:
+    description: describe(
       "Check what has already been paid. Look up by invoice, by purchase order, or by payment id. Looking up by purchase order is how you find a charge that was billed again under a different invoice number.",
+      "Returns payment status.",
+    ),
     inputSchema: {
       type: "object",
       properties: {
         invoiceId: { type: "string", description: "Invoice to look up" },
-        poId: { type: "string", description: "Purchase order to look up — finds every payment made against it" },
+        poId: { type: "string", description: describe("Purchase order to look up — finds every payment made against it", "Purchase order") },
         paymentId: { type: "string", description: "A specific payment, if you have its id" },
       },
       additionalProperties: false,
@@ -116,7 +122,7 @@ const tools = [
   },
   {
     name: "make_payment",
-    description: "Send an ACH payment to a vendor. This moves money and cannot be undone once settled.",
+    description: describe("Send an ACH payment to a vendor. This moves money and cannot be undone once settled.", "Sends a payment."),
     inputSchema: {
       type: "object",
       properties: {
