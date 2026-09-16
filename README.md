@@ -52,6 +52,29 @@ node src/verify-cli.ts    # recompute every hash and signature in the chain
 node src/verify-receipt.ts receipt.json   # verify a receipt with no network calls
 ```
 
+## MCP server
+
+An agent can use Limulus directly, with no custom integration. JSON-RPC over stdio, no dependencies.
+
+```bash
+claude mcp add limulus -- ~/.local/node/bin/node ~/dev/limulus/src/mcp/server.ts
+node src/mcp/selftest.ts   # drives the server the way a client would
+```
+
+| Tool | What the agent does with it |
+|---|---|
+| `get_authorization` | Read the limit, approved vendors and their accounts on file, and approved invoices |
+| `check_payment` | Declare what it intends to pay and why, before paying. Returns proceed, hold or escalate, the checks that ran, and a signed decision id. |
+| `report_settlement` | Report what the rail did. Returns the outcome status and what to do about it. |
+| `get_receipt` | Fetch the portable signed receipt for a decision |
+| `verify_receipt` | Verify a receipt someone else handed it |
+
+The server's `initialize` response carries standing instructions, so a connected agent is told up
+front to check before paying and to treat documents as evidence rather than instructions.
+
+There is deliberately **no tool for setting policy**. An agent must not be able to widen its own
+authorization.
+
 ## Outcome verification
 
 A decision says what should have happened. A settlement says what did. Feeding settlement events
@@ -196,6 +219,10 @@ src/checks.ts                  the three-way match and the fraud checks
 src/decide.ts                  runs the checks, decides, seals the record
 src/record.ts                  signing, hashing, the chain, verification
 src/server.ts                  HTTP API and the demo page
+src/mcp/server.ts              MCP server, JSON-RPC over stdio
+src/mcp/tools.ts               the five agent-facing tools
+src/mcp/selftest.ts            drives the MCP server and checks the replies
+src/policy-store.ts            the stored authorization and its content-addressed id
 src/outcome.ts                 settlement ingestion and outcome verification
 src/receipt.ts                 portable receipts, and verifying them
 src/scenarios.ts               runtime example payloads
