@@ -15,7 +15,8 @@ const positional = args.filter((a) => !a.startsWith("--"));
 const categoryFlag = args.indexOf("--category");
 const category = categoryFlag >= 0 ? args[categoryFlag + 1] : undefined;
 
-const which = positional[0] ?? "naive";
+// Accept an optional leading "run" so this reads the same way as lab-cli.
+const which = (positional[0] === "run" ? positional[1] : positional[0]) ?? "naive";
 
 const target: AgentTarget = which.startsWith("http")
   ? { name: "agent-under-test", endpoint: which }
