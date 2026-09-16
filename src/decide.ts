@@ -3,11 +3,18 @@ import { runChecks } from "./checks.ts";
 import { lastRecord, readChain, sealAndAppend, sha256 } from "./record.ts";
 import type { DecisionOutcome, DecisionRecord, DecisionRequest } from "./types.ts";
 
-/** Invoices already released, used for the duplicate check. */
+/**
+ * Invoices already released, used for the duplicate check.
+ *
+ * Previews are excluded. Asking whether a payment would be allowed must not
+ * make the payment itself look like a duplicate of the question — an agent
+ * following the documented flow (check, then pay) would otherwise be blocked by
+ * its own check.
+ */
 function paidInvoiceIds(): Set<string> {
   return new Set(
     readChain()
-      .filter((r) => r.outcome === "released")
+      .filter((r) => r.outcome === "released" && !r.preview)
       .map((r) => r.declaration.invoiceId),
   );
 }
@@ -19,7 +26,7 @@ function paidInvoiceIds(): Set<string> {
  * Only a clean run releases.
  */
 export function decide(request: DecisionRequest): DecisionRecord {
-  const { authorization, declaration, paymentOrder, documents } = request;
+  const { authorization, declaration, paymentOrder, documents, preview } = request;
 
   const checks = runChecks(authorization, declaration, paymentOrder, documents, paidInvoiceIds());
 
@@ -50,6 +57,7 @@ export function decide(request: DecisionRequest): DecisionRecord {
       name: d.name,
       sha256: sha256(`${d.text ?? ""}${d.hiddenText ?? ""}`),
     })),
+    ...(preview ? { preview: true } : {}),
     prevHash: previous ? previous.hash : null,
   });
 }

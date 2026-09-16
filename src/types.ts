@@ -85,6 +85,14 @@ export type DecisionRequest = {
   declaration: Declaration;
   paymentOrder: PaymentOrder;
   documents: Document[];
+  /**
+   * A dry run: "would this be allowed?" rather than "release this".
+   *
+   * The distinction matters because a preview must not look like a payment to
+   * anything that comes after it. An agent that checks a payment and then makes
+   * it would otherwise trip the duplicate check against its own question.
+   */
+  preview?: boolean;
 };
 
 export type DecisionRecord = {
@@ -97,6 +105,8 @@ export type DecisionRecord = {
   declaration: Declaration;
   paymentOrder: PaymentOrder;
   documentHashes: { name: string; sha256: string }[];
+  /** True when this was a dry run rather than a release. */
+  preview?: boolean;
   /** Hash of the previous record in the chain, or null for the first record. */
   prevHash: string | null;
   /** Hash over everything above. */

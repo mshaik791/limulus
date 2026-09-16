@@ -87,8 +87,9 @@ function settlementInFlight(record: DecisionRecord): boolean {
   const invoiceId = record.declaration.invoiceId;
   const settlements = readSettlements();
 
+  // Previews are questions, not payments, so they cannot be in flight.
   const earlier = readChain().filter(
-    (r) => r.id !== record.id && r.declaration.invoiceId === invoiceId && r.outcome === "released",
+    (r) => r.id !== record.id && r.declaration.invoiceId === invoiceId && r.outcome === "released" && !r.preview,
   );
   if (earlier.length === 0) return false;
 
