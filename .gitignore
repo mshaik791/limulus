@@ -13,3 +13,5 @@ npm-debug.log*
 # Env
 .env
 .env.*
+# ...except the template, which holds names and no values.
+!.env.example
