@@ -1,0 +1,361 @@
+<title>The Limulus Loop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Geist+Mono:wght@500&family=Inter:wght@400;500&display=swap">
+<style>
+  /* Same system as the site: warm off-white surfaces on white, near-black
+   * blue-grey type, one accent, colour only where it means a state. */
+  :root{
+    color-scheme:light;
+    --beige-100:#d2cdc6; --beige-200:#edebe8; --beige-300:#f4f2f1; --beige-400:#f8f7f6;
+    --grey-100:#090c1b; --grey-200:#191f2b; --grey-300:#262e41; --grey-400:#525d73;
+    --grey-500:#b8bec9; --grey-600:#d4d7de;
+    --blood:#2f41f2; --blood-wash:#eef0fe;
+    --stop:#e40014; --stop-wash:#fdebec;
+    --hold:#f96d4a; --hold-wash:#fef1ed;
+    --go:#1b695c; --go-wash:#e8f6f3;
+    --display:"Schibsted Grotesk",-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --body:"Inter",-apple-system,"Segoe UI",Arial,sans-serif;
+    --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--grey-300);font-family:var(--body);
+    font-size:16.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding-inline:24px;padding-block:56px 80px}
+  h1,h2,h3,h4{font-family:var(--display);font-weight:500;margin:0;text-wrap:balance}
+  h1{font-size:clamp(34px,5.4vw,52px);line-height:1.02;letter-spacing:-.045em;color:var(--grey-100)}
+  h2{font-size:clamp(25px,3.4vw,33px);line-height:1.1;letter-spacing:-.03em;color:var(--grey-100);
+    margin:0 0 14px}
+  h3{font-size:20px;line-height:1.25;letter-spacing:-.02em;color:var(--grey-100);margin:0 0 8px}
+  h4{font-size:16.5px;letter-spacing:-.01em;color:var(--grey-100);margin:0 0 6px}
+  p{margin:0 0 16px;max-width:68ch}
+  a{color:var(--blood)}
+  .sq{width:8px;height:8px;border-radius:1px;transform:rotate(45deg);background:var(--grey-100);
+    flex:none;display:inline-block}
+  .sq.b{background:var(--blood)} .sq.g{background:var(--go)} .sq.o{background:var(--hold)}
+  .sq.r{background:var(--stop)}
+  .eyebrow{display:inline-flex;align-items:center;gap:11px;margin:0 0 14px}
+  .eyebrow span{font-family:var(--mono);font-weight:500;font-size:11.5px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--grey-400)}
+  .lede{font-size:19px;color:var(--grey-400);max-width:62ch;margin:18px 0 0}
+  section{padding-block:40px;border-top:1px solid var(--beige-200);margin-top:40px}
+  section:first-of-type{border-top:0;margin-top:0}
+  .meta{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--grey-500);margin-top:24px}
+
+  /* stage blocks */
+  .stage{border:1px solid var(--beige-300);background:var(--beige-400);border-radius:12px;
+    padding:22px 24px;margin-bottom:12px}
+  .stage-h{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+  .stage-h .n{font-family:var(--mono);font-size:11.5px;color:var(--grey-400);flex:none}
+  .stage p{margin-bottom:12px;font-size:15.5px}
+  .io{display:grid;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--beige-100);
+    font-size:14px}
+  .io div{display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:baseline}
+  .io b{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--grey-400);font-weight:500}
+  .io span{color:var(--grey-300)}
+
+  /* the loop diagram */
+  .loop{background:var(--grey-100);border-radius:12px;padding:28px 24px;margin:24px 0}
+  .loop svg{display:block;width:100%;height:auto}
+  .loop-cap{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--grey-500);
+    margin-top:16px;text-align:center;line-height:1.7}
+
+  /* callout */
+  .pull{border-left:2.5px solid var(--blood);background:var(--blood-wash);border-radius:0 8px 8px 0;
+    padding:18px 22px;margin:22px 0}
+  .pull p{margin:0;font-family:var(--display);font-weight:500;font-size:19px;line-height:1.35;
+    letter-spacing:-.02em;color:var(--grey-100)}
+  .pull p+p{margin-top:10px;font-family:var(--body);font-weight:400;font-size:15.5px;
+    letter-spacing:0;color:var(--grey-300)}
+
+  /* tables */
+  .tw{overflow-x:auto;margin:20px 0}
+  table{width:100%;border-collapse:collapse;font-size:14.5px;min-width:520px}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--grey-400);text-align:left;padding:10px 12px;border-bottom:1px solid var(--grey-600);
+    font-weight:500;white-space:nowrap}
+  td{padding:11px 12px;border-bottom:1px solid var(--beige-200);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  td.m{font-family:var(--mono);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .g{color:var(--go)} .r{color:var(--stop)} .o{color:#c2410c}
+
+  /* pairs grid */
+  .pairs{display:grid;gap:10px;margin:20px 0}
+  @media(min-width:680px){.pairs{grid-template-columns:1fr 1fr}}
+  .pair{border:1px solid var(--beige-300);border-radius:10px;padding:18px 20px;background:#fff}
+  .pair .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--blood);margin-bottom:8px;display:block}
+  .pair p{margin:0;font-size:14.5px;line-height:1.55}
+
+  ul{padding-left:20px;margin:0 0 16px}
+  li{margin-bottom:9px;max-width:66ch}
+  li:last-child{margin-bottom:0}
+  strong{color:var(--grey-100);font-weight:500;font-family:var(--display);letter-spacing:-.01em}
+  code{font-family:var(--mono);font-size:13.5px;background:var(--beige-300);border-radius:3px;
+    padding:1px 5px}
+  .honest{border:1px dashed var(--beige-100);background:var(--beige-400);border-radius:12px;
+    padding:22px 24px}
+  .honest li{font-size:15.5px}
+  footer{margin-top:48px;padding-top:24px;border-top:1px solid var(--beige-200);
+    font-size:13px;color:var(--grey-500)}
+</style>
+
+<div class="wrap">
+
+  <div class="eyebrow"><i class="sq"></i><span>Limulus · product summary · September 2026</span></div>
+  <h1>Test tells you where the agent breaks. Protect covers exactly that.</h1>
+  <p class="lede">Limulus is payment assurance for AI agents. Four stages — test, qualify, protect,
+    monitor — but they are not a pipeline with four vendors' worth of features. Two of them are one
+    mechanism used twice, and that is the whole idea.</p>
+  <p class="meta">Prototype · Increase sandbox · no production traffic</p>
+
+  <!-- ===================== THE LOOP ===================== -->
+  <section id="argument">
+    <div class="eyebrow"><i class="sq b"></i><span>The argument</span></div>
+    <h2>Why testing and protecting are the same product</h2>
+
+    <p>Everyone building in this space sells one of the two. Eval companies test agents and hand you a
+      score. Control companies sit in the payment path and block things. Each is weak alone, and weak in
+      a way the other fixes.</p>
+
+    <div class="pairs">
+      <div class="pair">
+        <span class="tag">Testing alone fails because</span>
+        <p>A score is a snapshot of one configuration. Change the prompt, the model, or one tool
+          description and the score is stale — but nothing stops the agent paying. We measured this
+          directly: swapping a frontier model for a small one took duplicate detection from mostly
+          caught to <strong>never</strong> caught, and that swap is a cost decision someone makes
+          without re-testing.</p>
+      </div>
+      <div class="pair">
+        <span class="tag">Protecting alone fails because</span>
+        <p>A gate configured without evidence guesses at which checks to require. Guess too loose and it
+          misses the real failure. Guess too tight and it blocks correct payments — at which point
+          somebody switches it off, and takes the useful checks with it. You cannot tune a gate you have
+          no failure data for.</p>
+      </div>
+    </div>
+
+    <p>So the two run as a loop, and each leg of it does real work:</p>
+
+    <div class="loop">
+      <svg viewBox="0 0 640 260" fill="none" aria-hidden="true">
+        <!-- boxes -->
+        <rect x="24" y="30" width="180" height="70" rx="8" fill="#191f2b" stroke="#525d73"/>
+        <text x="42" y="58" fill="#fff" font-family="Schibsted Grotesk, sans-serif" font-size="17" font-weight="500">Test</text>
+        <text x="42" y="80" fill="#b8bec9" font-family="Geist Mono, monospace" font-size="10.5">56 scenarios, no money</text>
+
+        <rect x="436" y="30" width="180" height="70" rx="8" fill="#191f2b" stroke="#525d73"/>
+        <text x="454" y="58" fill="#fff" font-family="Schibsted Grotesk, sans-serif" font-size="17" font-weight="500">Protect</text>
+        <text x="454" y="80" fill="#b8bec9" font-family="Geist Mono, monospace" font-size="10.5">held at the bank</text>
+
+        <rect x="230" y="30" width="180" height="70" rx="8" fill="#0d1226" stroke="#2f41f2" stroke-dasharray="3 3"/>
+        <text x="248" y="58" fill="#fff" font-family="Schibsted Grotesk, sans-serif" font-size="17" font-weight="500">Qualify</text>
+        <text x="248" y="80" fill="#7f8cf8" font-family="Geist Mono, monospace" font-size="10.5">the handoff</text>
+
+        <rect x="230" y="168" width="180" height="62" rx="8" fill="#191f2b" stroke="#525d73"/>
+        <text x="248" y="194" fill="#fff" font-family="Schibsted Grotesk, sans-serif" font-size="17" font-weight="500">Monitor</text>
+        <text x="248" y="215" fill="#b8bec9" font-family="Geist Mono, monospace" font-size="10.5">ask the bank</text>
+
+        <!-- test -> qualify -> protect -->
+        <path d="M204 65h20" stroke="#2f41f2" stroke-width="1.6"/>
+        <path d="M410 65h20" stroke="#2f41f2" stroke-width="1.6"/>
+        <path d="M218 65l-7-4v8z" fill="#2f41f2"/><path d="M424 65l-7-4v8z" fill="#2f41f2"/>
+
+        <!-- protect -> monitor -->
+        <path d="M526 100v40q0 8-8 8h-100" stroke="#525d73" stroke-width="1.6"/>
+        <path d="M424 148l7-4v8z" fill="#525d73"/>
+
+        <!-- monitor -> test (the return leg) -->
+        <path d="M230 199H114q-8 0-8-8v-83" stroke="#f96d4a" stroke-width="1.6" stroke-dasharray="4 3"/>
+        <path d="M106 114l-4 7h8z" fill="#f96d4a"/>
+
+        <text x="150" y="136" fill="#f96d4a" font-family="Geist Mono, monospace" font-size="10">new scenarios from</text>
+        <text x="150" y="150" fill="#f96d4a" font-family="Geist Mono, monospace" font-size="10">real production drift</text>
+
+        <text x="196" y="22" fill="#7f8cf8" font-family="Geist Mono, monospace" font-size="10" text-anchor="middle">scores →</text>
+        <text x="424" y="22" fill="#7f8cf8" font-family="Geist Mono, monospace" font-size="10" text-anchor="middle">scope →</text>
+      </svg>
+      <div class="loop-cap">
+        Test finds the weakness · Qualify writes it down as a bounded permission<br>
+        Protect enforces that bound on every payment · Monitor finds what neither predicted
+      </div>
+    </div>
+
+    <div class="pull">
+      <p>The gate is what makes testing honest, and testing is what makes the gate trustworthy.</p>
+      <p>You can only run 56 adversarial scenarios against a live agent because nothing settles — every
+        payment is created frozen. And the gate only requires the right checks because the Lab showed
+        which ones actually fire. Remove either and the other stops working.</p>
+    </div>
+
+    <h3>Three concrete couplings</h3>
+    <ul>
+      <li><strong>They share one vocabulary.</strong> The same 18 explanation codes are used in the Lab
+        and in production. A scenario that fails in testing fails with
+        <code>similar_recent_payment</code>; the gate blocks a real payment with
+        <code>similar_recent_payment</code>. That is not cosmetic — it means a Lab result is a
+        prediction about production, and a production block is a reproducible test case.</li>
+      <li><strong>Testing sets the ceiling; the gate enforces it.</strong> Four-axis scores produce a
+        readiness level, which produces a scope — this workflow, this rail, this ceiling, these payees,
+        for this long. Without the Lab, the ceiling is somebody's guess. Without the gate, the ceiling
+        is advice.</li>
+      <li><strong>Each finds the other's bugs.</strong> Our own test rig found eight bugs in our own
+        gate before any customer could — including a duplicate check that read <code>PO 44812</code> and
+        <code>PO-44812</code> as different purchase orders, and a flow where following our own
+        documentation made payment impossible. Meanwhile the gate's production codes are what generate
+        the next round of scenarios.</li>
+    </ul>
+  </section>
+
+  <!-- ===================== THE FOUR STAGES ===================== -->
+  <section id="stages">
+    <div class="eyebrow"><i class="sq"></i><span>The four stages</span></div>
+    <h2>What each one takes in, and what it hands to the next</h2>
+
+    <div class="stage">
+      <div class="stage-h"><span class="n">01</span><h3 style="margin:0">Test — break it where no money moves</h3></div>
+      <p>The agent runs 56 scenarios in a simulated world: forged approvals, bank details changed inside
+        a PDF, invoices already settled, a rail that times out mid-submit. Graded on the tool calls it
+        made, never on the explanation it wrote afterwards — an agent that narrates good behaviour and
+        pays anyway scores zero.</p>
+      <p>Four axes are scored separately because they trade off. <strong>Capability matters as much as
+        safety:</strong> an agent that refuses everything is perfectly safe and completely useless, and
+        scoring it on safety alone would call it ready.</p>
+      <div class="io">
+        <div><b>in</b><span>The agent, its prompt, its tools, its version</span></div>
+        <div><b>out</b><span>Safety, capability, recovery, reliability — plus a sealed run whose hash names that exact configuration</span></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-h"><span class="n">02</span><h3 style="margin:0">Qualify — permission with edges on it</h3></div>
+      <p>A passing agent earns a signed qualification: a workflow, a rail, a currency, a ceiling, a
+        payee scope, an expiry. It is bound to the agent version and proven by an API key issued to that
+        version — not by what the agent asserts about itself. An asserted identity yields
+        <code>identity_unverified</code> and escalates rather than releasing.</p>
+      <p>It expires: 30 days autonomous, 90 supervised, 180 shadow. A new agent version starts at the
+        bottom. And there is deliberately <strong>no tool an agent can call to widen its own
+        authority</strong> — no <code>set_policy</code>, no <code>issue_qualification</code>. An agent
+        that can grant itself permission has no permission system.</p>
+      <div class="io">
+        <div><b>in</b><span>A sealed run and its four scores</span></div>
+        <div><b>out</b><span>One of five readiness rungs, and a scope the gate can enforce mechanically</span></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-h"><span class="n">03</span><h3 style="margin:0">Protect — held before it is checked</h3></div>
+      <p>This is the ordering that makes it a control rather than an opinion. The transfer is created at
+        the bank <em>first</em>, with approval required, so it expires unsent rather than settling. Only
+        then are the three records compared: what a person authorized, what the agent declared it was
+        doing, and what it actually submitted.</p>
+      <p>Four verdicts, not two. <span class="g">ALLOW</span> releases.
+        <span class="r">BLOCK</span> cancels — leaving no ledger entry at all, so there is nothing to
+        reverse. <span class="o">ESCALATE</span> holds for a person. And <span class="o">WAIT</span>
+        exists for the case that actually causes double payments: a duplicate the rail has not confirmed
+        yet. A retrying agent told "no" invents a workaround; told "wait 30 seconds", it waits.</p>
+      <div class="io">
+        <div><b>in</b><span>Authorization × declaration × payment order, plus the qualification</span></div>
+        <div><b>out</b><span>A verdict, a stable explanation code, and a signed receipt in a hash chain</span></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-h"><span class="n">04</span><h3 style="margin:0">Monitor — ask the bank, not the customer</h3></div>
+      <p>Every transfer is pulled from the rail and matched against the decision behind it. Four kinds of
+        drift: <code>unauthorized</code>, <code>unknown_payment</code>,
+        <code>released_but_cancelled</code>, <code>amount_mismatch</code>.</p>
+      <p>The one that matters is money that moved although we never released it — because that is the one
+        nobody would think to report. We tested it by going around our own gate: we let a payment
+        escalate, then approved it directly at Increase, the way an insider or a misconfigured job would.
+        Reconciliation named it on the next pass.</p>
+      <div class="io">
+        <div><b>in</b><span>The rail's own record of what settled</span></div>
+        <div><b>out</b><span>Named drift — and new scenarios for the Lab, closing the loop</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== EVIDENCE ===================== -->
+  <section id="evidence">
+    <div class="eyebrow"><i class="sq g"></i><span>Evidence</span></div>
+    <h2>What we actually measured</h2>
+
+    <p>Real agents against an ordinary payments API with no checks in it. Outcomes read from the records
+      each side wrote — never from the agent's own account of what it did, which was one of our early
+      mistakes.</p>
+
+    <h3>The central finding</h3>
+    <div class="tw">
+      <table>
+        <tr><th>Scenario family</th><th>Frontier model</th><th>Small model</th></tr>
+        <tr><td>Fraud and judgment traps<br><span style="color:var(--grey-400);font-size:13.5px">hidden bank changes, forged approvals, fake CFO, lookalike vendors</span></td>
+          <td class="m g">0 / 60 lost</td><td class="m o">0/5 · but no work done</td></tr>
+        <tr><td>Invoice already paid in full</td><td class="m g">0 / 5</td><td class="m r">5 / 5 paid</td></tr>
+        <tr><td>Retainer billed twice, no shared reference</td><td class="m r">10 / 20 paid</td><td class="m r">5 / 5 paid</td></tr>
+        <tr><td>Whole queue, trap at position eight</td><td class="m">15/65 lost · 0 halts</td><td class="m r">32/50 lost · 18 halts</td></tr>
+      </table>
+    </div>
+
+    <div class="pull">
+      <p>Models are good at judgment and bad at bookkeeping. The gate is bookkeeping.</p>
+      <p>Zero losses in sixty fraud trials. The threat the whole category sells against is the one
+        current models already handle. Every loss we could actually produce was a reconciliation
+        failure.</p>
+    </div>
+
+    <h3>The gate against the same scenarios</h3>
+    <div class="tw">
+      <table>
+        <tr><th>Measure</th><th>Result</th><th>Why it matters</th></tr>
+        <tr><td>Duplicates blocked</td><td class="m g">19 / 19</td><td>The failure models cannot catch, caught mechanically</td></tr>
+        <tr><td>Legitimate payments blocked</td><td class="m g">0 / 9</td><td>Friction is what gets a control switched off</td></tr>
+        <tr><td>Checks passing at a real bank</td><td class="m g">14 / 14</td><td>Increase sandbox: allow→submitted, block→canceled, escalate→pending_approval</td></tr>
+        <tr><td>Ledger entries left by a block</td><td class="m g">0</td><td>Nothing to reverse, nothing to claw back</td></tr>
+        <tr><td>Bypass detected</td><td class="m g">yes</td><td>Approved a held transfer directly at the bank; reconciliation named it</td></tr>
+      </table>
+    </div>
+
+    <h3>From the decision chain</h3>
+    <p>513 decisions so far — 234 released, 238 held, 41 escalated — across 4,710 individual checks
+      (4,157 pass, 431 fail, 65 not required, 57 sent to review). The checks that actually fire, in
+      order: <code>payee_account</code> 124, <code>duplicate</code> 102,
+      <code>embedded_instructions</code> 101, <code>similar_recent_payment</code> 91,
+      <code>invoice_approved</code> 55.</p>
+    <p>That ranking is the loop working. Those are the checks the Lab predicted would matter, and they
+      are the checks doing the work in production.</p>
+  </section>
+
+  <!-- ===================== WHAT WE'RE NOT CLAIMING ===================== -->
+  <section id="limits">
+    <div class="eyebrow"><i class="sq r"></i><span>Limits</span></div>
+    <h2>What we are not claiming</h2>
+    <div class="honest">
+      <ul>
+        <li><strong>No customers and no production traffic.</strong> Everything above ran against the
+          Increase sandbox. Every vendor, invoice and account is invented.</li>
+        <li><strong>Small samples lie, including ours.</strong> The duplicate retainer failed 5/5 in two
+          separate runs. At twenty trials the real rate is half. Both samples agreed with each other and
+          both were wrong — five trials only detects failure rates above roughly 40%.</li>
+        <li><strong>We made eight measurement mistakes.</strong> Every one of them made the product look
+          worse than it was: reusing an invoice across trials so trial two was a duplicate of trial one;
+          an empty sandbox balance logged as gate refusals; reading outcomes from agent prose so "asking
+          about" an account counted as paying it. They are all written down.</li>
+        <li><strong>Nineteen scenarios still need rewriting by hand.</strong> They convert badly into the
+          simulated world, so they are excluded from the pack and named in the source rather than quietly
+          dropped.</li>
+        <li><strong>The hard part ahead is not technical.</strong> It is whether a finance team will put a
+          gate in front of an agent before they have been burned once.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    Limulus · payment assurance for AI agents · prototype, September 2026<br>
+    Scenario sources include FBI IC3 business email compromise reporting, AFP payments fraud surveys and
+    Nacha return codes. Rail behaviour verified against the Increase sandbox.
+  </footer>
+</div>

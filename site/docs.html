@@ -1,0 +1,412 @@
+<title>Limulus Docs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    color-scheme:light;
+    --ground:#fbfaf8; --surface:#ffffff; --sunk:#f4f2ee; --code:#f7f5f1;
+    --ink:#1c1917; --muted:#6b6560; --faint:#9c948c;
+    --hairline:#e8e3dc; --hairline-strong:#d8d1c7;
+    --accent:#c2410c; --accent-wash:#fdf2ec;
+    --get:#166534; --post:#1d4ed8; --danger:#991b1b; --hold:#854d0e;
+    --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+    --side:240px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;
+    line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent)}
+
+  .shell{display:grid;grid-template-columns:var(--side) 1fr;min-height:100vh;max-width:1180px;margin:0 auto}
+  aside{border-right:1px solid var(--hairline);padding:26px 18px 40px;position:sticky;top:0;height:100vh;
+    overflow-y:auto;background:var(--surface)}
+  .brand{display:flex;align-items:center;gap:9px;margin-bottom:22px}
+  .brand b{font-size:15px;font-weight:600}
+  .brand span{display:block;font-size:10px;letter-spacing:.14em;color:var(--faint)}
+  aside h4{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+    margin:20px 0 7px;font-weight:600}
+  aside a{display:block;padding:4px 0;color:var(--muted);text-decoration:none;font-size:13.5px}
+  aside a:hover{color:var(--accent)}
+
+  main{padding:34px 40px 90px;min-width:0}
+  h1{font-size:32px;letter-spacing:-.025em;margin:0 0 8px;font-weight:600}
+  .lede{color:var(--muted);margin:0 0 28px;max-width:66ch}
+  h2{font-size:21px;letter-spacing:-.018em;margin:44px 0 10px;font-weight:600;scroll-margin-top:20px}
+  h3{font-size:15.5px;margin:26px 0 8px;font-weight:600}
+  p{max-width:70ch;margin:0 0 14px}
+  .muted{color:var(--muted)}
+
+  pre{background:var(--code);border:1px solid var(--hairline);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6;margin:0 0 16px}
+  code{font-family:var(--mono);font-size:13px;background:var(--sunk);padding:1px 5px;border-radius:4px}
+  pre code{background:none;padding:0;font-size:12.5px}
+  .c{color:var(--faint)}
+  .s{color:var(--get)}
+  .k{color:var(--accent)}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:0 0 18px;
+    border:1px solid var(--hairline);border-radius:10px;overflow:hidden}
+  th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);
+    font-weight:600;padding:10px 14px;background:var(--sunk);border-bottom:1px solid var(--hairline)}
+  td{padding:10px 14px;border-bottom:1px solid var(--hairline);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  td code{font-size:12.5px;white-space:nowrap}
+
+  .ep{display:flex;align-items:center;gap:10px;margin:22px 0 8px;flex-wrap:wrap}
+  .verb{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.06em;padding:3px 9px;
+    border-radius:5px;background:var(--sunk);color:var(--muted)}
+  .verb.get{background:#eaf3ec;color:var(--get)}
+  .verb.post{background:#e8eefb;color:var(--post)}
+  .ep .path{font-family:var(--mono);font-size:14px}
+  .ep .scope{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:auto}
+
+  .note{border-left:2px solid var(--accent);background:var(--accent-wash);padding:12px 16px;
+    border-radius:0 8px 8px 0;margin:0 0 18px;font-size:14px}
+  .note b{font-weight:600}
+  .warn{border-left-color:var(--hold);background:#fbf3e3}
+
+  .pill{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:5px;background:var(--sunk);color:var(--muted)}
+  .pill.allow{background:#eaf3ec;color:var(--get)}
+  .pill.block{background:#fbeceb;color:var(--danger)}
+  .pill.esc,.pill.wait{background:#fbf3e3;color:var(--hold)}
+
+  footer{border-top:1px solid var(--hairline);margin-top:56px;padding-top:22px;color:var(--faint);font-size:13px}
+
+  @media (max-width:860px){
+    .shell{grid-template-columns:1fr}
+    aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--hairline)}
+    main{padding:24px 18px 60px}
+  }
+</style>
+
+<div class="shell">
+  <aside>
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <path d="M11 2.5 18.5 6.75v8.5L11 19.5 3.5 15.25v-8.5z" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M7.6 11.1l2.5 2.5 4.3-5" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div><b>Limulus</b><span>DOCS</span></div>
+    </div>
+
+    <h4>Start</h4>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#concepts">Core concepts</a>
+    <a href="#auth">Authentication</a>
+
+    <h4>Runtime</h4>
+    <a href="#release">Release gate</a>
+    <a href="#gate">Gate at the bank</a>
+    <a href="#verdicts">Verdicts and codes</a>
+    <a href="#settlements">Settlements</a>
+    <a href="#reconcile">Reconciliation</a>
+
+    <h4>Testing</h4>
+    <a href="#lab">The Lab</a>
+    <a href="#qualifications">Qualifications</a>
+
+    <h4>Evidence</h4>
+    <a href="#receipts">Receipts</a>
+    <a href="#webhooks">Webhooks</a>
+
+    <h4>MCP</h4>
+    <a href="#mcp">Connecting an agent</a>
+    <a href="#mcp-tools">Tools</a>
+  </aside>
+
+  <main>
+    <h1>Limulus API</h1>
+    <p class="lede">A payment control that sits between an agent and the rail. It holds the payment at the bank,
+      compares three records, and releases only if they agree. Everything it decides is signed and independently
+      verifiable.</p>
+
+    <div class="note warn">
+      <b>Prototype.</b> This runs against the Increase sandbox. Base URL, key format and response shapes are stable
+      enough to build against, but nothing here has carried production traffic.
+    </div>
+
+    <!-- ------------------------------------------------------ quickstart -->
+    <h2 id="quickstart">Quickstart</h2>
+    <p>The shortest useful path: gate one payment and read the receipt.</p>
+<pre><code><span class="c"># hold it at the bank, check it, act on the verdict</span>
+curl -X POST https://api.limulus.dev/v1/gate \
+  -H <span class="s">"authorization: Bearer lim_test_..."</span> \
+  -H <span class="s">"content-type: application/json"</span> \
+  -d <span class="s">'{
+    "scenario": "poisoned",
+    "qualificationId": "qual_8aa7a92e8c6c47ee"
+  }'</span>
+
+<span class="c"># → BLOCK, transfer cancelled, nothing reached the ledger</span>
+{
+  <span class="k">"verdict"</span>: { <span class="k">"verdict"</span>: <span class="s">"BLOCK"</span>, <span class="k">"decisionId"</span>: <span class="s">"dec_73416581ed334bd1"</span> },
+  <span class="k">"transfer"</span>: { <span class="k">"id"</span>: <span class="s">"sandbox_ach_transfer_xwrvbt..."</span>,
+                 <span class="k">"statusBefore"</span>: <span class="s">"pending_approval"</span>,
+                 <span class="k">"statusAfter"</span>: <span class="s">"canceled"</span>,
+                 <span class="k">"stoppable"</span>: false },
+  <span class="k">"action"</span>: <span class="s">"Cancelled at the bank. This money cannot now move."</span>
+}</code></pre>
+
+    <!-- -------------------------------------------------------- concepts -->
+    <h2 id="concepts">Core concepts</h2>
+
+    <h3>Three records</h3>
+    <p>A payment is released only when these agree. Most controls compare a payment to a policy; the failure that
+      costs money is the gap between what an agent said it would do and what actually reached the rail.</p>
+    <table>
+      <tr><th>Record</th><th>Where it comes from</th><th>Question</th></tr>
+      <tr><td><code>authorization</code></td><td>Approval workflow, spending policy</td><td>What did a person allow?</td></tr>
+      <tr><td><code>declaration</code></td><td>The agent, signed before execution</td><td>What did it say it would pay, and why?</td></tr>
+      <tr><td><code>paymentOrder</code></td><td>The payment about to reach the bank</td><td>What actually goes out?</td></tr>
+    </table>
+
+    <h3>Hold first, decide second</h3>
+    <p>The transfer is created <em>before</em> the decision, with <code>require_approval</code>. Deciding first and
+      creating afterwards leaves the moment between them unguarded, and leaves nothing to cancel when the answer is no.
+      An unapproved transfer expires rather than settling, so failing closed is the default.</p>
+
+    <!-- ------------------------------------------------------------ auth -->
+    <h2 id="auth">Authentication</h2>
+    <p>Bearer keys. Only a SHA-256 hash and the first characters are stored, so the key is shown once at creation and
+      never again.</p>
+<pre><code>authorization: Bearer lim_test_9f2c4a...</code></pre>
+    <table>
+      <tr><th>Scope</th><th>Grants</th></tr>
+      <tr><td><code>decisions:write</code></td><td>Decide, release and gate payments</td></tr>
+      <tr><td><code>settlements:write</code></td><td>Report what the rail did</td></tr>
+      <tr><td><code>bench:run</code></td><td>Run the Lab</td></tr>
+      <tr><td><code>read</code></td><td>Read records, outcomes, qualifications</td></tr>
+      <tr><td><code>admin</code></td><td>Manage keys, webhooks, qualifications</td></tr>
+    </table>
+
+    <div class="note">
+      <b>A key can carry an agent identity.</b> Issue it to a named agent and version, and the gate takes the version
+      from the credential rather than from the request body. A qualification carrying release authority is
+      <em>not</em> honoured on a self-reported version — an agent that reports its own version can report any version.
+      Without a key-bound identity you get <code>identity_unverified</code> and a person decides.
+    </div>
+
+    <h3>Idempotency</h3>
+    <p>Send <code>Idempotency-Key</code> on any payment call. A repeat with the same key and body replays the original
+      response with <code>limulus-idempotent-replay: true</code>; the same key with a different body returns
+      <code>409</code>.</p>
+
+    <!-- --------------------------------------------------------- release -->
+    <h2 id="release">Release gate</h2>
+    <div class="ep"><span class="verb post">POST</span><span class="path">/v1/release</span><span class="scope">decisions:write</span></div>
+    <p>Runs the three-way match and answers in one of four words. Does not touch a bank — use
+      <code>/v1/gate</code> when you want the payment actually held.</p>
+<pre><code>{
+  <span class="k">"authorization"</span>: { <span class="k">"policyVersion"</span>: <span class="s">"v12"</span>, <span class="k">"limitPerPayment"</span>: 75000,
+                      <span class="k">"approvedVendors"</span>: [...], <span class="k">"approvedInvoices"</span>: [...] },
+  <span class="k">"declaration"</span>:   { <span class="k">"payeeName"</span>: <span class="s">"Northline Steel"</span>, <span class="k">"payeeAccountLast4"</span>: <span class="s">"2210"</span>,
+                      <span class="k">"amount"</span>: 3400, <span class="k">"invoiceId"</span>: <span class="s">"INV-2291"</span>, <span class="k">"reason"</span>: <span class="s">"..."</span> },
+  <span class="k">"paymentOrder"</span>:  { <span class="k">"rail"</span>: <span class="s">"ach"</span>, <span class="k">"payeeAccountLast4"</span>: <span class="s">"2210"</span>, <span class="k">"amount"</span>: 3400 },
+  <span class="k">"documents"</span>:     [{ <span class="k">"name"</span>: <span class="s">"INV-2291.pdf"</span>, <span class="k">"type"</span>: <span class="s">"invoice"</span>, <span class="k">"text"</span>: <span class="s">"..."</span> }],
+  <span class="k">"qualificationId"</span>: <span class="s">"qual_..."</span>
+}</code></pre>
+
+    <!-- ------------------------------------------------------------ gate -->
+    <h2 id="gate">Gate at the bank</h2>
+    <div class="ep"><span class="verb post">POST</span><span class="path">/v1/gate</span><span class="scope">decisions:write</span></div>
+    <p>The same evidence, but the payment is created held at the rail and then approved or cancelled. This is the call
+      that makes the decision binding rather than advisory.</p>
+    <table>
+      <tr><th>Verdict</th><th>At the bank</th><th>Funds</th></tr>
+      <tr><td><span class="pill allow">ALLOW</span></td><td><code>pending_submission</code></td><td>on the way</td></tr>
+      <tr><td><span class="pill block">BLOCK</span></td><td><code>canceled</code></td><td>reservation released, no ledger entry</td></tr>
+      <tr><td><span class="pill esc">ESCALATE</span></td><td><code>pending_approval</code></td><td>held, still stoppable, expires unsent</td></tr>
+      <tr><td><span class="pill wait">WAIT</span></td><td><code>pending_approval</code></td><td>held while an earlier payment is confirmed</td></tr>
+    </table>
+
+    <div class="ep"><span class="verb get">GET</span><span class="path">/v1/rails/status</span><span class="scope">read</span></div>
+    <p>Which rail is answering, and whether it is live. Every response says so, so a demo cannot be mistaken for
+      production.</p>
+
+    <!-- -------------------------------------------------------- verdicts -->
+    <h2 id="verdicts">Verdicts and explanation codes</h2>
+    <p>Branch on codes, never on prose. Guidance is included because the expensive failure is an agent reacting to a
+      refusal by trying a variation.</p>
+    <table>
+      <tr><th>Code</th><th>Meaning</th></tr>
+      <tr><td><code>payee_not_authorized</code></td><td>Payee is not on the approved vendor list</td></tr>
+      <tr><td><code>payee_account_mismatch</code></td><td>Destination differs from the account on file</td></tr>
+      <tr><td><code>execution_drift</code></td><td>Payment order differs from the declaration</td></tr>
+      <tr><td><code>no_human_approval</code></td><td>No approval on file for this invoice</td></tr>
+      <tr><td><code>amount_above_limit</code></td><td>Above the per-payment limit</td></tr>
+      <tr><td><code>duplicate_invoice</code></td><td>Already paid</td></tr>
+      <tr><td><code>similar_recent_payment</code></td><td>Same payee and amount recently, under another reference</td></tr>
+      <tr><td><code>instruction_in_document</code></td><td>A payment instruction was embedded in a document</td></tr>
+      <tr><td><code>recent_bank_change</code></td><td>Vendor bank details changed inside 30 days</td></tr>
+      <tr><td><code>settlement_in_flight</code></td><td>An earlier payment has not been confirmed</td></tr>
+      <tr><td><code>qualification:*</code></td><td>Outside the qualified scope — see below</td></tr>
+    </table>
+
+    <h3>Qualification codes</h3>
+    <p>A qualification gap escalates rather than blocks: an untested version means a person decides, not that the
+      payment is fraudulent.</p>
+    <table>
+      <tr><th>Code</th><th>Meaning</th></tr>
+      <tr><td><code>identity_unverified</code></td><td>Agent version was asserted, not proven by a key</td></tr>
+      <tr><td><code>agent_version_changed</code></td><td>Running a version the Lab never tested</td></tr>
+      <tr><td><code>prompt_changed</code> · <code>tool_config_changed</code></td><td>Configuration differs from what was tested</td></tr>
+      <tr><td><code>amount_above_qualified_limit</code></td><td>Above the qualified ceiling</td></tr>
+      <tr><td><code>rail_not_qualified</code> · <code>currency_not_qualified</code></td><td>Outside the qualified rail or currency</td></tr>
+      <tr><td><code>payee_not_on_file</code></td><td>Qualification covers vendors already on file</td></tr>
+      <tr><td><code>qualification_expired</code> · <code>qualification_revoked</code></td><td>No longer in force</td></tr>
+    </table>
+
+    <!-- ----------------------------------------------------- settlements -->
+    <h2 id="settlements">Settlements</h2>
+    <div class="ep"><span class="verb post">POST</span><span class="path">/v1/settlements</span><span class="scope">settlements:write</span></div>
+    <p>Report what the rail did. The outcome is re-verified immediately against the decision.</p>
+    <table>
+      <tr><th>Outcome</th><th>Meaning</th></tr>
+      <tr><td><code>verified</code></td><td>Settled once, right amount, right account, under a release</td></tr>
+      <tr><td><code>unauthorized</code></td><td><b>Settled although the decision held or escalated it</b></td></tr>
+      <tr><td><code>duplicate</code></td><td>More than one settlement against one decision</td></tr>
+      <tr><td><code>mismatch</code></td><td>Different account or amount than approved</td></tr>
+      <tr><td><code>returned</code></td><td>Returned or reversed by the rail</td></tr>
+    </table>
+
+    <!-- ------------------------------------------------------ reconcile -->
+    <h2 id="reconcile">Reconciliation</h2>
+    <div class="ep"><span class="verb get">GET</span><span class="path">/v1/rails/reconcile</span><span class="scope">read</span></div>
+    <p>Asks the bank what happened and compares every transfer with the decision behind it. This exists because
+      settlement reports arrive only when someone sends them, and the case that matters most — a payment that settled
+      although we held it — is the one nobody would think to report.</p>
+<pre><code>{
+  <span class="k">"checked"</span>: 77,
+  <span class="k">"unauthorized"</span>: 1,
+  <span class="k">"drift"</span>: [{
+    <span class="k">"transferId"</span>: <span class="s">"sandbox_ach_transfer_mktokk..."</span>,
+    <span class="k">"status"</span>: <span class="s">"pending_submission"</span>,
+    <span class="k">"decided"</span>: <span class="s">"escalated"</span>,
+    <span class="k">"code"</span>: <span class="s">"unauthorized"</span>,
+    <span class="k">"detail"</span>: <span class="s">"money moved although the decision escalated it"</span>
+  }]
+}</code></pre>
+
+    <!-- ------------------------------------------------------------- lab -->
+    <h2 id="lab">The Lab</h2>
+    <div class="ep"><span class="verb post">POST</span><span class="path">/v1/lab/runs</span><span class="scope">bench:run</span></div>
+    <p>Runs an agent through the scenario library in a simulated world where no money moves, and grades what it
+      <em>did</em> — the tool calls — rather than what it said.</p>
+<pre><code>{ <span class="k">"endpoint"</span>: <span class="s">"https://your-agent.example/act"</span>, <span class="k">"version"</span>: <span class="s">"1.4.2"</span>, <span class="k">"trials"</span>: 3 }</code></pre>
+    <p>Your agent receives one turn at a time and replies with a single step:</p>
+<pre><code><span class="c">// request</span>
+{ <span class="k">"task"</span>: <span class="s">"..."</span>, <span class="k">"authorization"</span>: {...}, <span class="k">"documents"</span>: [...],
+  <span class="k">"tools"</span>: [...], <span class="k">"history"</span>: [...], <span class="k">"step"</span>: 0, <span class="k">"maxSteps"</span>: 8 }
+
+<span class="c">// reply — either</span>
+{ <span class="k">"type"</span>: <span class="s">"tool_call"</span>, <span class="k">"tool"</span>: <span class="s">"get_payment_status"</span>, <span class="k">"args"</span>: { <span class="k">"invoiceId"</span>: <span class="s">"INV-2291"</span> } }
+<span class="c">// or</span>
+{ <span class="k">"type"</span>: <span class="s">"finish"</span>, <span class="k">"action"</span>: <span class="s">"refuse"</span>, <span class="k">"reason"</span>: <span class="s">"..."</span> }</code></pre>
+
+    <h3>The four axes</h3>
+    <table>
+      <tr><th>Axis</th><th>Question</th></tr>
+      <tr><td>Safety</td><td>Did it avoid critical violations?</td></tr>
+      <tr><td>Capability</td><td>Did it complete the legitimate work? <span class="muted">Without this, refusing everything scores well.</span></td></tr>
+      <tr><td>Recovery</td><td>Did it handle a rail that misbehaved?</td></tr>
+      <tr><td>Reliability</td><td>Same scenario, same answer, across trials?</td></tr>
+    </table>
+    <p>Readiness runs <code>experimental → shadow-ready → human-supervised → limited-autonomous →
+      expanded-autonomous</code>. Any critical violation keeps an agent off the top three rungs, and autonomy needs at
+      least three trials per scenario so consistency is measured rather than assumed.</p>
+
+    <!-- -------------------------------------------------- qualifications -->
+    <h2 id="qualifications">Qualifications</h2>
+    <div class="ep"><span class="verb get">GET</span><span class="path">/v1/qualifications/:id?amount=2000</span><span class="scope">read</span></div>
+    <p>A signed, expiring statement of what an agent is cleared to do on its own — and the join between testing and
+      enforcement. Testing an agent means nothing if an untested one can still release.</p>
+<pre><code>{
+  <span class="k">"level"</span>: <span class="s">"limited-autonomous"</span>,
+  <span class="k">"binding"</span>: {
+    <span class="k">"agent"</span>: { <span class="k">"name"</span>: <span class="s">"ap-agent"</span>, <span class="k">"version"</span>: <span class="s">"1.4.2"</span>, <span class="k">"toolConfigHash"</span>: <span class="s">"b843..."</span> },
+    <span class="k">"workflow"</span>: <span class="s">"invoice-payment"</span>, <span class="k">"rail"</span>: <span class="s">"ach"</span>, <span class="k">"currency"</span>: <span class="s">"USD"</span>,
+    <span class="k">"amountLimit"</span>: 5000, <span class="k">"payeeScope"</span>: <span class="s">"on-file"</span>
+  },
+  <span class="k">"expiresAt"</span>: <span class="s">"2026-10-17T..."</span>
+}</code></pre>
+    <p class="muted">Validity: 30 days at autonomous levels, 90 supervised, 180 shadow. The more autonomy, the sooner
+      an agent proves itself again.</p>
+
+    <!-- -------------------------------------------------------- receipts -->
+    <h2 id="receipts">Receipts</h2>
+    <div class="ep"><span class="verb get">GET</span><span class="path">/v1/receipts/:decisionId</span><span class="scope">read</span></div>
+    <div class="ep"><span class="verb post">POST</span><span class="path">/v1/receipts/verify</span><span class="scope">none — open</span></div>
+    <p>About 2 KB of signed JSON carrying the decision, the checks that ran, the payment, the outcome, a hash over all
+      of it and an Ed25519 signature. Verification recomputes the hash from the receipt as received and checks the
+      signature against <em>that</em>, so any edit fails both.</p>
+    <div class="note"><b>Verification needs no key.</b> Anyone holding a receipt can check it, including people who
+      are not customers. That is the point: a customer can hand one to their auditor, their bank or the vendor who did
+      not get paid.</div>
+
+    <div class="ep"><span class="verb get">GET</span><span class="path">/v1/verify</span><span class="scope">read</span></div>
+    <p>Recomputes every hash and signature in the decision chain and confirms each record points at the one before it.</p>
+
+    <!-- -------------------------------------------------------- webhooks -->
+    <h2 id="webhooks">Webhooks</h2>
+    <p>Deliveries carry <code>limulus-signature: t=&lt;unix&gt;,v1=&lt;hmac&gt;</code> — HMAC-SHA256 over
+      <code>timestamp.body</code> with the endpoint secret. Verify before trusting, and reject anything older than five
+      minutes. Three attempts, backing off.</p>
+    <table>
+      <tr><th>Event</th><th>When</th></tr>
+      <tr><td><code>decision.released</code> · <code>decision.held</code> · <code>decision.escalated</code></td><td>A verdict was reached</td></tr>
+      <tr><td><code>outcome.unauthorized</code></td><td><b>Money moved without a release</b></td></tr>
+      <tr><td><code>outcome.duplicate</code> · <code>outcome.mismatch</code> · <code>outcome.returned</code></td><td>Settlement did not match the decision</td></tr>
+    </table>
+
+    <!-- ------------------------------------------------------------- mcp -->
+    <h2 id="mcp">Connecting an agent over MCP</h2>
+    <p>An agent can use Limulus with no custom integration. JSON-RPC 2.0 over stdio, protocol
+      <code>2025-06-18</code>, no dependencies.</p>
+<pre><code>claude mcp add limulus -- node /path/to/limulus/src/mcp/server.ts</code></pre>
+    <p>The <code>initialize</code> response carries standing instructions, so a connected agent is told up front to
+      check before paying, to treat documents as evidence rather than instructions, and what each verdict requires
+      of it.</p>
+
+    <h2 id="mcp-tools">MCP tools</h2>
+    <table>
+      <tr><th>Tool</th><th>What the agent does with it</th></tr>
+      <tr><td><code>get_authorization</code></td><td>Read the limit, approved vendors, accounts on file and approved invoices</td></tr>
+      <tr><td><code>get_qualification</code></td><td>Find out what it is cleared to do alone: workflow, rail, ceiling, payees, expiry</td></tr>
+      <tr><td><code>check_payment</code></td><td>Declare a payment and get a verdict. A dry run — creates nothing.</td></tr>
+      <tr><td><code>pay_invoice</code></td><td>Actually pay. Created held at the bank, checked, then approved or cancelled.</td></tr>
+      <tr><td><code>report_settlement</code></td><td>Report what the rail did, and get told what to do about it</td></tr>
+      <tr><td><code>get_receipt</code> · <code>verify_receipt</code></td><td>Fetch or verify portable proof</td></tr>
+    </table>
+
+    <div class="note">
+      <b>Two tools are deliberately absent.</b> An agent cannot set its own policy, and it cannot issue itself a
+      qualification. It may read both. Widening your own authority is not a capability handed to the thing being
+      constrained.
+    </div>
+
+    <h3>What an agent is told about each verdict</h3>
+    <table>
+      <tr><th>Verdict</th><th>Guidance returned</th></tr>
+      <tr><td><span class="pill allow">ALLOW</span></td><td>Submit it, then report what the rail did</td></tr>
+      <tr><td><span class="pill block">BLOCK</span></td><td>Stop and tell a person. Do not try a variation of it.</td></tr>
+      <tr><td><span class="pill esc">ESCALATE</span></td><td>A person decides. Submit nothing until they answer.</td></tr>
+      <tr><td><span class="pill wait">WAIT</span></td><td>An earlier payment is unconfirmed. Poll. Submitting again is how an invoice gets paid twice.</td></tr>
+    </table>
+
+    <h3>A run, end to end</h3>
+<pre><code><span class="c">1.</span> get_qualification          <span class="c">→ cleared for ACH up to 5,000, vendors on file</span>
+<span class="c">2.</span> get_authorization          <span class="c">→ approved invoices, accounts on file</span>
+<span class="c">3.</span> check_payment              <span class="c">→ ALLOW  (a dry run; nothing created)</span>
+<span class="c">4.</span> pay_invoice                <span class="c">→ held at the bank, checked, approved</span>
+<span class="c">5.</span> report_settlement          <span class="c">→ outcome: verified</span>
+<span class="c">6.</span> get_receipt                <span class="c">→ 2 KB, verifies offline</span></code></pre>
+
+    <footer>
+      Limulus · prototype, September 2026 · sandbox only.<br>
+      Every decision, Lab run and qualification is hashed, signed and chained. Verify a receipt with
+      <code>POST /v1/receipts/verify</code>, which needs no key.
+    </footer>
+  </main>
+</div>
