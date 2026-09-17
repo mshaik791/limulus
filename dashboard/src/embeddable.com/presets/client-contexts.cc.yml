@@ -1,14 +1,33 @@
 # Client Context is front-facing info that can be used to customize the embeddable
 # experience. Common examples include language and currency. Note that this file is only
 # used by the builder. See https://docs.embeddable.com/development/client-context
-- name: 1. Light Theme
+#
+# The canvas background is the page behind the cards — it is the host app's CSS
+# in a real embed, and this preset only in the builder. It is set to match the
+# site so what we see here is what a customer sees.
+
+- name: 1. Limulus Light
+  clientContext:
+    theme: "limulus"
+  canvas:
+    background: "#ffffff"
+
+- name: 2. Limulus Dark
+  clientContext:
+    theme: "limulus-dark"
+  canvas:
+    background: "#090c1b"
+
+# Kept because host apps pass these keys at embed time. Both resolve to the
+# Limulus variants, so an embed that was wired before the rebrand keeps working.
+- name: 3. Light Theme (alias)
   clientContext:
     theme: "light"
   canvas:
-    background: "#fff"
+    background: "#ffffff"
 
-- name: 2. Dark Theme
+- name: 4. Dark Theme (alias)
   clientContext:
     theme: "dark"
   canvas:
-    background: "#000"
+    background: "#090c1b"
