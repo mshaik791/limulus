@@ -21,6 +21,7 @@ import { readLabRuns, readTraces, runSuite, verifyLabRun } from "./sandbox/lab.t
 import { referenceToolAgents } from "./sandbox/agents.ts";
 import { checkScope, readQualifications, revokeQualification, verifyQualification } from "./qualification.ts";
 import { addEndpoint, emit, listEndpoints, readDeliveries, removeEndpoint } from "./webhooks.ts";
+import { actOnDecision, ApprovalError, pendingQueue, readApprovals, resolvedQueue } from "./approval.ts";
 import type { DecisionRequest } from "./types.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -411,6 +412,52 @@ const server = createServer(async (req, res) => {
         200,
         Object.entries(scenarios).map(([key, s]) => ({ key, title: s.title })),
       );
+    }
+
+    // ---- the human half of the gate -------------------------------------
+    // ESCALATE is only worth having if a person can answer it. These three
+    // endpoints are what turn a verdict into a decision somebody made.
+
+    if (path === "/v1/queue" && req.method === "GET") {
+      const pending = pendingQueue();
+      return json(res, 200, {
+        pending: pending.length,
+        awaiting: pending,
+        recentlyResolved: resolvedQueue(25),
+      });
+    }
+
+    if (path === "/v1/approvals" && req.method === "GET") {
+      const approvals = readApprovals();
+      return json(res, 200, { count: approvals.length, approvals: approvals.slice(-50).reverse() });
+    }
+
+    // POST /v1/decisions/<id>/approve | /reject
+    if (path.startsWith("/v1/decisions/") && req.method === "POST") {
+      const parts = path.split("/").filter(Boolean); // v1, decisions, <id>, <verb>
+      const decisionId = parts[2];
+      const verb = parts[3];
+
+      if (verb !== "approve" && verb !== "reject") {
+        return json(res, 404, { error: "Use /v1/decisions/<id>/approve or /v1/decisions/<id>/reject" });
+      }
+
+      const body = (await readBody(req)) as { approvedBy?: string; note?: string };
+      try {
+        const record = await actOnDecision(
+          decisionId,
+          verb === "approve" ? "approved" : "rejected",
+          body.approvedBy ?? "",
+          body.note,
+        );
+        emit(verb === "approve" ? "approval.approved" : "approval.rejected", record);
+        return json(res, 200, record);
+      } catch (error) {
+        if (error instanceof ApprovalError) {
+          return json(res, error.status, { error: error.message, code: error.code });
+        }
+        throw error;
+      }
     }
 
     if (path === "/v1/records") {

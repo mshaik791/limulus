@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Limulus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+<style>
+  /* The operator console.
+   *
+   * Shell borrowed from the shape of app.getbluejay.ai: the whole app is a
+   * rounded card floating on a gradient ground, with a quiet sidebar grouped
+   * under small-caps section labels. The palette is ours — the wallpaper is a
+   * wash of the brand blue rather than their purple, and colour still only
+   * ever means a state.
+   *
+   * Everything here talks to the real API on this origin. The Approve button
+   * moves money at Increase. */
+  :root{
+    --beige-100:#d2cdc6; --beige-200:#edebe8; --beige-300:#f4f2f1; --beige-400:#f8f7f6;
+    --ink-900:#090c1b; --ink-800:#191f2b; --ink-700:#262e41; --ink-500:#525d73;
+    --ink-400:#666e81; --ink-300:#b8bec9; --line:#e9e9e6;
+    --blood:#2f41f2; --blood-wash:#eef0fe; --blood-300:#7f8cf8;
+    --stop:#e40014; --stop-text:#c10011; --stop-wash:#fdebec;
+    --hold:#f96d4a; --hold-text:#c2410c; --hold-wash:#fef1ed;
+    --go:#1b695c; --go-wash:#e8f6f3;
+    --display:"Schibsted Grotesk",-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --body:"Inter",-apple-system,"Segoe UI",Arial,sans-serif;
+    --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+    --r:12px; --r-sm:8px;
+    --ease:cubic-bezier(.4,0,.2,1);
+    --shadow:0 1px 2px rgba(9,12,27,.04), 0 8px 24px -12px rgba(9,12,27,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;font-family:var(--body);font-size:14px;color:var(--ink-700);
+    -webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(1100px 700px at 12% -10%, #dfe4fd 0%, transparent 60%),
+      radial-gradient(900px 600px at 95% 8%, #e6f5f1 0%, transparent 55%),
+      radial-gradient(700px 500px at 60% 105%, #f6ecff 0%, transparent 60%),
+      #eef0f4;
+  }
+  button,input,textarea,select{font:inherit;color:inherit}
+  h1,h2,h3,h4{font-family:var(--display);font-weight:600;margin:0;letter-spacing:-.02em}
+
+  /* ---------------- shell ---------------- */
+  .shell{
+    position:fixed;inset:14px;display:grid;grid-template-columns:268px 1fr;
+    background:#fff;border-radius:18px;overflow:hidden;box-shadow:var(--shadow);
+    border:1px solid rgba(255,255,255,.7);
+  }
+  @media(max-width:900px){ .shell{grid-template-columns:1fr} .side{display:none} }
+
+  /* ---------------- sidebar ---------------- */
+  .side{border-right:1px solid var(--line);display:flex;flex-direction:column;background:#fff;min-height:0}
+  .brand{display:flex;align-items:center;gap:9px;padding:20px 20px 16px;
+    font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:-.04em;color:var(--ink-900)}
+  .switch{margin:0 14px 14px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;
+    display:flex;align-items:center;gap:10px;cursor:default;background:#fff}
+  .switch .sw-dot{width:15px;height:15px;border-radius:4px;background:var(--blood);flex:none}
+  .switch .sw-t{font-weight:600;font-size:13.5px;color:var(--ink-900)}
+  .switch .sw-s{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-400)}
+  .nav{flex:1;overflow-y:auto;padding:4px 10px 18px}
+  .nav h5{font-family:var(--display);font-size:11.5px;font-weight:600;letter-spacing:.02em;
+    text-transform:none;color:var(--ink-400);margin:16px 0 6px;padding-inline:10px}
+  .nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;
+    color:var(--ink-700);text-decoration:none;font-size:13.5px;font-weight:500;
+    transition:background .15s var(--ease)}
+  .nav a:hover{background:var(--beige-400)}
+  .nav a.on{background:var(--beige-300);color:var(--ink-900)}
+  .nav a svg{flex:none;opacity:.7}
+  .nav a.on svg{opacity:1}
+  .nav .badge{margin-left:auto;font-family:var(--mono);font-size:10px;background:var(--blood);
+    color:#fff;border-radius:99px;padding:2px 7px;min-width:20px;text-align:center}
+  .nav a.soon{opacity:.45;pointer-events:none}
+  .side-foot{border-top:1px solid var(--line);padding:12px 20px;font-family:var(--mono);
+    font-size:10.5px;color:var(--ink-400);display:flex;justify-content:space-between;gap:8px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-300);display:inline-block}
+  .dot.live{background:var(--go)}
+
+  /* ---------------- main ---------------- */
+  .main{display:flex;flex-direction:column;min-width:0;min-height:0;background:#fcfcfb}
+  .top{display:flex;align-items:center;gap:14px;padding:18px 24px;border-bottom:1px solid var(--line);
+    background:#fff}
+  .top .chip{width:30px;height:30px;border-radius:9px;background:var(--blood-wash);color:var(--blood);
+    display:grid;place-items:center;flex:none}
+  .top h1{font-size:19px}
+  .top .sub{font-size:12.5px;color:var(--ink-400);margin-top:1px}
+  .top .actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .btn{display:inline-flex;align-items:center;gap:7px;border-radius:8px;padding:8px 13px;
+    border:1px solid var(--line);background:#fff;font-weight:600;font-size:13px;cursor:pointer;
+    transition:.15s var(--ease);font-family:var(--display);letter-spacing:-.01em}
+  .btn:hover{background:var(--beige-400)}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:var(--blood);border-color:var(--blood);color:#fff}
+  .btn.primary:hover{background:#2334d8}
+  .btn.danger{background:#fff;border-color:var(--stop);color:var(--stop-text)}
+  .btn.danger:hover{background:var(--stop-wash)}
+  .btn:disabled{opacity:.5;cursor:default;transform:none}
+  .filters{display:flex;align-items:center;gap:8px;padding:14px 24px;border-bottom:1px solid var(--line);
+    background:#fff;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border:0;background:#fff;padding:7px 13px;font-size:12.5px;font-weight:500;cursor:pointer;
+    color:var(--ink-500);border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:0}
+  .seg button.on{background:var(--ink-900);color:#fff}
+  .spacer{flex:1}
+  .body{flex:1;overflow-y:auto;padding:20px 24px 28px;min-height:0}
+
+  /* ---------------- stat row ---------------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:15px 17px}
+  .stat .l{font-size:12px;color:var(--ink-400);margin-bottom:7px}
+  .stat .v{font-family:var(--display);font-weight:600;font-size:29px;letter-spacing:-.04em;
+    line-height:1;color:var(--ink-900);font-variant-numeric:tabular-nums}
+  .stat.go .v{color:var(--go)} .stat.hold .v{color:var(--hold-text)} .stat.stop .v{color:var(--stop-text)}
+  .stat .s{font-size:11.5px;color:var(--ink-400);margin-top:7px}
+
+  /* ---------------- card / table ---------------- */
+  .card{background:#fff;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .card-h{display:flex;align-items:center;gap:10px;padding:13px 17px;border-bottom:1px solid var(--line)}
+  .card-h h3{font-size:14.5px}
+  .card-h .n{font-family:var(--mono);font-size:11px;color:var(--ink-400);margin-left:auto}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;font-weight:600;color:var(--ink-400);padding:10px 17px;
+    border-bottom:1px solid var(--line);white-space:nowrap;letter-spacing:.02em}
+  td{padding:12px 17px;border-bottom:1px solid var(--beige-300);vertical-align:middle;font-size:13.5px}
+  tr:last-child td{border-bottom:0}
+  tbody tr{cursor:pointer;transition:background .12s}
+  tbody tr:hover{background:var(--beige-400)}
+  tbody tr.sel{background:var(--blood-wash)}
+  .mono{font-family:var(--mono);font-size:12px}
+  .num{font-variant-numeric:tabular-nums;text-align:right;font-weight:500;white-space:nowrap}
+  .muted{color:var(--ink-400)}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;
+    padding:3px 8px;border-radius:99px;white-space:nowrap;font-weight:500}
+  .pill.go{background:var(--go-wash);color:var(--go)}
+  .pill.hold{background:var(--hold-wash);color:var(--hold-text)}
+  .pill.stop{background:var(--stop-wash);color:var(--stop-text)}
+  .pill.grey{background:var(--beige-200);color:var(--ink-500)}
+  .empty{padding:44px 20px;text-align:center;color:var(--ink-400)}
+  .empty b{display:block;font-family:var(--display);font-size:16px;color:var(--ink-700);margin-bottom:5px}
+
+  /* ---------------- detail drawer ---------------- */
+  .scrim{position:fixed;inset:0;background:rgba(9,12,27,.28);opacity:0;pointer-events:none;
+    transition:opacity .22s var(--ease);z-index:40}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:14px;right:14px;bottom:14px;width:min(620px,calc(100vw - 28px));
+    background:#fff;border-radius:16px;box-shadow:0 24px 60px -20px rgba(9,12,27,.35);
+    transform:translateX(calc(100% + 20px));transition:transform .28s var(--ease);z-index:50;
+    display:flex;flex-direction:column;overflow:hidden}
+  .drawer.on{transform:none}
+  .d-top{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:12px}
+  .d-top h2{font-size:17px}
+  .d-top .x{margin-left:auto;border:0;background:none;cursor:pointer;color:var(--ink-400);
+    font-size:20px;line-height:1;padding:2px 6px;border-radius:6px}
+  .d-top .x:hover{background:var(--beige-300);color:var(--ink-900)}
+  .d-body{flex:1;overflow-y:auto;padding:18px 20px}
+  .d-foot{border-top:1px solid var(--line);padding:14px 20px;background:var(--beige-400)}
+  .three{display:grid;gap:9px;margin-bottom:18px}
+  .rec{border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+  .rec-h{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--beige-400);
+    border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--ink-400)}
+  .rec-h .sq{width:7px;height:7px;border-radius:1px;transform:rotate(45deg)}
+  .kv{display:grid;grid-template-columns:120px 1fr;gap:3px 12px;padding:11px 12px;
+    font-family:var(--mono);font-size:12px}
+  .kv dt{color:var(--ink-400)} .kv dd{margin:0;color:var(--ink-800)}
+  .kv dd.bad{color:var(--stop-text);font-weight:500}
+  .sect{font-family:var(--display);font-size:12.5px;font-weight:600;color:var(--ink-400);
+    margin:18px 0 9px}
+  .chk{display:flex;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);
+    margin-bottom:7px;background:#fff}
+  .chk.fail{border-color:#f5c9cd;background:var(--stop-wash)}
+  .chk.review{border-color:#f8d3c5;background:var(--hold-wash)}
+  .chk b{display:block;font-family:var(--display);font-size:13px;font-weight:600;margin-bottom:2px}
+  .chk span{font-size:12.5px;color:var(--ink-500);line-height:1.45}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:12px;color:var(--ink-400);margin-bottom:5px}
+  .field input,.field textarea{width:100%;border:1px solid var(--line);border-radius:var(--r-sm);
+    padding:9px 11px;font-size:13px;background:#fff}
+  .field input:focus,.field textarea:focus{outline:2px solid var(--blood);outline-offset:-1px;border-color:transparent}
+  .d-actions{display:flex;gap:8px}
+  .d-actions .btn{flex:1;justify-content:center;padding:10px}
+  .note{font-size:12px;color:var(--ink-400);line-height:1.5;margin-top:10px}
+  .err{background:var(--stop-wash);border:1px solid #f5c9cd;color:var(--stop-text);border-radius:var(--r-sm);
+    padding:11px 13px;font-size:12.5px;line-height:1.5;margin-bottom:12px}
+  .ok{background:var(--go-wash);border:1px solid #bfe3d8;color:var(--go);border-radius:var(--r-sm);
+    padding:11px 13px;font-size:12.5px;line-height:1.5;margin-bottom:12px}
+  .toast{position:fixed;left:50%;bottom:26px;translate:-50% 0;background:var(--ink-900);color:#fff;
+    padding:11px 18px;border-radius:99px;font-size:13px;z-index:60;box-shadow:var(--shadow);
+    opacity:0;pointer-events:none;transition:.25s var(--ease)}
+  .toast.on{opacity:1;translate:-50% -6px}
+  .skel{height:13px;border-radius:4px;background:linear-gradient(90deg,var(--beige-300),var(--beige-200),var(--beige-300));
+    background-size:200% 100%;animation:sk 1.3s linear infinite}
+  @keyframes sk{to{background-position:-200% 0}}
+  @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- ------------------------------- sidebar ------------------------------ -->
+  <aside class="side">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <path d="M13 2.5c4.4 0 7.4 3 7.4 7.2 0 3-1.3 4.6-1.3 6.6 0 2.2 1.6 3.4 1.6 3.4l-3.3 1.6-1.4-2.2-3 2.4-3-2.4-1.4 2.2-3.3-1.6s1.6-1.2 1.6-3.4c0-2-1.3-3.6-1.3-6.6C5.6 5.5 8.6 2.5 13 2.5z"
+              stroke="#2f41f2" stroke-width="1.9" stroke-linejoin="round"/>
+        <circle cx="10.4" cy="9.4" r="1.05" fill="#2f41f2"/><circle cx="15.6" cy="9.4" r="1.05" fill="#2f41f2"/>
+      </svg>
+      Limulus
+    </div>
+
+    <div class="switch">
+      <span class="sw-dot"></span>
+      <span class="sw-t">Midwest Fabrication</span>
+      <span class="sw-s">v12</span>
+    </div>
+
+    <nav class="nav" id="nav">
+      <h5>Monitor</h5>
+      <a href="#queue" data-view="queue" class="on">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Approvals <span class="badge" id="nav-count">·</span>
+      </a>
+      <a href="#payments" data-view="payments">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.8" y="3.5" width="12.4" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.8 6.6h12.4" stroke="currentColor" stroke-width="1.5"/></svg>
+        Payments
+      </a>
+      <a href="#drift" data-view="drift">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 1.8 15 14H1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.4v3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.6" r=".9" fill="currentColor"/></svg>
+        Reconciliation
+      </a>
+      <a href="#receipts" data-view="receipts">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3.2 1.8h9.6v12.4l-2-1.3-1.6 1.3-1.6-1.3-1.6 1.3-1.6-1.3-1.2.8z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        Receipts
+      </a>
+
+      <h5>Test</h5>
+      <a href="#lab" data-view="lab">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M6.4 1.8v4.3L2.6 12a1.6 1.6 0 0 0 1.4 2.4h8a1.6 1.6 0 0 0 1.4-2.4L9.6 6.1V1.8" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5.4 1.8h5.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Lab runs
+      </a>
+      <a href="#agents" data-view="agents">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.4" r="2.8" stroke="currentColor" stroke-width="1.5"/><path d="M2.6 14c.6-2.8 2.8-4.2 5.4-4.2s4.8 1.4 5.4 4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Agents
+      </a>
+
+      <h5>Configure</h5>
+      <a href="#policy" data-view="policy" class="soon">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="2.6" y="2" width="10.8" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5.4 5.8h5.2M5.4 8.4h5.2M5.4 11h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Policy
+      </a>
+      <a href="#keys" data-view="keys" class="soon">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="5.6" cy="5.6" r="3.2" stroke="currentColor" stroke-width="1.5"/><path d="M8 8l5.4 5.4M11 10.4l1.4 1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Keys
+      </a>
+    </nav>
+
+    <div class="side-foot">
+      <span><span class="dot" id="rail-dot"></span> <span id="rail-label">checking…</span></span>
+      <span id="chain-label">chain —</span>
+    </div>
+  </aside>
+
+  <!-- -------------------------------- main -------------------------------- -->
+  <main class="main">
+    <header class="top">
+      <span class="chip" id="view-icon">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </span>
+      <div>
+        <h1 id="view-title">Approvals</h1>
+        <div class="sub" id="view-sub">Payments the gate escalated and a person has to answer</div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="refresh">Refresh</button>
+        <a class="btn primary" href="/app.html">Open the Lab</a>
+      </div>
+    </header>
+
+    <div class="filters" id="filters">
+      <div class="seg" id="seg">
+        <button data-f="awaiting" class="on">Awaiting</button>
+        <button data-f="resolved">Answered</button>
+      </div>
+      <div class="spacer"></div>
+      <span class="mono muted" id="updated"></span>
+    </div>
+
+    <div class="body" id="body"></div>
+  </main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"></aside>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const money = (n, c) => (c === "USD" ? "$" : "") + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const when = (iso) => {
+  const d = new Date(iso), mins = Math.round((Date.now() - d) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60 * 24) return `${Math.round(mins / 60)}h ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const api = async (path, opts) => {
+  const r = await fetch(path, { headers: { "content-type": "application/json" }, ...opts });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(body.error || `HTTP ${r.status}`), { code: body.code, status: r.status });
+  return body;
+};
+
+let toastTimer;
+const toast = (msg) => {
+  $("toast").textContent = msg;
+  $("toast").classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $("toast").classList.remove("on"), 3200);
+};
+
+const state = { view: "queue", filter: "awaiting", queue: null, records: null, outcomes: null, selected: null };
+
+/* ------------------------------ status bar ------------------------------ */
+async function loadStatus() {
+  try {
+    const rail = await api("/v1/rails/status");
+    $("rail-dot").className = "dot" + (rail.live ? " live" : "");
+    $("rail-label").textContent = `${rail.rail} · ${rail.mode}`;
+  } catch { $("rail-label").textContent = "rail unreachable"; }
+  try {
+    const v = await api("/v1/verify");
+    const good = v.ok === true;
+    $("chain-label").textContent = good
+      ? `chain ok · ${v.count ?? ""}`.trim()
+      : `chain BROKEN · ${(v.problems ?? []).length} problem(s)`;
+    $("chain-label").style.color = good ? "" : "var(--stop-text)";
+  } catch { $("chain-label").textContent = "chain —"; }
+}
+
+/* -------------------------------- views -------------------------------- */
+const VIEWS = {
+  queue:    { title: "Approvals",      sub: "Payments the gate escalated and a person has to answer", filters: true },
+  payments: { title: "Payments",       sub: "Every decision, newest first",                            filters: false },
+  drift:    { title: "Reconciliation", sub: "What the bank says, against what we decided",             filters: false },
+  receipts: { title: "Receipts",       sub: "Signed, hash-chained proof of every decision",            filters: false },
+  lab:      { title: "Lab runs",       sub: "Sealed runs of the scenario pack",                        filters: false },
+  agents:   { title: "Agents",         sub: "Qualifications: scope, ceiling and expiry",               filters: false },
+};
+
+function setView(view) {
+  state.view = view;
+  const v = VIEWS[view] ?? VIEWS.queue;
+  $("view-title").textContent = v.title;
+  $("view-sub").textContent = v.sub;
+  $("filters").style.display = v.filters ? "" : "none";
+  for (const a of document.querySelectorAll(".nav a")) a.classList.toggle("on", a.dataset.view === view);
+  render();
+}
+
+$("nav").addEventListener("click", (e) => {
+  const a = e.target.closest("a[data-view]");
+  if (!a || a.classList.contains("soon")) return;
+  e.preventDefault();
+  setView(a.dataset.view);
+});
+
+$("seg").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-f]");
+  if (!b) return;
+  state.filter = b.dataset.f;
+  for (const x of $("seg").children) x.classList.toggle("on", x === b);
+  render();
+});
+
+$("refresh").addEventListener("click", () => load(true));
+
+/* ------------------------------- loading ------------------------------- */
+async function load(manual) {
+  if (manual) $("body").innerHTML = skeleton();
+  const [queue, records, outcomes] = await Promise.all([
+    api("/v1/queue").catch(() => ({ awaiting: [], recentlyResolved: [], pending: 0 })),
+    api("/v1/records").catch(() => ({ records: [], count: 0 })),
+    api("/v1/outcomes").catch(() => ({ outcomes: [] })),
+  ]);
+  state.queue = queue; state.records = records; state.outcomes = outcomes;
+  $("nav-count").textContent = queue.pending ?? 0;
+  $("updated").textContent = `updated ${new Date().toLocaleTimeString()}`;
+  render();
+}
+
+const skeleton = () => `<div class="card"><div class="card-h"><div class="skel" style="width:140px"></div></div>
+  ${Array.from({ length: 6 }, () => `<div style="padding:14px 17px;border-bottom:1px solid var(--beige-300)"><div class="skel" style="width:${40 + Math.random() * 45}%"></div></div>`).join("")}</div>`;
+
+/* ------------------------------ rendering ------------------------------ */
+function render() {
+  const b = $("body");
+  if (!state.queue) { b.innerHTML = skeleton(); return; }
+  if (state.view === "queue") return renderQueue(b);
+  if (state.view === "payments") return renderPayments(b);
+  if (state.view === "drift") return renderDrift(b);
+  if (state.view === "receipts") return renderReceipts(b);
+  if (state.view === "lab") return renderLab(b);
+  if (state.view === "agents") return renderAgents(b);
+}
+
+function renderQueue(b) {
+  const q = state.queue;
+  const rows = state.filter === "awaiting" ? q.awaiting : q.recentlyResolved;
+  const held = (state.records?.records ?? []).filter((r) => r.outcome === "held").length;
+  const waiting = q.awaiting.reduce((a, i) => a + i.amount, 0);
+
+  b.innerHTML = `
+    <div class="stats">
+      <div class="stat hold"><div class="l">Waiting on you</div><div class="v">${q.pending}</div>
+        <div class="s">${money(waiting, "USD")} held pending an answer</div></div>
+      <div class="stat stop"><div class="l">Blocked outright</div><div class="v">${held}</div>
+        <div class="s">Records disagreed. No override.</div></div>
+      <div class="stat go"><div class="l">Answered</div><div class="v">${q.recentlyResolved.length}</div>
+        <div class="s">Each one signed and chained</div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>${state.filter === "awaiting" ? "Needs a decision" : "Already answered"}</h3>
+        <span class="n">${rows.length}</span></div>
+      ${rows.length === 0 ? `<div class="empty"><b>Nothing waiting</b>Every escalation has been answered.</div>` : `
+      <table><thead><tr>
+        <th>Invoice</th><th>Payee</th><th>Why</th><th style="text-align:right">Amount</th>
+        <th>${state.filter === "awaiting" ? "Raised" : "Answer"}</th>
+      </tr></thead><tbody>
+      ${rows.map((i) => `<tr data-id="${i.decisionId}">
+        <td class="mono">${esc(i.invoiceId ?? "—")}</td>
+        <td>${esc(i.payeeName)}<div class="mono muted" style="font-size:11px">••••${esc(i.payeeAccountLast4 ?? "")}</div></td>
+        <td>${i.failedChecks.slice(0, 2).map((c) => `<span class="pill ${c.status === "fail" ? "stop" : "hold"}">${esc(c.id)}</span>`).join(" ") || `<span class="pill grey">—</span>`}</td>
+        <td class="num">${money(i.amount, i.currency)}</td>
+        <td>${i.resolved
+          ? `<span class="pill ${i.resolved.action === "approved" ? "go" : "stop"}">${i.resolved.action}</span>`
+          : `<span class="muted mono" style="font-size:11.5px">${when(i.createdAt)}</span>`}</td>
+      </tr>`).join("")}
+      </tbody></table>`}
+    </div>`;
+
+  b.querySelectorAll("tbody tr").forEach((tr) =>
+    tr.addEventListener("click", () => openDrawer(tr.dataset.id)));
+}
+
+function renderPayments(b) {
+  const rows = (state.records?.records ?? []).slice().reverse();
+  const pill = (o) => o === "released" ? `<span class="pill go">released</span>`
+    : o === "escalated" ? `<span class="pill hold">escalated</span>`
+    : `<span class="pill stop">blocked</span>`;
+  b.innerHTML = `<div class="card"><div class="card-h"><h3>Decisions</h3>
+      <span class="n">${state.records?.count ?? rows.length} in the chain · showing ${rows.length}</span></div>
+    <table><thead><tr><th>When</th><th>Invoice</th><th>Payee</th><th>Verdict</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr data-id="${r.id}">
+      <td class="mono muted">${when(r.createdAt)}</td>
+      <td class="mono">${esc(r.declaration?.invoiceId ?? "—")}</td>
+      <td>${esc(r.declaration?.payeeName ?? r.paymentOrder?.payeeName ?? "—")}</td>
+      <td>${pill(r.outcome)}</td>
+      <td class="num">${money(r.declaration?.amount ?? r.paymentOrder?.amount ?? 0, r.declaration?.currency ?? "USD")}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+  b.querySelectorAll("tbody tr").forEach((tr) => tr.addEventListener("click", () => openDrawer(tr.dataset.id)));
+}
+
+function renderDrift(b) {
+  const outs = (state.outcomes?.outcomes ?? []).filter((o) => (o.findings ?? []).length > 0).reverse();
+  const bad = outs.filter((o) => o.status === "unauthorized" || o.status === "duplicate");
+  b.innerHTML = `
+    <div class="stats">
+      <div class="stat ${bad.length ? "stop" : "go"}"><div class="l">Needs attention</div><div class="v">${bad.length}</div>
+        <div class="s">Money that moved without a release, or twice</div></div>
+      <div class="stat"><div class="l">Reconciled</div><div class="v">${state.outcomes?.outcomes?.length ?? 0}</div>
+        <div class="s">Decisions checked against the rail</div></div>
+    </div>
+    <div class="card"><div class="card-h"><h3>Findings</h3><span class="n">${outs.length}</span></div>
+    ${outs.length === 0 ? `<div class="empty"><b>Nothing drifted</b>Every transfer matches the decision behind it.</div>` : `
+    <table><thead><tr><th>When</th><th>Decision</th><th>We decided</th><th>Status</th><th>Finding</th></tr></thead>
+    <tbody>${outs.slice(0, 60).map((o) => `<tr data-id="${o.decisionId}">
+      <td class="mono muted">${when(o.createdAt)}</td>
+      <td class="mono">${esc(o.decisionId.slice(0, 16))}</td>
+      <td><span class="pill grey">${esc(o.decisionOutcome)}</span></td>
+      <td><span class="pill ${o.status === "unauthorized" || o.status === "duplicate" ? "stop" : o.status === "verified" ? "go" : "hold"}">${esc(o.status)}</span></td>
+      <td class="muted" style="font-size:12.5px">${esc((o.findings[0]?.detail ?? "").slice(0, 90))}</td>
+    </tr>`).join("")}</tbody></table>`}</div>`;
+  b.querySelectorAll("tbody tr").forEach((tr) => tr.addEventListener("click", () => openDrawer(tr.dataset.id)));
+}
+
+function renderReceipts(b) {
+  const rows = (state.records?.records ?? []).slice().reverse().slice(0, 40);
+  b.innerHTML = `<div class="card"><div class="card-h"><h3>Signed receipts</h3>
+    <span class="n">Ed25519 over a SHA-256 chain</span></div>
+    <table><thead><tr><th>Decision</th><th>Chain hash</th><th>Links to</th><th>When</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr data-id="${r.id}">
+      <td class="mono">${esc(r.id.slice(0, 18))}</td>
+      <td class="mono muted">${esc((r.hash ?? "").slice(0, 16))}…</td>
+      <td class="mono muted">${r.prevHash ? esc(String(r.prevHash).slice(0, 12)) + "…" : "(genesis)"}</td>
+      <td class="mono muted">${when(r.createdAt)}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+  b.querySelectorAll("tbody tr").forEach((tr) => tr.addEventListener("click", () => openDrawer(tr.dataset.id)));
+}
+
+async function renderLab(b) {
+  b.innerHTML = skeleton();
+  try {
+    const runs = await api("/v1/lab/runs");
+    const list = (runs.runs ?? runs ?? []).slice().reverse();
+    b.innerHTML = `<div class="card"><div class="card-h"><h3>Lab runs</h3><span class="n">${list.length}</span></div>
+      <table><thead><tr><th>Run</th><th>Agent</th><th>Level reached</th>
+      <th style="text-align:right">Safety</th><th style="text-align:right">Capability</th>
+      <th style="text-align:right">Recovery</th><th style="text-align:right">Reliability</th></tr></thead>
+      <tbody>${list.slice(0, 40).map((r) => `<tr>
+        <td class="mono muted">${when(r.createdAt)}</td>
+        <td>${esc(r.agent?.name ?? "—")} <span class="mono muted">${esc(r.agent?.version ?? "")}</span></td>
+        <td><span class="pill grey">${esc(r.axes?.level ?? "—")}</span></td>
+        <td class="num">${r.axes?.safety?.score ?? "—"}</td>
+        <td class="num">${r.axes?.capability?.score ?? "—"}</td>
+        <td class="num">${r.axes?.recovery?.score ?? "—"}</td>
+        <td class="num">${r.axes?.reliability?.score ?? "—"}</td>
+      </tr>`).join("")}</tbody></table></div>`;
+  } catch (e) { b.innerHTML = `<div class="card"><div class="empty"><b>Couldn't load runs</b>${esc(e.message)}</div></div>`; }
+}
+
+async function renderAgents(b) {
+  b.innerHTML = skeleton();
+  try {
+    const q = await api("/v1/qualifications");
+    const list = (q.qualifications ?? q ?? []).slice().reverse();
+    b.innerHTML = `<div class="card"><div class="card-h"><h3>Qualifications</h3><span class="n">${list.length}</span></div>
+      <table><thead><tr><th>Agent</th><th>Level</th><th>Scope</th><th style="text-align:right">Ceiling</th><th>Expires</th><th>State</th></tr></thead>
+      <tbody>${list.slice(0, 40).map((x) => {
+        const dead = x.revokedAt || (x.expiresAt && new Date(x.expiresAt) < new Date());
+        return `<tr>
+        <td>${esc(x.binding?.agent?.name ?? "—")} <span class="mono muted">${esc(x.binding?.agent?.version ?? "")}</span></td>
+        <td><span class="pill grey">${esc(x.level ?? "—")}</span></td>
+        <td class="mono muted" style="font-size:11.5px">${esc(x.binding?.workflow ?? "")} · ${esc(x.binding?.rail ?? "")} · ${esc(x.binding?.payeeScope ?? "")}</td>
+        <td class="num">${money(x.binding?.amountLimit ?? 0, x.binding?.currency ?? "USD")}</td>
+        <td class="mono muted">${x.expiresAt ? new Date(x.expiresAt).toLocaleDateString() : "—"}</td>
+        <td><span class="pill ${dead ? "stop" : "go"}">${x.revokedAt ? "revoked" : dead ? "expired" : "active"}</span></td>
+      </tr>`; }).join("")}</tbody></table></div>`;
+  } catch (e) { b.innerHTML = `<div class="card"><div class="empty"><b>Couldn't load qualifications</b>${esc(e.message)}</div></div>`; }
+}
+
+/* ------------------------------- drawer -------------------------------- */
+function closeDrawer() {
+  $("drawer").classList.remove("on");
+  $("scrim").classList.remove("on");
+  $("drawer").setAttribute("aria-hidden", "true");
+  document.querySelectorAll("tbody tr.sel").forEach((t) => t.classList.remove("sel"));
+}
+$("scrim").addEventListener("click", closeDrawer);
+addEventListener("keydown", (e) => e.key === "Escape" && closeDrawer());
+
+async function openDrawer(decisionId) {
+  document.querySelectorAll("tbody tr").forEach((t) => t.classList.toggle("sel", t.dataset.id === decisionId));
+  const d = $("drawer");
+  d.classList.add("on"); $("scrim").classList.add("on"); d.setAttribute("aria-hidden", "false");
+  d.innerHTML = `<div class="d-top"><h2>Loading…</h2><button class="x" id="dx">×</button></div>
+                 <div class="d-body">${skeleton()}</div>`;
+  $("dx").addEventListener("click", closeDrawer);
+
+  let rec;
+  try { rec = await api(`/v1/records/${decisionId}`); }
+  catch (e) {
+    d.innerHTML = `<div class="d-top"><h2>Not found</h2><button class="x" id="dx">×</button></div>
+                   <div class="d-body"><div class="err">${esc(e.message)}</div></div>`;
+    $("dx").addEventListener("click", closeDrawer);
+    return;
+  }
+
+  const item = [...(state.queue?.awaiting ?? []), ...(state.queue?.recentlyResolved ?? [])]
+    .find((i) => i.decisionId === decisionId);
+  const decl = rec.declaration ?? {}, order = rec.paymentOrder ?? {}, auth = rec.authorization ?? {};
+  const drift = (a, b) => (a !== undefined && b !== undefined && a !== b) ? ' class="bad"' : "";
+  const canAct = rec.outcome === "escalated" && !item?.resolved;
+
+  d.innerHTML = `
+    <div class="d-top">
+      <div>
+        <h2>${esc(decl.invoiceId ?? decisionId.slice(0, 18))}</h2>
+        <div class="mono muted" style="font-size:11.5px;margin-top:3px">${esc(decisionId)}</div>
+      </div>
+      <button class="x" id="dx">×</button>
+    </div>
+    <div class="d-body">
+      ${rec.outcome === "held" ? `<div class="err"><b>Blocked.</b> The three records disagree, so this was never sent.
+        There is deliberately no override — correct the underlying record and submit again, so the new payment
+        gets its own decision and its own receipt.</div>` : ""}
+      ${item?.resolved ? `<div class="${item.resolved.action === "approved" ? "ok" : "err"}">
+        <b>${esc(item.resolved.approvedBy)}</b> ${esc(item.resolved.action)} this on
+        ${new Date(item.resolved.at).toLocaleString()}.</div>` : ""}
+
+      <div class="three">
+        <div class="rec">
+          <div class="rec-h"><span class="sq" style="background:#262e41"></span>Authorization · ${esc(auth.policyVersion ?? "")} · ${esc(auth.principal ?? "")}</div>
+          <dl class="kv">
+            <dt>approved by</dt><dd>${esc(auth.principal ?? "—")}</dd>
+            <dt>per-payment cap</dt><dd>${money(auth.limitPerPayment ?? 0, auth.currency ?? "USD")}</dd>
+            <dt>vendors on file</dt><dd>${(auth.approvedVendors ?? []).length}</dd>
+          </dl>
+        </div>
+        <div class="rec">
+          <div class="rec-h"><span class="sq" style="background:#2f41f2"></span>Declaration · ${esc(decl.agentId ?? "agent")}</div>
+          <dl class="kv">
+            <dt>payee</dt><dd>${esc(decl.payeeName ?? "—")}</dd>
+            <dt>account</dt><dd>••••${esc(decl.payeeAccountLast4 ?? "")}</dd>
+            <dt>amount</dt><dd>${money(decl.amount ?? 0, decl.currency ?? "USD")}</dd>
+            <dt>invoice / PO</dt><dd>${esc(decl.invoiceId ?? "—")} · ${esc(decl.poId ?? "—")}</dd>
+          </dl>
+        </div>
+        <div class="rec">
+          <div class="rec-h"><span class="sq" style="background:#26a38e"></span>Payment order · ${esc(order.rail ?? "")}</div>
+          <dl class="kv">
+            <dt>payee</dt><dd${drift(decl.payeeName, order.payeeName)}>${esc(order.payeeName ?? "—")}</dd>
+            <dt>account</dt><dd${drift(decl.payeeAccountLast4, order.payeeAccountLast4)}>••••${esc(order.payeeAccountLast4 ?? "")}</dd>
+            <dt>amount</dt><dd${drift(decl.amount, order.amount)}>${money(order.amount ?? 0, order.currency ?? "USD")}</dd>
+            <dt>reference</dt><dd>${esc(order.reference ?? "—")}</dd>
+          </dl>
+        </div>
+      </div>
+
+      <div class="sect">Checks that did not pass</div>
+      ${(rec.checks ?? []).filter((c) => c.status !== "pass").map((c) => `
+        <div class="chk ${c.status === "fail" ? "fail" : "review"}">
+          <div><b>${esc(c.name)}</b><span>${esc(c.detail ?? "")}</span>
+          <div class="mono muted" style="font-size:11px;margin-top:4px">${esc(c.id)} · ${esc(c.status)}</div></div>
+        </div>`).join("") || `<div class="chk"><div><b>Everything passed</b><span>All required checks returned pass.</span></div></div>`}
+
+      <div class="sect">Receipt</div>
+      <dl class="kv" style="border:1px solid var(--line);border-radius:8px">
+        <dt>hash</dt><dd>${esc((rec.hash ?? "").slice(0, 32))}…</dd>
+        <dt>previous</dt><dd>${rec.prevHash ? esc(String(rec.prevHash).slice(0, 32)) + "…" : "(genesis)"}</dd>
+        <dt>signature</dt><dd>${esc((rec.signature ?? "").slice(0, 32))}…</dd>
+        ${item?.transferId ? `<dt>transfer</dt><dd>${esc(item.transferId)}</dd>` : ""}
+      </dl>
+      <div class="note">Verification takes no API key — anyone handed this receipt can check it.</div>
+    </div>
+
+    ${canAct ? `<div class="d-foot">
+      <div id="act-err"></div>
+      <div class="field"><label for="approver">Your email — an approval has to name a person</label>
+        <input id="approver" type="email" placeholder="you@company.com" value="${esc(auth.principal ?? "")}"></div>
+      <div class="field"><label for="note">Note (what you checked)</label>
+        <textarea id="note" rows="2" placeholder="Called the vendor on the number on the record; the change is genuine."></textarea></div>
+      <div class="d-actions">
+        <button class="btn danger" id="reject">Reject</button>
+        <button class="btn primary" id="approve">Approve and release</button>
+      </div>
+      <div class="note">Approving releases the held transfer at the bank. The answer is signed and chained either way.</div>
+    </div>` : ""}`;
+
+  $("dx").addEventListener("click", closeDrawer);
+  if (canAct) {
+    $("approve").addEventListener("click", () => act(decisionId, "approve"));
+    $("reject").addEventListener("click", () => act(decisionId, "reject"));
+  }
+}
+
+async function act(decisionId, verb) {
+  const approvedBy = $("approver").value.trim();
+  const note = $("note").value.trim();
+  const buttons = [$("approve"), $("reject")];
+  buttons.forEach((b) => (b.disabled = true));
+  $("act-err").innerHTML = "";
+  try {
+    const r = await api(`/v1/decisions/${decisionId}/${verb}`, {
+      method: "POST",
+      body: JSON.stringify({ approvedBy, note: note || undefined }),
+    });
+    // The rail can refuse even when the answer is recorded — say so rather
+    // than claiming the money moved.
+    if (r.railError) {
+      toast(`Recorded, but the bank refused: ${r.railError.slice(0, 70)}`);
+    } else {
+      toast(verb === "approve"
+        ? `Approved · ${r.railStatusBefore ?? "held"} → ${r.railStatusAfter ?? "recorded"}`
+        : `Rejected · cancelled at the bank`);
+    }
+    closeDrawer();
+    await load();
+  } catch (e) {
+    $("act-err").innerHTML = `<div class="err">${esc(e.message)}</div>`;
+    buttons.forEach((b) => (b.disabled = false));
+  }
+}
+
+/* --------------------------------- go ---------------------------------- */
+loadStatus();
+load(true);
+setInterval(load, 20000);
+</script>
+</body>
+</html>
