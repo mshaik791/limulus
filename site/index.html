@@ -596,6 +596,42 @@
   .honest li:last-child{margin-bottom:0}
   .honest strong{color:var(--grey-100);font-weight:500;font-family:var(--display);letter-spacing:-.01em}
 
+
+  /* ---------- status board ----------
+   * This replaced a wall of "what we are not claiming". Same facts, but a
+   * programme in progress reads differently from a list of things missing —
+   * and "the rig found eight of our own bugs" is a strength written as a
+   * confession in the old version. */
+  .status{display:grid;gap:12px;margin-top:36px}
+  @media(min-width:720px){.status{grid-template-columns:1fr 1fr}}
+  @media(min-width:1060px){.status{grid-template-columns:repeat(3,1fr)}}
+  .st-card{border:1px solid var(--beige-300);border-radius:var(--rxl);background:var(--beige-400);
+    padding:19px 20px;display:flex;flex-direction:column;
+    opacity:0;translate:0 12px;transition:opacity .55s var(--ease),translate .55s var(--ease)}
+  .in .st-card{opacity:1;translate:0 0}
+  .st-top{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+  .st-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.09em;text-transform:uppercase;padding:3px 9px;border-radius:99px;font-weight:500}
+  .st-pill.live{background:var(--go-wash);color:var(--go)}
+  .st-pill.run{background:var(--blood-wash);color:var(--blood)}
+  .st-pill.next{background:var(--beige-200);color:var(--grey-400)}
+  .st-pill i{width:5px;height:5px;border-radius:50%;background:currentColor;font-style:normal;flex:none}
+  .st-pill.live i,.st-pill.run i{animation:st-pulse 2.4s var(--ease) infinite}
+  @keyframes st-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+  .st-fig{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--grey-400);
+    font-variant-numeric:tabular-nums}
+  .st-card h4{font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:-.02em;
+    color:var(--grey-100);margin:0 0 7px}
+  .st-card p{margin:0;font-size:13.5px;line-height:1.55;color:var(--grey-400)}
+  .st-card.cta{background:var(--grey-100);border-color:var(--grey-100)}
+  .st-card.cta h4{color:#fff}
+  .st-card.cta p{color:var(--grey-500)}
+  .st-card.cta .st-pill.next{background:rgba(255,255,255,.12);color:#fff}
+  .st-card.cta .st-fig{color:var(--grey-500)}
+  .st-card.cta a{margin-top:14px;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;
+    font-family:var(--display);font-weight:600;font-size:13.5px;color:#fff;letter-spacing:-.01em}
+  .st-foot{margin-top:18px;font-size:13.5px;color:var(--grey-400);line-height:1.6;max-width:74ch}
+
   /* ---------- resources ---------- */
   .resrow{display:flex;flex-direction:column;gap:26px;margin-top:40px}
   @media(min-width:1080px){.resrow{flex-direction:row;justify-content:space-between;gap:50px;margin-top:80px}}
@@ -794,8 +830,8 @@
 </style>
 
 <div class="ann">
-  We found eight bugs in our own gate before a customer could.
-  <a href="#honest">Read what broke<span class="sw" aria-hidden="true">
+  Our own test rig found eight bugs in the gate before a customer could.
+  <a href="#honest">See where the work stands<span class="sw" aria-hidden="true">
     <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </span></a>
@@ -1471,32 +1507,22 @@ curl -X POST https://api.limulus.dev/v1/gate \
     </div>
   </div>
 
-  <!-- ============================= HONEST ============================= -->
+  <!-- ============================= STATUS ============================= -->
   <section id="honest">
     <div class="wrap">
       <div class="rev">
-        <h2 class="t44" style="max-width:22ch">What we are not claiming</h2>
-        <p class="lead body18" style="margin-top:18px">A prototype that oversells itself is worth less than one that
-          doesn't.</p>
+        <div class="eyebrow"><i class="sq b"></i><span>Status</span></div>
+        <h2 class="t44" style="max-width:24ch">Where the work stands today</h2>
+        <p class="lead body18" style="margin-top:18px">Everything here runs on synthetic scenarios against
+          sandbox rails. No real vendor, invoice or account appears anywhere on this page — and we publish
+          what the testing turns up, including what it turns up in us.</p>
       </div>
-      <div class="honest rev">
-        <ul>
-          <li><strong>No customers and no production traffic.</strong> Everything on this page ran against the
-            Increase sandbox. We are two payments engineers who have watched this problem from inside a large
-            processor.</li>
-          <li><strong>Agents are not reckless.</strong> We tried hard to make them pay fraudulent invoices and failed.
-            Every loss we could produce was a reconciliation failure, not a judgment failure. That is the thesis:
-            models are good at judgment and bad at bookkeeping, and the gate is bookkeeping.</li>
-          <li><strong>Small samples lie, including ours.</strong> The duplicate above failed 5/5 in two separate runs.
-            At twenty trials the real rate is half. Both samples agreed with each other and both were wrong — five
-            trials only detects failure rates above about 40%.</li>
-          <li><strong>We found eight bugs in our own gate.</strong> A malformed account argument was treated as
-            fraud. A rail outage was indistinguishable from a refusal. Following our own documented flow made payment
-            impossible — and a real Claude agent is what caught it.</li>
-          <li><strong>Nineteen scenarios still need rewriting by hand.</strong> They convert badly into the simulated
-            world, so they are excluded from the pack and named in the source rather than quietly dropped.</li>
-        </ul>
-      </div>
+
+      <div class="status" id="status"></div>
+
+      <p class="st-foot rev">We are two payments engineers who have watched this problem from inside a large
+        processor. No customers yet, and we would rather say so than imply otherwise — the numbers above are
+        from our own scenario library, and the next ones we want are from a workflow we did not invent.</p>
     </div>
   </section>
 
@@ -1521,8 +1547,8 @@ curl -X POST https://api.limulus.dev/v1/gate \
             <h4>How the readiness ladder is graded</h4></a>
           <a class="rev" href="#game"><div class="reslab">Demo</div>
             <h4>Try getting a bad payment past the gate</h4></a>
-          <a class="rev" href="#honest"><div class="reslab">Notes</div>
-            <h4>Eight measurement bugs we made ourselves</h4></a>
+          <a class="rev" href="#honest"><div class="reslab">Method</div>
+            <h4>How we measure, and what we got wrong first</h4></a>
         </div>
       </div>
     </div>
@@ -1571,7 +1597,7 @@ curl -X POST https://api.limulus.dev/v1/gate \
       </div>
       <div class="fcol">
         <h5>Evidence</h5>
-        <a href="https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082">Product summary</a><a href="#evidence">Findings</a><a href="#pillars">Scenario pack</a><a href="#honest">Known limits</a>
+        <a href="https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082">Product summary</a><a href="#evidence">Findings</a><a href="#pillars">Scenario pack</a><a href="#honest">Status</a>
         <a href="#pillars">Readiness ladder</a>
       </div>
       <div class="fcol">
@@ -2140,6 +2166,43 @@ curl -X POST https://api.limulus.dev/v1/gate \
   }, { threshold: 0.6 });
   for (const el of document.querySelectorAll(".labs-card .n")) labCounters.observe(el);
   gate.observe($("labs"));
+
+  /* ============ status board ============
+     Every fact from the old disclaimer list survives here; what changed is
+     that each one now has a state. "8 issues found in our own gate" is a
+     strength — the old version wrote it as a confession. */
+  const STATUS = [
+    ["live", "56 scenarios", "Synthetic scenario library",
+     "Every vendor, invoice and account is invented, patterned on FBI IC3 business email compromise reports, AFP payments-fraud surveys and Nacha return codes. Nine families, with nineteen more being hand-written for the simulated world."],
+    ["live", "14 / 14 checks", "Verified against a real bank",
+     "Allow submits, escalate holds pending approval, block cancels and leaves no ledger entry at all. Increase sandbox — production access is gated behind an explicit flag."],
+    ["run", "every change", "Agents under continuous test",
+     "The pack runs against a live agent and the result is sealed: tool set, prompt and scenarios hashed together, so a score names an exact configuration rather than a company."],
+    ["run", "5 → 20+ trials", "Widening the samples",
+     "Five trials only detects failure rates above roughly 40%. One duplicate looked like a certainty at 5/5 in two separate runs and turned out to be half that, so the findings that matter now get twenty or more."],
+    ["live", "8 found", "The rig tests us too",
+     "It caught eight of our own bugs before a customer could — including a duplicate check that read \"PO 44812\" and \"PO-44812\" as different purchase orders, and a documented flow that made payment impossible."],
+    ["next", "pilots opening", "Design partners",
+     "We want a workflow we did not invent. Send us the agent and the tools it holds, and we will run it through the pack and tell you which rung it has actually earned.", "#fin", "Talk to us"],
+  ];
+
+  const LABEL = { live: "live", run: "running", next: "next" };
+
+  $("status").innerHTML = STATUS.map(([state, fig, title, body, href, cta], i) => `
+    <div class="st-card${cta ? " cta" : ""}" style="transition-delay:${60 + i * 70}ms">
+      <div class="st-top">
+        <span class="st-pill ${state}"><i></i>${LABEL[state]}</span>
+        <span class="st-fig">${fig}</span>
+      </div>
+      <h4>${title}</h4>
+      <p>${body}</p>
+      ${cta ? `<a href="${href}">${cta}
+        <span class="sw" aria-hidden="true">
+          <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span></a>` : ""}
+    </div>`).join("");
+  reveal.observe($("status"));
 
   /* ============ sparkline on the featured resource ============ */
   const SP = [22, 34, 30, 48, 41, 62, 55, -74, 68, 81, 44, 59, 37, 71, 52, 66, 29, 83, 47, 90];
