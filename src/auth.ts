@@ -13,6 +13,16 @@ const keysPath = join(dataDir, "api-keys.json");
 
 export type Scope = "decisions:write" | "settlements:write" | "bench:run" | "read" | "admin";
 
+/**
+ * Which agent a key speaks for.
+ *
+ * An agent that reports its own version can claim any version, so a qualification
+ * bound to a self-reported string protects only against honest mistakes. Binding
+ * it to the credential moves the claim to something the agent cannot mint: the
+ * deployment holds the key, and whoever issued the key decided what it stands for.
+ */
+export type KeyIdentity = { agentName: string; agentVersion: string };
+
 export type ApiKeyRecord = {
   id: string;
   name: string;
@@ -21,6 +31,8 @@ export type ApiKeyRecord = {
   /** First characters, so a key can be recognized in a list. */
   prefix: string;
   scopes: Scope[];
+  /** Set when this key is issued to a specific agent version. */
+  identity?: KeyIdentity;
   createdAt: string;
   lastUsedAt?: string;
   revokedAt?: string;
@@ -45,10 +57,12 @@ export function createKey(
   name: string,
   scopes: Scope[] = ["decisions:write", "settlements:write", "bench:run", "read"],
   environment: "live" | "test" = "test",
+  identity?: KeyIdentity,
 ): { key: string; record: ApiKeyRecord } {
   const secret = randomBytes(24).toString("hex");
   const key = `lim_${environment}_${secret}`;
   const record: ApiKeyRecord = {
+    ...(identity ? { identity } : {}),
     id: `key_${randomBytes(8).toString("hex")}`,
     name,
     hash: sha256(key),

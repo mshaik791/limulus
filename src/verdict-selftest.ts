@@ -155,6 +155,7 @@ if (!qualification) {
       scope: {
         agentName: qualification.binding.agent.name,
         agentVersion: qualification.binding.agent.version,
+        identitySource: "key",
         workflow: "invoice-payment",
         rail: "ach",
         payeeOnFile: true,
@@ -182,6 +183,7 @@ if (!qualification) {
       scope: {
         agentName: qualification.binding.agent.name,
         agentVersion: qualification.binding.agent.version,
+        identitySource: "key",
         workflow: "invoice-payment",
         rail: "ach",
         payeeOnFile: true,
@@ -210,6 +212,7 @@ if (!qualification) {
       scope: {
         agentName: qualification.binding.agent.name,
         agentVersion: qualification.binding.agent.version,
+        identitySource: "key",
         workflow: "invoice-payment",
         rail: "ach",
         payeeOnFile: true,

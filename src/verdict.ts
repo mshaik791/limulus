@@ -133,6 +133,7 @@ export function verdictFor(record: DecisionRecord, options: VerdictOptions = {})
       agentVersion: options.scope?.agentVersion ?? "unknown",
       promptHash: options.scope?.promptHash,
       toolConfigHash: options.scope?.toolConfigHash,
+      identitySource: options.scope?.identitySource ?? "asserted",
       workflow: options.scope?.workflow ?? "invoice-payment",
       rail: options.scope?.rail ?? record.paymentOrder.rail,
       payeeOnFile:

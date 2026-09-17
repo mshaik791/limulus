@@ -16,6 +16,7 @@ import { check as checkIdempotency, remember } from "./idempotency.ts";
 import { verdictFor } from "./verdict.ts";
 import { gatePayment } from "./rails/gate.ts";
 import { rail } from "./rails/increase.ts";
+import { reconcile } from "./rails/reconcile.ts";
 import { readLabRuns, readTraces, runSuite, verifyLabRun } from "./sandbox/lab.ts";
 import { referenceToolAgents } from "./sandbox/agents.ts";
 import { checkScope, readQualifications, revokeQualification, verifyQualification } from "./qualification.ts";
@@ -53,6 +54,8 @@ async function readBody(req: import("node:http").IncomingMessage): Promise<unkno
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${port}`);
   const path = url.pathname;
+  // Set when the presented key was issued to a specific agent version.
+  let keyIdentity: { agentName: string; agentVersion: string } | undefined;
 
   try {
     if (req.method === "OPTIONS") {
@@ -91,6 +94,7 @@ const server = createServer(async (req, res) => {
 
       const auth = authenticate(req.headers.authorization ?? (req.headers["x-api-key"] as string), scope);
       if (!auth.ok) return json(res, auth.status, { error: auth.message });
+      keyIdentity = auth.key?.identity;
     }
 
     // Decide on one payment. This is the call an agent's gateway makes before
@@ -169,10 +173,11 @@ const server = createServer(async (req, res) => {
         qualificationId: body.qualificationId,
         requireQualification: process.env.LIMULUS_REQUIRE_QUALIFICATION === "1",
         baseUrl: `http://${req.headers.host ?? `localhost:${port}`}`,
-        scope: body.agent
+        scope: keyIdentity || body.agent
           ? {
-              agentName: body.agent.name ?? "unknown",
-              agentVersion: body.agent.version ?? "unknown",
+              agentName: keyIdentity?.agentName ?? body.agent?.name ?? "unknown",
+              agentVersion: keyIdentity?.agentVersion ?? body.agent?.version ?? "unknown",
+              identitySource: keyIdentity ? "key" : "asserted",
               promptHash: body.agent.promptHash,
               toolConfigHash: body.agent.toolConfigHash,
               workflow: body.workflow ?? "invoice-payment",
@@ -242,7 +247,8 @@ const server = createServer(async (req, res) => {
           routingNumber: body.routingNumber ?? "101050001",
           accountNumber: body.accountNumber ?? "987654321",
           qualificationId: body.qualificationId,
-          agent: body.agent,
+          agent: keyIdentity ? { name: keyIdentity.agentName, version: keyIdentity.agentVersion } : body.agent,
+          identitySource: keyIdentity ? "key" : "asserted",
           idempotencyKey,
         });
 
@@ -262,6 +268,24 @@ const server = createServer(async (req, res) => {
           note: "No payment was approved. An unapproved transfer expires rather than settling.",
         });
       }
+    }
+
+    // What the bank says, compared with what we decided. The finding that
+    // matters is a payment that moved although we held it: a gate cannot learn
+    // that from its own records, only from the rail.
+    if (path === "/v1/rails/reconcile") {
+      const result = await reconcile(Number(url.searchParams.get("limit") ?? 100));
+      const unauthorized = result.drift.filter((d) => d.code === "unauthorized");
+      return json(res, 200, {
+        ...result,
+        unauthorized: unauthorized.length,
+        note:
+          result.mode === "simulated"
+            ? "No rail configured, so there is nothing to reconcile against."
+            : unauthorized.length > 0
+              ? "Money moved without a release. Escalate now."
+              : "Every transfer matches the decision behind it.",
+      });
     }
 
     if (path === "/v1/rails/status") {
