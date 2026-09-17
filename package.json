@@ -10,7 +10,9 @@
   "scripts": {
     "start": "node src/server.ts",
     "demo": "node src/demo.ts",
-    "verify": "node src/verify-cli.ts"
+    "verify": "node src/verify-cli.ts",
+    "warehouse": "node src/warehouse/export.ts",
+    "warehouse:load": "cd build/warehouse && psql \"$DATABASE_URL\" -f schema.sql"
   },
   "license": "UNLICENSED"
 }

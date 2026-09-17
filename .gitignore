@@ -1,6 +1,9 @@
 # Signing key and the record chain: never commit these
 data/
 
+# Derived: the warehouse projection is rebuilt from the chain, never committed.
+build/
+
 # Node
 node_modules/
 npm-debug.log*
