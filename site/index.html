@@ -248,14 +248,15 @@
   .cred-who i:nth-child(2){margin-left:-6px}
   .cred-t{font-size:12.5px;color:var(--grey-400);letter-spacing:.01em;white-space:nowrap}
   /* The roll: a two-item strip that steps by exactly one row height. */
-  .cred-roll{height:15px;overflow:hidden;flex:none}
+  .cred-roll{height:17px;overflow:hidden;flex:none}
   .cred-strip{display:block;animation:cred-roll 6s var(--ease) infinite}
-  .cred-strip span{display:flex;align-items:center;gap:5px;height:15px;
+  .cred-strip span{display:flex;align-items:center;gap:5px;height:17px;
     font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:-.02em;color:var(--grey-100)}
+  .cred-strip svg{display:block;flex:none}
   .cred:hover .cred-strip{animation-play-state:paused}
   @keyframes cred-roll{
     0%,42%{transform:translateY(0)}
-    50%,92%{transform:translateY(-15px)}
+    50%,92%{transform:translateY(-17px)}
     100%{transform:translateY(0)}
   }
   @media (prefers-reduced-motion:reduce){.cred-strip{animation:none}}
@@ -766,13 +767,21 @@
           <span class="cred-roll"><span class="cred-strip">
             <span>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M9.2 20.4H5.9a.7.7 0 0 1-.68-.82L7.9 4.3a.95.95 0 0 1 .94-.8h5.6c3.1 0 5 1.6 4.55 4.6-.5 3.3-2.9 4.9-6.1 4.9h-2a.8.8 0 0 0-.78.66l-.9 5.9a.85.85 0 0 1-.02.84z" fill="#002c8a"/>
-                <path d="M11.9 21.9H9.1a.6.6 0 0 1-.6-.7l2.3-14.3a.85.85 0 0 1 .84-.72h5c2.8 0 4.5 1.45 4.1 4.2-.47 3.1-2.75 4.6-5.8 4.6h-1.85a.72.72 0 0 0-.7.6l-.75 5.6a.76.76 0 0 1-.74.72z" fill="#0090d4"/>
+                <!-- two overlapping P's, each with a real counter so the letter
+                     still reads at 15px. Both sit inside x 4..20, y 3..21. -->
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#002c8a"
+                      d="M6.2 3h6.0a4.4 4.4 0 0 1 0 8.8H9.2L8.45 18H4.6L6.2 3zm3.7 3.2h2.0a1.8 1.8 0 0 1 0 3.6H9.45l.45-3.6z"/>
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#0090d4"
+                      d="M9.3 5.6h6.0a4.4 4.4 0 0 1 0 8.8h-3.0l-.75 6.2H7.7l1.6-15zm3.7 3.2h2.0a1.8 1.8 0 0 1 0 3.6h-2.45l.45-3.6z"/>
               </svg>PayPal</span>
             <span>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="2.5" y="2.5" width="19" height="19" rx="4.4" fill="#0090d4"/>
-                <path d="M15.9 6.6c.5.83.73 1.69.73 2.77 0 3.46-2.95 7.95-5.35 11.1H5.8L3.6 7.36l4.8-.46 1.16 9.35c1.09-1.77 2.43-4.55 2.43-6.45 0-1.04-.18-1.75-.46-2.33z" fill="#fff"/>
+                <!-- The V is a stroked chevron rather than a filled polygon:
+                     round joins keep it inside the square's corner radius, and
+                     the extremes land at 6.2/17.8 against a 2..22 tile. -->
+                <rect x="2" y="2" width="20" height="20" rx="5.4" fill="#008cff"/>
+                <path d="M7.5 7.6 12 16.4 16.5 7.6" stroke="#fff" stroke-width="2.7"
+                      stroke-linecap="round" stroke-linejoin="round"/>
               </svg>Venmo</span>
           </span></span>
         </a>
