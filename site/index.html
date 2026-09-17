@@ -584,15 +584,8 @@
   .kbd{font-family:var(--mono);font-size:12.5px;background:var(--white);border:1px solid var(--beige-300);
     border-radius:3px;padding:1px 5px}
 
-  /* ---------- tools ---------- */
-  .tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:12px;margin-top:40px}
-  .tool{padding:18px;transition:scale .2s var(--ease),border-color .2s var(--ease)}
-  .tool:hover{border-color:var(--grey-600);scale:.995}
-  .tool .tn{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:13px;
     color:var(--blood);margin-bottom:7px}
-  .tool p{margin:0;font-size:13.5px;color:var(--grey-400);line-height:1.5}
   .tool.absent{background:var(--white);border-style:dashed}
-  .tool.absent .tn{color:var(--grey-400);text-decoration:line-through}
 
   /* ---------- honest ---------- */
   .honest{border:1px dashed var(--beige-100);background:var(--beige-400);border-radius:var(--rxl);
@@ -645,6 +638,123 @@
   .fbot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:40px;
     font-size:12.5px;color:var(--grey-500)}
   .fbot .mono{font-family:var(--mono);font-size:11px}
+
+
+  /* ---------- what an agent can and cannot do ----------
+   * Was nine identical cards of function names, which asked a finance buyer to
+   * read an API. Plain language leads; the tool name is a footnote. */
+  .grant{display:grid;gap:12px;margin-top:40px}
+  @media(min-width:900px){.grant{grid-template-columns:1.25fr .75fr;gap:16px}}
+  .grant-col > h3{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:600;
+    font-size:14px;letter-spacing:-.01em;color:var(--grey-400);margin:0 0 14px}
+  .can{display:grid;gap:0;border:1px solid var(--beige-300);border-radius:var(--rxl);
+    background:var(--beige-400);overflow:hidden}
+  .can li{display:flex;gap:13px;align-items:flex-start;padding:15px 18px;list-style:none;
+    border-top:1px solid var(--beige-100);opacity:0;translate:0 10px;
+    transition:opacity .5s var(--ease),translate .5s var(--ease)}
+  .can li:first-child{border-top:0}
+  .in .can li{opacity:1;translate:0 0}
+  .tick{width:19px;height:19px;border-radius:50%;flex:none;margin-top:1px;display:grid;place-items:center;
+    background:var(--go-wash);color:var(--go)}
+  .tick svg{stroke-dasharray:14;stroke-dashoffset:14;transition:stroke-dashoffset .45s var(--ease)}
+  .in .can li .tick svg{stroke-dashoffset:0}
+  .can b{display:block;font-family:var(--display);font-weight:600;font-size:15.5px;letter-spacing:-.015em;
+    color:var(--grey-100);margin-bottom:2px}
+  .can span{display:block;font-size:14px;color:var(--grey-400);line-height:1.5}
+  .can code{font-family:var(--mono);font-size:11px;color:var(--grey-500);letter-spacing:0;margin-top:5px;
+    display:inline-block}
+  .cant{display:grid;gap:12px}
+  .cant div{position:relative;border:1px dashed var(--beige-100);border-radius:var(--rxl);
+    background:#fff;padding:17px 19px;overflow:hidden}
+  .cant b{display:block;font-family:var(--display);font-weight:600;font-size:15.5px;letter-spacing:-.015em;
+    color:var(--grey-300);margin-bottom:6px;position:relative;width:max-content;max-width:100%}
+  /* the strike draws itself, rather than just being there */
+  .cant b::after{content:"";position:absolute;left:0;top:52%;height:1.5px;width:0;background:var(--stop);
+    transition:width .5s var(--ease) .35s}
+  .in .cant b::after{width:100%}
+  .cant span{display:block;font-size:14px;color:var(--grey-400);line-height:1.5}
+  .cant .why{margin-top:11px;padding-top:11px;border-top:1px solid var(--beige-300);
+    font-size:13px;color:var(--stop);line-height:1.45}
+
+  /* ---------- the console preview ---------- */
+  .demo{margin-top:40px;border-radius:16px;overflow:hidden;border:1px solid var(--beige-100);
+    background:#fff;box-shadow:0 1px 2px rgba(9,12,27,.04),0 24px 60px -30px rgba(9,12,27,.28)}
+  .chrome{display:flex;align-items:center;gap:8px;padding:11px 14px;background:var(--beige-300);
+    border-bottom:1px solid var(--beige-100)}
+  .chrome i{width:9px;height:9px;border-radius:50%;background:var(--beige-100);font-style:normal}
+  .chrome .url{margin-left:8px;font-family:var(--mono);font-size:11px;color:var(--grey-400);
+    background:#fff;border:1px solid var(--beige-100);border-radius:99px;padding:3px 12px}
+  .demo-in{display:grid;grid-template-columns:150px 1fr;min-height:330px}
+  @media(max-width:700px){.demo-in{grid-template-columns:1fr}.demo-side{display:none}}
+  .demo-side{border-right:1px solid var(--beige-300);padding:14px 10px;background:#fff}
+  .demo-side h6{font-family:var(--display);font-size:10.5px;font-weight:600;color:var(--grey-500);
+    margin:12px 0 5px;padding-inline:9px}
+  .demo-side h6:first-child{margin-top:0}
+  .demo-side a{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:7px;
+    font-size:12.5px;color:var(--grey-400);text-decoration:none}
+  .demo-side a.on{background:var(--beige-300);color:var(--grey-100);font-weight:500}
+  .demo-side .bdg{margin-left:auto;font-family:var(--mono);font-size:9.5px;background:var(--blood);
+    color:#fff;border-radius:99px;padding:1px 6px}
+  .demo-main{padding:16px 18px;min-width:0}
+  .demo-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .demo-h b{font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--grey-100)}
+  .demo-h .cnt{font-family:var(--mono);font-size:11px;color:var(--grey-400);margin-left:auto}
+  .qrow{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;
+    padding:11px 12px;border:1px solid var(--beige-300);border-radius:10px;margin-bottom:7px;
+    background:#fff;transition:.45s var(--ease)}
+  .qrow .who{min-width:0}
+  .qrow .who b{display:block;font-family:var(--display);font-weight:600;font-size:13px;color:var(--grey-100);
+    letter-spacing:-.01em}
+  .qrow .who span{display:block;font-family:var(--mono);font-size:10.5px;color:var(--grey-400);margin-top:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qrow .amt{font-family:var(--mono);font-size:12.5px;color:var(--grey-200);font-variant-numeric:tabular-nums}
+  .qrow .st{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+    padding:3px 9px;border-radius:99px;transition:.35s var(--ease);white-space:nowrap}
+  .st-wait{background:var(--hold-wash);color:#c2410c}
+  .st-ok{background:var(--go-wash);color:var(--go)}
+  .st-no{background:var(--stop-wash);color:var(--stop)}
+  .qrow.going{opacity:0;transform:translateX(26px);margin-bottom:-52px}
+  .demo-toast{position:absolute;left:50%;bottom:16px;translate:-50% 8px;background:var(--grey-100);color:#fff;
+    font-size:12px;padding:8px 15px;border-radius:99px;opacity:0;transition:.3s var(--ease);
+    white-space:nowrap;pointer-events:none}
+  .demo-toast.on{opacity:1;translate:-50% 0}
+  .demo-wrap{position:relative}
+  .demo-cap{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-family:var(--mono);font-size:11px;
+    color:var(--grey-400)}
+  .demo-cap span{display:inline-flex;align-items:center;gap:7px}
+
+  /* ---------- Limulus Labs: the band that pops ---------- */
+  .labs{position:relative;overflow:hidden;color:#fff;border-radius:var(--rxl);margin-block:84px;
+    background:linear-gradient(145deg,#1b1560 0%,#2a1d7a 46%,#141a5c 100%)}
+  .labs .noise{opacity:.5;mix-blend-mode:soft-light}
+  .labs .lglow{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;opacity:0;
+    transition:opacity .9s var(--ease)}
+  .labs.in-view .lglow{opacity:.5}
+  .labs .lg1{width:420px;height:420px;background:#6f5bff;top:-170px;right:-70px;
+    animation:glow-drift-x 18s ease-in-out infinite paused}
+  .labs .lg2{width:320px;height:320px;background:#2ee6c0;bottom:-180px;left:8%;opacity:.3;
+    animation:glow-pulse 14s ease-in-out infinite paused}
+  .labs.in-view .lglow{animation-play-state:running}
+  .labs-in{position:relative;z-index:2;padding:52px 32px}
+  @media(min-width:768px){.labs-in{padding:72px 56px}}
+  .labs .eyebrow span{color:#b9b2ff}
+  .labs .eyebrow .sq{background:#2ee6c0}
+  .labs h2{color:#fff;max-width:20ch}
+  .labs .lead{color:#cfcbf5;max-width:56ch;opacity:1}
+  .labs-grid{display:grid;gap:12px;margin-top:38px}
+  @media(min-width:760px){.labs-grid{grid-template-columns:repeat(3,1fr)}}
+  .labs-card{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.13);
+    border-radius:var(--r10);padding:20px 21px}
+  .labs-card .n{font-family:var(--display);font-weight:600;font-size:34px;letter-spacing:-.045em;
+    line-height:1;color:#2ee6c0;font-variant-numeric:tabular-nums}
+  .labs-card h4{font-family:var(--display);font-weight:600;font-size:15.5px;letter-spacing:-.015em;
+    color:#fff;margin:12px 0 7px}
+  .labs-card p{margin:0;font-size:13.5px;line-height:1.55;color:#c3bfe8}
+  .labs-note{margin-top:32px;padding-top:22px;border-top:1px solid rgba(255,255,255,.14);
+    display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .labs-note p{margin:0;font-size:14px;color:#cfcbf5;max-width:62ch;line-height:1.6}
+  .labs .btn{background:#fff;color:#1b1560;border-color:#fff}
+  .labs .btn:hover{background:#e9e6ff}
 
   /* ---------- reveal ---------- */
   .rev{opacity:0;translate:0 20px;transition:opacity .8s var(--ease),translate .8s var(--ease)}
@@ -1230,17 +1340,117 @@ curl -X POST https://api.limulus.dev/v1/gate \
     </div>
   </section>
 
-  <!-- ============================== TOOLS ============================= -->
-  <section>
+  <!-- ==================== WHAT AN AGENT CAN / CANNOT DO ==================== -->
+  <section id="grant">
     <div class="wrap">
       <div class="rev">
-        <h2 class="t44" style="max-width:24ch">Seven tools, and two we refused to build</h2>
-        <p class="lead body18" style="margin-top:18px">The absences are the design. An agent that can grant itself
-          permission has no permission system.</p>
+        <h2 class="t44" style="max-width:22ch">You decide what the agent is allowed to do</h2>
+        <p class="lead body18" style="margin-top:18px">Seven things it can ask for, and two it can never
+          have. The absences are the design — an agent that can widen its own limits has no limits.</p>
       </div>
-      <div class="tools" id="tools"></div>
+
+      <div class="grant">
+        <div class="grant-col rev">
+          <h3><i class="sq g"></i>What it can do</h3>
+          <ul class="can" id="can"></ul>
+        </div>
+        <div class="grant-col rev">
+          <h3><i class="sq r"></i>What it can never do</h3>
+          <div class="cant" id="cant"></div>
+        </div>
+      </div>
     </div>
   </section>
+
+  <!-- ========================= THE CONSOLE DEMO ========================= -->
+  <section id="console">
+    <div class="wrap">
+      <div class="rev">
+        <div class="eyebrow"><i class="sq b"></i><span>What your team sees</span></div>
+        <h2 class="t44" style="max-width:24ch">One screen: what is waiting, and what you decided</h2>
+        <p class="lead body18" style="margin-top:18px">When the gate escalates, somebody has to answer it.
+          They see the invoice, the reason it stopped, and two buttons — and whatever they choose is signed
+          and kept, so "who approved this" always has an answer.</p>
+      </div>
+
+      <div class="demo rev">
+        <div class="chrome"><i></i><i></i><i></i>
+          <span class="url">limulus.dev/console</span>
+        </div>
+        <div class="demo-wrap">
+          <div class="demo-in">
+            <div class="demo-side">
+              <h6>Monitor</h6>
+              <a class="on"><i class="sq sm b"></i>Approvals<span class="bdg" id="d-badge">3</span></a>
+              <a><i class="sq sm"></i>Payments</a>
+              <a><i class="sq sm"></i>Reconciliation</a>
+              <h6>Test</h6>
+              <a><i class="sq sm"></i>Lab runs</a>
+              <a><i class="sq sm"></i>Agents</a>
+            </div>
+            <div class="demo-main">
+              <div class="demo-h"><b>Waiting on you</b><span class="cnt" id="d-count">3 payments</span></div>
+              <div id="d-rows"></div>
+            </div>
+          </div>
+          <div class="demo-toast" id="d-toast"></div>
+        </div>
+      </div>
+      <div class="demo-cap rev">
+        <span><i class="sq o"></i>held at the bank while a person decides</span>
+        <span><i class="sq g"></i>released, and signed</span>
+        <span><i class="sq r"></i>blocked — no override, by design</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ LIMULUS LABS =========================== -->
+  <div class="wrap">
+    <div class="labs" id="labs">
+      <div class="lglow lg1"></div><div class="lglow lg2"></div>
+      <div class="noise"></div>
+      <div class="labs-in">
+        <div class="eyebrow"><i class="sq"></i><span>Limulus Labs</span></div>
+        <h2 class="t44">Nobody knows yet how agents lose money. We are trying to find out.</h2>
+        <p class="lead body18" style="margin-top:18px">Every safety claim in this category is a guess until
+          somebody runs the experiment. So we built the experiment first and the product second — and we
+          publish what we find, including the parts that make our own product look unnecessary.</p>
+
+        <div class="labs-grid">
+          <div class="labs-card">
+            <div class="n" data-count="60">0</div>
+            <h4>Fraud attempts that failed</h4>
+            <p>Hidden bank changes, forged approvals, a fake CFO. Agents refused every one. The threat this
+              whole category sells against is the one models already handle — so we stopped selling it.</p>
+          </div>
+          <div class="labs-card">
+            <div class="n" data-count="50" data-suffix="%">0</div>
+            <h4>Of duplicates paid anyway</h4>
+            <p>One retainer, billed twice under two invoice numbers. The same model that caught every fraud
+              paid it half the time. Judgment is fine. Bookkeeping is not.</p>
+          </div>
+          <div class="labs-card">
+            <div class="n" data-count="8">0</div>
+            <h4>Bugs found in our own gate</h4>
+            <p>Our duplicate check read "PO 44812" and "PO-44812" as different orders. A real agent found
+              that, not us. We would rather publish it than have a customer discover it.</p>
+          </div>
+        </div>
+
+        <div class="labs-note">
+          <p>The Lab is not a marketing exercise. It is how the gate gets configured: the checks we require
+            are the ones the experiments showed actually fire, and the readiness ladder an agent climbs is
+            scored on what it did, never on what it said it did.</p>
+          <a class="btn" href="#evidence">See the findings
+            <span class="sw" aria-hidden="true">
+              <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ============================= HONEST ============================= -->
   <section id="honest">
@@ -1739,24 +1949,125 @@ curl -X POST https://api.limulus.dev/v1/gate \
     for (const p of document.querySelectorAll(".dpane")) p.classList.toggle("on", p.dataset.d === b.dataset.d);
   });
 
-  /* ============ tool cards ============ */
-  const TOOLS = [
-    ["check_payment", "Would this go through? Asks without creating anything — and without counting as a payment later."],
-    ["pay_invoice", "Held at the bank, decided, then released or cancelled. Returns a code you can act on, not a refusal."],
-    ["get_authorization", "What a person actually approved: vendors, ceilings, invoices, required checks."],
-    ["get_qualification", "Your own scope. Rail, currency, ceiling, payee scope, expiry — so an agent can know its edges."],
-    ["get_receipt", "The signed record of a decision, with its position in the hash chain."],
-    ["report_settlement", "Tell us what the rail did. Unreported outcomes turn a duplicate check into a guess."],
-    ["verify_receipt", "Check any receipt, including one handed to you by someone else. No key required."],
+  /* ============ what the agent can and cannot do ============
+     Plain language first, tool name as a footnote. A finance lead should be
+     able to read this row and know what they are agreeing to. */
+  const CAN = [
+    ["Ask whether a payment would go through",
+     "Without creating anything, and without that question counting as a payment later.", "check_payment"],
+    ["Pay an approved invoice",
+     "Held at the bank, checked, then released or cancelled. It gets back a reason it can act on, not a refusal.", "pay_invoice"],
+    ["Look up what a person approved",
+     "The vendors, the ceilings, the invoices, the checks you require.", "get_authorization"],
+    ["Check its own limits",
+     "Which rail, which currency, how much, which payees, and when that expires — so it can know its edges.", "get_qualification"],
+    ["Fetch the receipt for a decision",
+     "The signed record, and where it sits in the chain.", "get_receipt"],
+    ["Report what the bank did",
+     "Outcomes nobody reports are what turn a duplicate check into a guess.", "report_settlement"],
+    ["Verify anyone's receipt",
+     "Including one handed to it by someone else. No key needed — a receipt only we can check is not evidence.", "verify_receipt"],
   ];
-  const ABSENT = [
-    ["set_policy", "Not built. Policy is a person's job, and an agent editing its own limits is the whole failure mode."],
-    ["issue_qualification", "Not built. A qualification is earned in the Lab and issued out of band."],
+
+  const CANNOT = [
+    ["Change your policy", "Raise a ceiling, add a vendor, drop a required check.",
+     "Policy is a person's job. An agent editing its own limits is the entire failure mode."],
+    ["Grant itself permission", "Issue or widen its own qualification.",
+     "Permission is earned in the Lab and issued out of band, by someone who is not the agent."],
   ];
-  $("tools").innerHTML =
-    TOOLS.map(([n, d]) => `<div class="card tool rev"><span class="tn"><i class="sq b"></i>${n}</span><p>${d}</p></div>`).join("") +
-    ABSENT.map(([n, d]) => `<div class="card tool absent rev"><span class="tn"><i class="sq"></i>${n}</span><p>${d}</p></div>`).join("");
-  for (const el of $("tools").querySelectorAll(".rev")) reveal.observe(el);
+
+  $("can").innerHTML = CAN.map(([t, d, tool], i) => `
+    <li style="transition-delay:${90 + i * 70}ms">
+      <span class="tick"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.6 4 7.6 10 1.3" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span><b>${t}</b><span>${d}</span><code>${tool}</code></span>
+    </li>`).join("");
+
+  $("cant").innerHTML = CANNOT.map(([t, d, why]) => `
+    <div><b>${t}</b><span>${d}</span><div class="why">${why}</div></div>`).join("");
+
+  /* ============ the console preview ============
+     A rehearsal of the real screen at /console.html, not a screenshot: the
+     queue drains as a person answers it, which is the thing worth showing. */
+  const QUEUE = [
+    { payee: "Northline Steel", meta: "INV-4188 · bank details changed 5 days ago", amt: "2,600.00", verdict: "approved" },
+    { payee: "Cedar Valley Freight", meta: "INV-4192 · same amount paid 6 days ago", amt: "8,420.00", verdict: "approved" },
+    { payee: "*Northlne Steel*", meta: "INV-4203 · payee not on the approved list", amt: "31,900.00", verdict: "rejected" },
+  ];
+
+  const drawQueue = () => {
+    $("d-rows").innerHTML = QUEUE.map((q, i) => `
+      <div class="qrow" data-i="${i}">
+        <span class="who"><b>${q.payee}</b><span>${q.meta}</span></span>
+        <span class="amt">$${q.amt}</span>
+        <span class="st st-wait">waiting</span>
+      </div>`).join("");
+    $("d-badge").textContent = QUEUE.length;
+    $("d-count").textContent = `${QUEUE.length} payments`;
+  };
+
+  const dToast = (msg) => {
+    $("d-toast").textContent = msg;
+    $("d-toast").classList.add("on");
+    setTimeout(() => $("d-toast").classList.remove("on"), 2200);
+  };
+
+  async function runConsole() {
+    drawQueue();
+    await sleep(1400);
+    let left = QUEUE.length;
+    for (let i = 0; i < QUEUE.length; i++) {
+      const row = $("d-rows").querySelector(`[data-i="${i}"]`);
+      if (!row) break;
+      const q = QUEUE[i];
+      const pill = row.querySelector(".st");
+      row.style.borderColor = "var(--blood)";
+      await sleep(620);
+      const ok = q.verdict === "approved";
+      pill.className = `st ${ok ? "st-ok" : "st-no"}`;
+      pill.textContent = ok ? "released" : "blocked";
+      dToast(ok ? `Released · signed by j.ortiz` : `Blocked · payee not authorized`);
+      await sleep(900);
+      row.style.borderColor = "";
+      row.classList.add("going");
+      left--;
+      $("d-badge").textContent = left;
+      $("d-count").textContent = `${left} payment${left === 1 ? "" : "s"}`;
+      await sleep(520);
+    }
+    await sleep(1600);
+    if (!reduced) runConsole();
+  }
+
+  // Only run while it is on screen — an animation nobody is watching is waste.
+  const demoGate = new IntersectionObserver((es) => {
+    for (const e of es) {
+      if (e.isIntersecting && !e.target.dataset.running) {
+        e.target.dataset.running = "1";
+        reduced ? drawQueue() : runConsole();
+      }
+    }
+  }, { threshold: 0.25 });
+  demoGate.observe($("d-rows"));
+
+  /* ============ Limulus Labs counters ============ */
+  const labCounters = new IntersectionObserver((es) => {
+    for (const e of es) {
+      if (!e.isIntersecting) continue;
+      labCounters.unobserve(e.target);
+      const to = Number(e.target.dataset.count);
+      const suffix = e.target.dataset.suffix ?? "";
+      if (reduced) { e.target.textContent = to + suffix; continue; }
+      let n = 0;
+      const tick = () => {
+        n += Math.max(1, Math.ceil((to - n) / 7));
+        e.target.textContent = Math.min(n, to) + suffix;
+        if (n < to) requestAnimationFrame(tick);
+      };
+      tick();
+    }
+  }, { threshold: 0.6 });
+  for (const el of document.querySelectorAll(".labs-card .n")) labCounters.observe(el);
+  gate.observe($("labs"));
 
   /* ============ sparkline on the featured resource ============ */
   const SP = [22, 34, 30, 48, 41, 62, 55, -74, 68, 81, 44, 59, 37, 71, 52, 66, 29, 83, 47, 90];
