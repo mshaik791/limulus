@@ -87,18 +87,21 @@
   .body14{font-size:14px;line-height:1.5;letter-spacing:0}
 
   /* the rotated square. their strongest mark. */
-  /* Our mark: a record with its corner turned, not a rotated diamond.
+  /* Our mark: the carapace.
    *
-   * The diamond is Sardine's — by their own system it is the single most
-   * identifying thing on their page, used as bullet, node and pager dot. It
-   * was doing the same job here in 31 places, so changing the footer rule
-   * alone would not have changed what the page reads as. This is a sheet with
-   * a cut corner: the thing the product actually produces, a signed record.
-   * Same footprint and the same colour classes, so every use updates at once. */
-  .sq{width:9px;height:9px;border-radius:0;flex:none;display:inline-block;
-    background:var(--grey-100);
-    clip-path:polygon(0 0, 66% 0, 100% 34%, 100% 100%, 0 100%)}
-  .sq.sm{width:7px;height:7px}
+   * A horseshoe crab seen from above is a dome — round over the top, flat
+   * along the back. It is also, not by accident, the shape of a shield, which
+   * is what the product is. At 9px it stays legible where a whole crab would
+   * turn to mush, and it is not a shape anyone else in this category is using.
+   *
+   * The molt is the other half of the idea. A horseshoe crab grows by walking
+   * out of its shell and leaving a perfect empty copy behind, so an outlined
+   * carapace means the same thing everywhere on this page: present, but not
+   * live. A check that was not required. A stage not yet reached. */
+  .sq{width:10px;height:8px;flex:none;display:inline-block;background:var(--grey-100);
+    border-radius:50% 50% 22% 22% / 68% 68% 26% 26%}
+  .sq.sm{width:8px;height:6.5px}
+  .sq.molt{background:transparent;box-shadow:inset 0 0 0 1.5px var(--grey-500)}
   .sq.b{background:var(--blood)} .sq.p{background:#eca1e7} .sq.l{background:#b5e87a}
   .sq.t{background:#26a38e} .sq.v{background:#bb9fe7} .sq.r{background:var(--stop)}
   .sq.o{background:var(--hold)}
@@ -403,6 +406,9 @@
   .rung{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.72);border-radius:var(--rlg);
     padding:11px 14px;font-size:13.5px;color:var(--grey-300)}
   .rung .n{font-family:var(--mono);font-size:10px;color:var(--grey-400);width:16px;flex:none}
+  .rung .sq{background:var(--grey-300)}
+  .rung .sq.molt{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(38,46,65,.32)}
+  .rung.at .sq{background:var(--blood)}
   .rung.at{background:#fff;color:var(--grey-100);font-weight:500;
     box-shadow:inset 0 0 0 1.5px var(--blood)}
   .rung.off{opacity:.55}
@@ -669,28 +675,23 @@
   }
   .fin .capture input{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#fff}
   .fin .capture input::placeholder{color:rgba(255,255,255,.7)}
-  /* The footer rule is the chain.
+  /* The footer rule: a crossing.
    *
-   * It used to be coloured diamonds on a gradient hairline, which is Sardine's
-   * mark and not ours. This is the thing the product actually makes: a record
-   * hashed to the one before it, written left to right and still being
-   * extended. Each node shows a real-looking fragment; the highlight walks the
-   * line, so the divider reads as a ledger being appended to rather than as
-   * decoration. */
-  .chain{position:relative;max-width:1280px;margin:64px auto 0;height:26px;
-    mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
-    -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+   * Horseshoe crabs come ashore in a line and leave the shells behind them.
+   * So the rule is a tideline, the carapaces sit on it, and one of them walks
+   * the length of the page while the rest are molts — which is quieter than
+   * the hex fragments that were here before, and says the same thing: things
+   * moved along this line, and the record of them is still here. */
+  .chain{position:relative;max-width:1280px;margin:64px auto 0;height:22px;
+    mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
   .chain::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;
-    background:rgba(255,255,255,.13)}
-  .cnode{position:absolute;top:50%;translate:-50% -50%;display:flex;align-items:center;gap:7px;
-    padding:0 11px;background:var(--grey-100);white-space:nowrap}
-  .cnode i{width:7px;height:7px;flex:none;clip-path:polygon(0 0, 66% 0, 100% 34%, 100% 100%, 0 100%);
-    background:rgba(255,255,255,.22);transition:background .45s var(--ease),box-shadow .45s var(--ease)}
-  .cnode b{font-family:var(--mono);font-weight:400;font-size:9.5px;letter-spacing:.09em;
-    color:rgba(255,255,255,.26);transition:color .45s var(--ease)}
-  .cnode.on i{background:var(--go-300);box-shadow:0 0 0 3px rgba(122,232,214,.16)}
-  .cnode.on b{color:rgba(255,255,255,.62)}
-  .cnode.head i{background:var(--blood-300)}
+    background:rgba(255,255,255,.12)}
+  .cnode{position:absolute;top:50%;width:11px;height:9px;translate:-50% -50%;
+    border-radius:50% 50% 22% 22% / 68% 68% 26% 26%;
+    background:transparent;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.2);
+    transition:background .5s var(--ease),box-shadow .5s var(--ease)}
+  .cnode.on{background:var(--go-300);box-shadow:0 0 0 4px rgba(122,232,214,.12)}
   @media(max-width:700px){.cnode.hide-sm{display:none}}
   .fcols{display:grid;grid-template-columns:1fr 1fr;gap:34px 28px;padding-block:48px}
   @media(min-width:768px){.fcols{grid-template-columns:1.2fr repeat(4,1fr);gap:60px 28px;padding-block:72px}}
@@ -1812,11 +1813,14 @@ curl -X POST https://api.limulus.dev/v1/gate \
       </div>`,
     qualify: `<div class="art-pad">
         <div class="ladder">
-          <div class="rung"><span class="n">01</span>Experimental</div>
-          <div class="rung"><span class="n">02</span>Shadow-ready</div>
-          <div class="rung at"><span class="n">03</span>Human-supervised</div>
-          <div class="rung off"><span class="n">04</span>Limited-autonomous</div>
-          <div class="rung off"><span class="n">05</span>Expanded-autonomous</div>
+          <!-- A crab grows by walking out of its shell. Each rung an agent has
+               passed is a shell it has outgrown; the ones ahead are still
+               empty. Filled = earned, outline = not yet. -->
+          <div class="rung"><span class="n">01</span><i class="sq sm"></i>Experimental</div>
+          <div class="rung"><span class="n">02</span><i class="sq sm"></i>Shadow-ready</div>
+          <div class="rung at"><span class="n">03</span><i class="sq sm"></i>Human-supervised</div>
+          <div class="rung off"><span class="n">04</span><i class="sq sm molt"></i>Limited-autonomous</div>
+          <div class="rung off"><span class="n">05</span><i class="sq sm molt"></i>Expanded-autonomous</div>
         </div>
         <div class="wcard" style="margin-top:18px">
           <b>qual_4b81e0</b> · ap-agent <b>1.4.2</b><br>
@@ -2007,44 +2011,37 @@ curl -X POST https://api.limulus.dev/v1/gate \
     `<i class="${v < 0 ? "f" : v < 25 ? "p" : i % 17 === 0 ? "w" : ""}"
         style="height:${Math.abs(v)}%;transition-delay:${i * 11}ms"></i>`).join("");
 
-  /* ============ the chain that closes the page ============
-     Seven links across the rule, each hashed to the one before it. The
-     fragments are generated rather than typed so they look like what they
-     are — arbitrary hex — and the highlight walks left to right, which is the
-     direction the chain is written in. */
-  const linkCount = 7;
-  const frag = () => Array.from({ length: 6 }, () =>
-    "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
-
-  $("chain").innerHTML = Array.from({ length: linkCount }, (_, i) => {
-    const left = 6 + (i * 88) / (linkCount - 1);
-    const head = i === linkCount - 1;
-    // Thin out the middle links on narrow screens rather than letting them collide.
-    const hide = i % 2 === 1 && !head ? " hide-sm" : "";
-    return `<span class="cnode${head ? " head" : ""}${hide}" style="left:${left}%">
-      <i></i><b>${head ? "…writing" : frag()}</b></span>`;
+  /* ============ the tideline ============
+     Nine shells along the rule, and one crab walking the length of it. Only
+     one is ever filled — the rest are molts, which is what you actually find
+     on a beach. It runs only while on screen. */
+  const SHELLS = 9;
+  $("chain").innerHTML = Array.from({ length: SHELLS }, (_, i) => {
+    const left = 5 + (i * 90) / (SHELLS - 1);
+    const hide = i % 2 === 1 ? " hide-sm" : "";
+    return `<span class="cnode${hide}" style="left:${left}%"></span>`;
   }).join("");
 
-  const nodes = [...$("chain").querySelectorAll(".cnode")];
-  let chainAt = 0, chainTimer = null;
-  const stepChain = () => {
-    nodes.forEach((n, i) => n.classList.toggle("on", i <= chainAt));
-    chainAt = (chainAt + 1) % (linkCount + 3); // a pause at the end of each pass
+  const shells = [...$("chain").querySelectorAll(".cnode")];
+  let walkAt = 0, walkTimer = null;
+  const walk = () => {
+    shells.forEach((n, i) => n.classList.toggle("on", i === walkAt));
+    // A pause at each end, so it reads as something crossing rather than a loading bar.
+    walkAt = (walkAt + 1) % (SHELLS + 2);
   };
 
   const chainGate = new IntersectionObserver((es) => {
     for (const e of es) {
       if (e.isIntersecting && !reduced) {
-        if (!chainTimer) { stepChain(); chainTimer = setInterval(stepChain, 620); }
+        if (!walkTimer) { walk(); walkTimer = setInterval(walk, 700); }
       } else {
-        clearInterval(chainTimer);
-        chainTimer = null;
+        clearInterval(walkTimer);
+        walkTimer = null;
+        shells.forEach((n) => n.classList.remove("on"));
       }
     }
   }, { threshold: 0 });
   chainGate.observe($("chain"));
-  if (reduced) nodes.forEach((n) => n.classList.add("on"));
-
 
   /* ============ doc tabs ============ */
   const DOCS = [["rest", "REST API"], ["mcp", "MCP server"], ["receipt", "Receipts · no auth"]];
