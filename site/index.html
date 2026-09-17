@@ -87,9 +87,18 @@
   .body14{font-size:14px;line-height:1.5;letter-spacing:0}
 
   /* the rotated square. their strongest mark. */
-  .sq{width:8px;height:8px;border-radius:1px;transform:rotate(45deg);
-    background:var(--grey-100);flex:none;display:inline-block}
-  .sq.sm{width:6px;height:6px}
+  /* Our mark: a record with its corner turned, not a rotated diamond.
+   *
+   * The diamond is Sardine's — by their own system it is the single most
+   * identifying thing on their page, used as bullet, node and pager dot. It
+   * was doing the same job here in 31 places, so changing the footer rule
+   * alone would not have changed what the page reads as. This is a sheet with
+   * a cut corner: the thing the product actually produces, a signed record.
+   * Same footprint and the same colour classes, so every use updates at once. */
+  .sq{width:9px;height:9px;border-radius:0;flex:none;display:inline-block;
+    background:var(--grey-100);
+    clip-path:polygon(0 0, 66% 0, 100% 34%, 100% 100%, 0 100%)}
+  .sq.sm{width:7px;height:7px}
   .sq.b{background:var(--blood)} .sq.p{background:#eca1e7} .sq.l{background:#b5e87a}
   .sq.t{background:#26a38e} .sq.v{background:#bb9fe7} .sq.r{background:var(--stop)}
   .sq.o{background:var(--hold)}
@@ -660,9 +669,29 @@
   }
   .fin .capture input{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#fff}
   .fin .capture input::placeholder{color:rgba(255,255,255,.7)}
-  .divider{position:relative;height:1px;margin:64px auto 0;max-width:1280px;
-    background:linear-gradient(90deg,#0b111e 0%,#393e48 50.75%,#0b111e 101.5%)}
-  .divider .sq{position:absolute;top:-4px;translate:-50% 0}
+  /* The footer rule is the chain.
+   *
+   * It used to be coloured diamonds on a gradient hairline, which is Sardine's
+   * mark and not ours. This is the thing the product actually makes: a record
+   * hashed to the one before it, written left to right and still being
+   * extended. Each node shows a real-looking fragment; the highlight walks the
+   * line, so the divider reads as a ledger being appended to rather than as
+   * decoration. */
+  .chain{position:relative;max-width:1280px;margin:64px auto 0;height:26px;
+    mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+  .chain::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;
+    background:rgba(255,255,255,.13)}
+  .cnode{position:absolute;top:50%;translate:-50% -50%;display:flex;align-items:center;gap:7px;
+    padding:0 11px;background:var(--grey-100);white-space:nowrap}
+  .cnode i{width:7px;height:7px;flex:none;clip-path:polygon(0 0, 66% 0, 100% 34%, 100% 100%, 0 100%);
+    background:rgba(255,255,255,.22);transition:background .45s var(--ease),box-shadow .45s var(--ease)}
+  .cnode b{font-family:var(--mono);font-weight:400;font-size:9.5px;letter-spacing:.09em;
+    color:rgba(255,255,255,.26);transition:color .45s var(--ease)}
+  .cnode.on i{background:var(--go-300);box-shadow:0 0 0 3px rgba(122,232,214,.16)}
+  .cnode.on b{color:rgba(255,255,255,.62)}
+  .cnode.head i{background:var(--blood-300)}
+  @media(max-width:700px){.cnode.hide-sm{display:none}}
   .fcols{display:grid;grid-template-columns:1fr 1fr;gap:34px 28px;padding-block:48px}
   @media(min-width:768px){.fcols{grid-template-columns:1.2fr repeat(4,1fr);gap:60px 28px;padding-block:72px}}
   .fcol h5{font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
@@ -1569,7 +1598,7 @@ curl -X POST https://api.limulus.dev/v1/gate \
     </form>
   </div>
 
-  <div class="divider" id="divider"></div>
+  <div class="chain" id="chain" aria-hidden="true"></div>
 
   <div class="wrap" style="position:relative;z-index:2">
     <div class="fcols">
@@ -1978,10 +2007,44 @@ curl -X POST https://api.limulus.dev/v1/gate \
     `<i class="${v < 0 ? "f" : v < 25 ? "p" : i % 17 === 0 ? "w" : ""}"
         style="height:${Math.abs(v)}%;transition-delay:${i * 11}ms"></i>`).join("");
 
-  /* ============ divider packets ============ */
-  const PK = [[10, "p"], [20, "v"], [25, "b"], [45, "t"], [55, ""], [60, "l"], [82, "o"], [84, "p"]];
-  $("divider").innerHTML = PK.map(([left, c]) =>
-    `<i class="sq ${c}" style="left:${left}%"></i>`).join("");
+  /* ============ the chain that closes the page ============
+     Seven links across the rule, each hashed to the one before it. The
+     fragments are generated rather than typed so they look like what they
+     are — arbitrary hex — and the highlight walks left to right, which is the
+     direction the chain is written in. */
+  const linkCount = 7;
+  const frag = () => Array.from({ length: 6 }, () =>
+    "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
+
+  $("chain").innerHTML = Array.from({ length: linkCount }, (_, i) => {
+    const left = 6 + (i * 88) / (linkCount - 1);
+    const head = i === linkCount - 1;
+    // Thin out the middle links on narrow screens rather than letting them collide.
+    const hide = i % 2 === 1 && !head ? " hide-sm" : "";
+    return `<span class="cnode${head ? " head" : ""}${hide}" style="left:${left}%">
+      <i></i><b>${head ? "…writing" : frag()}</b></span>`;
+  }).join("");
+
+  const nodes = [...$("chain").querySelectorAll(".cnode")];
+  let chainAt = 0, chainTimer = null;
+  const stepChain = () => {
+    nodes.forEach((n, i) => n.classList.toggle("on", i <= chainAt));
+    chainAt = (chainAt + 1) % (linkCount + 3); // a pause at the end of each pass
+  };
+
+  const chainGate = new IntersectionObserver((es) => {
+    for (const e of es) {
+      if (e.isIntersecting && !reduced) {
+        if (!chainTimer) { stepChain(); chainTimer = setInterval(stepChain, 620); }
+      } else {
+        clearInterval(chainTimer);
+        chainTimer = null;
+      }
+    }
+  }, { threshold: 0 });
+  chainGate.observe($("chain"));
+  if (reduced) nodes.forEach((n) => n.classList.add("on"));
+
 
   /* ============ doc tabs ============ */
   const DOCS = [["rest", "REST API"], ["mcp", "MCP server"], ["receipt", "Receipts · no auth"]];
