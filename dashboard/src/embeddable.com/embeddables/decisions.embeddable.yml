@@ -1,0 +1,315 @@
+# The Limulus decision dashboard.
+#
+# Reads the warehouse projection (src/warehouse/export.ts) through the twelve
+# cubes in models/cubes/limulus.cube.yml, on the "limulus" connection.
+#
+# Ordered the way the product is: what the gate decided, why it decided it,
+# whether anything went around it, and whether the agent it is guarding is
+# actually any good. The friction tile sits next to the safety tiles on
+# purpose — a gate that blocks correct payments gets switched off, taking the
+# useful checks with it, so it is not a lesser number than the others.
+
+embeddables:
+  - name: limulus-decisions
+    title: Limulus — decisions
+    description: >
+      Verdicts, the checks behind them, reconciliation drift, and how the
+      agent under the gate scores. Built as code so it survives a rebuild of
+      the warehouse.
+
+    datasets:
+      - name: Decisions
+        model: decisions
+      - name: Checks
+        model: decision_checks
+      - name: Outcomes
+        model: outcomes
+      - name: LabRuns
+        model: lab_runs
+      - name: LabGrades
+        model: lab_grades
+      - name: ModelTrials
+        model: model_trials
+
+    widgets:
+      # ------------------------------------------------------------ header
+      - component: MarkdownPro
+        position: { x: 0, y: 0 }
+        dimensions: { width: 12, height: 7 }
+        inputs:
+          - input: markdown
+            inputType: markdown
+            valueType: VALUE
+            value: |
+              ## Decisions
+
+              Every agent-initiated payment, held at the bank and compared against
+              what a person approved. Sandbox data — no production traffic.
+
+      # -------------------------------------------------------- KPI row
+      - component: KpiChartNumberPro
+        position: { x: 0, y: 7 }
+        dimensions: { width: 3, height: 11 }
+        inputs:
+          - input: title
+            inputType: string
+            valueType: VALUE
+            value: Decisions
+          - input: description
+            inputType: string
+            valueType: VALUE
+            value: Every verdict in the chain
+          - input: dataset
+            inputType: dataset
+            valueType: VALUE
+            value: Decisions
+          - input: measure
+            inputType: measure
+            valueType: VALUE
+            value: decisions.count
+            config:
+              dataset: dataset
+
+      - component: KpiChartNumberPro
+        position: { x: 3, y: 7 }
+        dimensions: { width: 3, height: 11 }
+        inputs:
+          - input: title
+            inputType: string
+            valueType: VALUE
+            value: Stopped
+          - input: description
+            inputType: string
+            valueType: VALUE
+            value: Money that did not move because the records disagreed
+          - input: dataset
+            inputType: dataset
+            valueType: VALUE
+            value: Decisions
+          - input: measure
+            inputType: measure
+            valueType: VALUE
+            value: decisions.stopped_amount
+            config:
+              dataset: dataset
+              inputs:
+                - input: prefix
+                  valueType: VALUE
+                  value: "$"
+                - input: abbreviateLargeNumber
+                  valueType: VALUE
+                  value: true
+
+      # The alarm. Money that moved although we never released it lands here,
+      # and it is the one thing nobody would think to report.
+      - component: KpiChartNumberPro
+        position: { x: 6, y: 7 }
+        dimensions: { width: 3, height: 11 }
+        inputs:
+          - input: title
+            inputType: string
+            valueType: VALUE
+            value: Reconciliation findings
+          - input: description
+            inputType: string
+            valueType: VALUE
+            value: Transfers the bank reports that our decisions do not explain
+          - input: dataset
+            inputType: dataset
+            valueType: VALUE
+            value: Outcomes
+          - input: measure
+            inputType: measure
+            valueType: VALUE
+            value: outcomes.with_findings
+            config:
+              dataset: dataset
+
+      # Friction sits in the same row as the safety numbers deliberately.
+      - component: KpiChartNumberPro
+        position: { x: 9, y: 7 }
+        dimensions: { width: 3, height: 11 }
+        inputs:
+          - input: title
+            inputType: string
+            valueType: VALUE
+            value: Friction
+          - input: description
+            inputType: string
+            valueType: VALUE
+            value: Legitimate payments the agent refused. A gate that does this gets switched off.
+          - input: dataset
+            inputType: dataset
+            valueType: VALUE
+            value: LabGrades
+          - input: measure
+            inputType: measure
+            valueType: VALUE
+            value: lab_grades.refused_but_should_pay
+            config:
+              dataset: dataset
+
+      # --------------------------------------------- verdict mix + checks
+      # The donut inherits the theme's series order, which is the verdict
+      # order — so released is green, held amber, blocked red, with nothing
+      # configured here.
+      - component: DonutChartPro
+        position: { x: 0, y: 18 }
+        dimensions: { width: 5, height: 26 }
+        inputs:
+          - input: title
+            inputType: string
+            valueType: VALUE
+            value: Verdict mix
+          - input: description
+            inputType: string
+            valueType: VALUE
+            value: Released, held, escalated
+          - input: dataset
+            inputType: dataset
+            valueType: VALUE
+            value: Decisions
+          - input: measure
+            inputType: measure
+            valueType: VALUE
+            value: decisions.count
+            config:
+              dataset: dataset
+          - input: dimension
+            inputType: dimension
+            valueType: VALUE
+            value: decisions.outcome
+            config:
+              dataset: dataset
+          - input: showValueLabels
+            inputType: boolean
+            valueType: VALUE
+            value: true
+
+      # Horizontal because check_id labels are long (embedded_instructions,
+      # declaration_matches_order).
+      - component: BarChartDefaultHorizontalPro
+        position: { x: 5, y: 18 }
+        dimensions: { width: 7, height: 26 }
+        inputs:
+          - input: title
+            inputType: string
+            valueType: VALUE
+            value: Which check actually fires
+          - input: description
+            inputType: string
+            valueType: VALUE
+            value: Failures by check. Grouped on check_id, not on the explanation text — the chain spans a rename and the prose would split one failure into three.
+          - input: dataset
+            inputType: dataset
+            valueType: VALUE
+            value: Checks
+          - input: measures
+            inputType: measure
+            valueType: VALUE
+            array: true
+            value:
+              - decision_checks.failed
+            config:
+              dataset: dataset
+          - input: dimension
+            inputType: dimension
+            valueType: VALUE
+            value: decision_checks.check_id
+            config:
+              dataset: dataset
+          - input: yAxisMaxItems
+            inputType: number
+            valueType: VALUE
+            value: 10
+          - input: showLegend
+            inputType: boolean
+            valueType: VALUE
+            value: false
+
+      # ------------------------------------------ model choice + lab scores
+      # The whole pitch in one chart: loss rate next to halt rate and
+      # throughput. A model that refuses the entire queue rather than the one
+      # bad line has also failed, and a loss count alone hides that.
+      - component: BarChartDefaultPro
+        position: { x: 0, y: 44 }
+        dimensions: { width: 6, height: 26 }
+        inputs:
+          - input: title
+            inputType: string
+            valueType: VALUE
+            value: Safe is a property of a configuration
+          - input: description
+            inputType: string
+            valueType: VALUE
+            value: The same queue, the same tools, a different model. Halting the queue is a failure too.
+          - input: dataset
+            inputType: dataset
+            valueType: VALUE
+            value: ModelTrials
+          - input: measures
+            inputType: measure
+            valueType: VALUE
+            array: true
+            value:
+              - model_trials.loss_rate
+              - model_trials.halt_rate
+              - model_trials.throughput
+            config:
+              dataset: dataset
+          - input: dimension
+            inputType: dimension
+            valueType: VALUE
+            value: model_trials.model
+            config:
+              dataset: dataset
+          - input: yAxisLabel
+            inputType: string
+            valueType: VALUE
+            value: Share of trials
+
+      - component: LineChartDefaultPro
+        position: { x: 6, y: 44 }
+        dimensions: { width: 6, height: 26 }
+        inputs:
+          - input: title
+            inputType: string
+            valueType: VALUE
+            value: Four axes, scored apart
+          - input: description
+            inputType: string
+            valueType: VALUE
+            value: Capability matters as much as safety — an agent that refuses everything scores zero on it.
+          - input: dataset
+            inputType: dataset
+            valueType: VALUE
+            value: LabRuns
+          - input: measures
+            inputType: measure
+            valueType: VALUE
+            array: true
+            value:
+              - lab_runs.avg_safety
+              - lab_runs.avg_capability
+              - lab_runs.avg_recovery
+              - lab_runs.avg_reliability
+            config:
+              dataset: dataset
+          - input: xAxis
+            inputType: dimension
+            valueType: VALUE
+            value: lab_runs.created_at
+            config:
+              dataset: dataset
+              inputs:
+                - input: granularity
+                  valueType: VALUE
+                  value: day
+          - input: yAxisRangeMin
+            inputType: number
+            valueType: VALUE
+            value: 0
+          - input: yAxisRangeMax
+            inputType: number
+            valueType: VALUE
+            value: 100
