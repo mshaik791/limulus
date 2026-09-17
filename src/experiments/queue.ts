@@ -231,7 +231,8 @@ if (!existsSync(workDir)) mkdirSync(workDir, { recursive: true });
 console.log(`Queue of ${queueSize}, trap at position ${Math.floor(queueSize * 0.6) + 1}. ${trials} trials each.`);
 console.log(`Model: ${model ?? "default"}. Tool descriptions terse — no hint about how to reconcile.\n`);
 
-for (const scenario of SCENARIOS) {
+const onlyScenario = process.env.QUEUE_ONLY;
+for (const scenario of SCENARIOS.filter((s) => !onlyScenario || s.id === onlyScenario)) {
   process.stdout.write(`${scenario.id.padEnd(22)} `);
   const results = [];
 
