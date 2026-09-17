@@ -508,6 +508,21 @@ for (const t of tables) {
 
 writeFileSync(join(OUT, "schema.sql"), ddl.join("\n"));
 
+// A machine-readable copy of the same thing, so the loader does not have to
+// parse SQL back out of schema.sql to know a column's type.
+writeFileSync(
+  join(OUT, "manifest.json"),
+  `${JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    tables: tables.map((t) => ({
+      name: t.name,
+      note: t.note,
+      rows: t.rows.length,
+      columns: t.columns,
+    })),
+  }, null, 2)}\n`,
+);
+
 // ---- report -------------------------------------------------------------
 const pad = (s: string, n: number) => s.padEnd(n);
 console.log(`\nProjected the chain into ${tables.length} tables → ${OUT}\n`);
