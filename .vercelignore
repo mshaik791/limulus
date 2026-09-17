@@ -1,0 +1,9 @@
+# Deploy the marketing site only.
+#
+# Everything below either holds keys, approves payments, or is build tooling.
+# The console in public/ is an operator screen with an Approve button wired to
+# a real bank — it must never be served from a public origin.
+*
+!site/
+!site/**
+!vercel.json
