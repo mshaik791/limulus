@@ -295,6 +295,8 @@ if (qualification) {
   const base = {
     agentName: qualification.binding.agent.name,
     agentVersion: qualification.binding.agent.version,
+    // A deployment presenting a key bound to this version, not an agent saying so.
+    identitySource: "key" as const,
     workflow: "invoice-payment",
     rail: "ach",
     currency: "USD",

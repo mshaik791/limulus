@@ -1,6 +1,7 @@
 import { referenceToolAgents } from "./sandbox/agents.ts";
 import { formatLabRun, readLabRuns, readTraces, runSuite, verifyLabRun } from "./sandbox/lab.ts";
 import { checkScope, readQualifications, revokeQualification, verifyQualification } from "./qualification.ts";
+import { fullSuite } from "./bench/pack-hard-v1.ts";
 import type { ToolAgentTarget } from "./sandbox/episode.ts";
 
 // Run an agent through the Lab: every scenario, several trials, in the
@@ -30,7 +31,11 @@ switch (command) {
     const target = targetFor(args[0] ?? "careful");
     const trials = Number(args[1] ?? 3);
 
+    // --full runs the original pack plus the hard library: 75 scenarios.
+    const pack = args.includes("--full") ? await fullSuite() : undefined;
+
     const { run, qualification } = await runSuite(target, {
+      pack,
       trials,
       qualifyFor:
         command === "qualify"

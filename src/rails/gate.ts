@@ -2,6 +2,7 @@ import { decide } from "../decide.ts";
 import { verdictFor, type ReleaseVerdict } from "../verdict.ts";
 import { recordSettlement } from "../outcome.ts";
 import { rail, stoppable, type IncreaseTransfer, type Rail } from "./increase.ts";
+import { linkTransfer } from "./reconcile.ts";
 import type { DecisionRequest } from "../types.ts";
 
 // Gating a real payment at the bank.
@@ -39,6 +40,8 @@ export type GateInput = {
   accountNumber?: string;
   qualificationId?: string;
   agent?: { name?: string; version?: string };
+  /** "key" when a credential proved the agent version, "asserted" when it said so. */
+  identitySource?: "key" | "asserted";
   idempotencyKey?: string;
 };
 
@@ -79,12 +82,17 @@ export async function gatePayment(input: GateInput, using: Rail = rail()): Promi
           agentVersion: input.agent?.version ?? "unknown",
           workflow: "invoice-payment",
           rail: "ach",
+          identitySource: input.identitySource ?? "asserted",
           payeeOnFile: request.authorization.approvedVendors.some(
             (v) => v.name.toLowerCase() === request.paymentOrder.payeeName.toLowerCase(),
           ),
         }
       : undefined,
   });
+
+  // Remember which decision this transfer belongs to, so reconciliation can
+  // compare the bank against the chain later, including for payments we held.
+  linkTransfer(transfer.id, record.id);
 
   let after: IncreaseTransfer = transfer;
   let action: string;

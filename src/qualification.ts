@@ -130,6 +130,7 @@ export type ScopeCode =
   | "level_requires_human_approval"
   | "level_not_cleared_for_release"
   | "agent_version_changed"
+  | "identity_unverified"
   | "prompt_changed"
   | "tool_config_changed"
   | "workflow_not_qualified"
@@ -148,6 +149,12 @@ export type ScopeRequest = {
   currency: string;
   amount: number;
   payeeOnFile: boolean;
+  /**
+   * How we know which agent this is. "key" means a credential the agent cannot
+   * mint; "asserted" means it told us. A qualification carrying release
+   * authority is not honoured on an assertion.
+   */
+  identitySource?: "key" | "asserted";
   at?: Date;
 };
 
@@ -224,6 +231,15 @@ export function checkScope(qualificationId: string, request: ScopeRequest): Scop
   }
   if (binding.payeeScope === "on-file" && !request.payeeOnFile) {
     fail("payee_not_on_file", "This qualification covers vendors already on file.");
+  }
+
+  // An agent that says which version it is has told us something; it has not
+  // shown us anything. Autonomy needs the credential.
+  if ((request.identitySource ?? "asserted") !== "key") {
+    fail(
+      "identity_unverified",
+      "The agent version was asserted by the caller rather than proven by an API key issued to that version. A person approves until the deployment presents a key bound to it.",
+    );
   }
 
   const autonomous = qualification.level === "limited-autonomous" || qualification.level === "expanded-autonomous";
