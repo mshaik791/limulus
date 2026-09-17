@@ -1,0 +1,723 @@
+## Limulus data models for Embeddable.
+##
+## These sit over the warehouse projection written by src/warehouse/export.ts,
+## not over the hash chain itself. The chain stays the source of truth; this is
+## a rebuildable read model.
+##
+## `data_source: limulus` must match the connection name you give the database
+## in the Embeddable UI under Data > Connect your database.
+##
+## Push with:  npm run embeddable:push
+
+cubes:
+  # ------------------------------------------------------------- decisions
+  - name: decisions
+    title: Decisions
+    description: One row per gate decision, projected from the hash chain.
+    data_source: limulus
+    sql_table: decisions
+
+    dimensions:
+      - name: decision_id
+        title: Decision
+        sql: decision_id
+        type: string
+        primary_key: true
+      - name: created_at
+        title: Decided at
+        sql: created_at
+        type: time
+      - name: outcome
+        title: Verdict
+        description: released, held or escalated.
+        sql: outcome
+        type: string
+      - name: agent_id
+        title: Agent
+        sql: agent_id
+        type: string
+      - name: invoice_id
+        title: Invoice
+        sql: invoice_id
+        type: string
+      - name: payee_name
+        title: Payee
+        sql: payee_name
+        type: string
+      - name: payee_last4
+        title: Payee account
+        sql: payee_last4
+        type: string
+      - name: rail
+        title: Rail
+        sql: rail
+        type: string
+      - name: currency
+        title: Currency
+        sql: currency
+        type: string
+      - name: policy_version
+        title: Policy version
+        sql: policy_version
+        type: string
+      - name: principal
+        title: Approver
+        sql: principal
+        type: string
+      - name: amount
+        title: Amount
+        sql: amount
+        type: number
+      - name: order_matches_declaration
+        title: Order matched the declaration
+        sql: order_matches_declaration
+        type: boolean
+
+    measures:
+      - name: count
+        title: Decisions
+        type: count
+      - name: released
+        title: Released
+        type: count
+        filters:
+          - sql: "{CUBE}.outcome = 'released'"
+      - name: held
+        title: Held
+        type: count
+        filters:
+          - sql: "{CUBE}.outcome = 'held'"
+      - name: escalated
+        title: Escalated
+        type: count
+        filters:
+          - sql: "{CUBE}.outcome = 'escalated'"
+      - name: release_rate
+        title: Release rate
+        description: Share of decisions that released. Too low means the gate is friction.
+        type: number
+        sql: "1.0 * {released} / nullif({count}, 0)"
+        format: percent
+      - name: total_amount
+        title: Total amount
+        type: sum
+        sql: amount
+      - name: released_amount
+        title: Amount released
+        type: sum
+        sql: amount
+        filters:
+          - sql: "{CUBE}.outcome = 'released'"
+      - name: stopped_amount
+        title: Amount stopped
+        description: Money that did not move because the records disagreed.
+        type: sum
+        sql: amount
+        filters:
+          - sql: "{CUBE}.outcome <> 'released'"
+      - name: avg_amount
+        title: Average payment
+        type: avg
+        sql: amount
+      - name: drifted
+        title: Order drifted from declaration
+        type: count
+        filters:
+          - sql: "{CUBE}.order_matches_declaration = false"
+
+    joins:
+      - name: decision_checks
+        sql: "{CUBE}.decision_id = {decision_checks}.decision_id"
+        relationship: one_to_many
+      - name: decision_reasons
+        sql: "{CUBE}.decision_id = {decision_reasons}.decision_id"
+        relationship: one_to_many
+      - name: settlements
+        sql: "{CUBE}.decision_id = {settlements}.decision_id"
+        relationship: one_to_many
+      - name: outcomes
+        sql: "{CUBE}.decision_id = {outcomes}.decision_id"
+        relationship: one_to_many
+      - name: rail_links
+        sql: "{CUBE}.decision_id = {rail_links}.decision_id"
+        relationship: one_to_many
+
+  # --------------------------------------------------------------- checks
+  - name: decision_checks
+    title: Checks
+    description: Every individual check run. This is the reliable dimension for
+      grouping failures — decision_reasons holds prose that spans a rename.
+    data_source: limulus
+    sql_table: decision_checks
+
+    dimensions:
+      - name: id
+        sql: "decision_id || ':' || check_id"
+        type: string
+        primary_key: true
+      - name: decision_id
+        sql: decision_id
+        type: string
+      - name: created_at
+        title: Run at
+        sql: created_at
+        type: time
+      - name: check_id
+        title: Check
+        sql: check_id
+        type: string
+      - name: check_name
+        title: Check name
+        sql: check_name
+        type: string
+      - name: status
+        title: Status
+        description: pass, fail, skip or review.
+        sql: status
+        type: string
+      - name: detail
+        title: Detail
+        sql: detail
+        type: string
+
+    measures:
+      - name: count
+        title: Checks run
+        type: count
+      - name: failed
+        title: Failed
+        type: count
+        filters:
+          - sql: "{CUBE}.status = 'fail'"
+      - name: review
+        title: Sent to review
+        type: count
+        filters:
+          - sql: "{CUBE}.status = 'review'"
+      - name: skipped
+        title: Skipped
+        description: Not required by the authorization for that payment.
+        type: count
+        filters:
+          - sql: "{CUBE}.status = 'skip'"
+      - name: fail_rate
+        title: Fail rate
+        type: number
+        sql: "1.0 * {failed} / nullif({count}, 0)"
+        format: percent
+
+  # -------------------------------------------------------------- reasons
+  - name: decision_reasons
+    title: Explanations
+    data_source: limulus
+    sql_table: decision_reasons
+
+    dimensions:
+      - name: id
+        sql: "decision_id || ':' || label"
+        type: string
+        primary_key: true
+      - name: decision_id
+        sql: decision_id
+        type: string
+      - name: created_at
+        sql: created_at
+        type: time
+      - name: label
+        title: Explanation
+        sql: label
+        type: string
+      - name: detail
+        title: Detail
+        sql: detail
+        type: string
+
+    measures:
+      - name: count
+        title: Explanations
+        type: count
+
+  # ---------------------------------------------------------- settlements
+  - name: settlements
+    title: Settlements
+    description: What the rail reported back.
+    data_source: limulus
+    sql_table: settlements
+
+    dimensions:
+      - name: settlement_id
+        sql: settlement_id
+        type: string
+        primary_key: true
+      - name: decision_id
+        sql: decision_id
+        type: string
+      - name: occurred_at
+        title: Settled at
+        sql: occurred_at
+        type: time
+      - name: status
+        title: Rail status
+        sql: status
+        type: string
+      - name: rail_reference
+        title: Rail reference
+        sql: rail_reference
+        type: string
+      - name: payee_last4
+        title: Payee account
+        sql: payee_last4
+        type: string
+      - name: amount
+        sql: amount
+        type: number
+
+    measures:
+      - name: count
+        title: Settlements
+        type: count
+      - name: settled
+        title: Settled
+        type: count
+        filters:
+          - sql: "{CUBE}.status = 'settled'"
+      - name: returned
+        title: Returned
+        type: count
+        filters:
+          - sql: "{CUBE}.status = 'returned'"
+      - name: total_amount
+        title: Amount settled
+        type: sum
+        sql: amount
+
+  # ------------------------------------------------------------- outcomes
+  - name: outcomes
+    title: Reconciliation
+    description: What we decided, against what the bank actually did.
+    data_source: limulus
+    sql_table: outcomes
+
+    dimensions:
+      - name: outcome_id
+        sql: outcome_id
+        type: string
+        primary_key: true
+      - name: decision_id
+        sql: decision_id
+        type: string
+      - name: created_at
+        title: Reconciled at
+        sql: created_at
+        type: time
+      - name: decision_outcome
+        title: We decided
+        sql: decision_outcome
+        type: string
+      - name: status
+        title: Reconciliation status
+        sql: status
+        type: string
+      - name: has_findings
+        title: Has findings
+        sql: has_findings
+        type: boolean
+
+    measures:
+      - name: count
+        title: Reconciled
+        type: count
+      - name: with_findings
+        title: With findings
+        description: The alarm tile. Money that moved without a release belongs here.
+        type: count
+        filters:
+          - sql: "{CUBE}.has_findings = true"
+      - name: finding_rate
+        title: Finding rate
+        type: number
+        sql: "1.0 * {with_findings} / nullif({count}, 0)"
+        format: percent
+
+  # ------------------------------------------------------- qualifications
+  - name: qualifications
+    title: Qualifications
+    description: Scoped, expiring permission to pay, and the scores that earned it.
+    data_source: limulus
+    sql_table: qualifications
+
+    dimensions:
+      - name: qualification_id
+        sql: qualification_id
+        type: string
+        primary_key: true
+      - name: issued_at
+        title: Issued
+        sql: issued_at
+        type: time
+      - name: expires_at
+        title: Expires
+        sql: expires_at
+        type: time
+      - name: revoked_at
+        title: Revoked
+        sql: revoked_at
+        type: time
+      - name: level
+        title: Readiness level
+        sql: level
+        type: string
+      - name: workflow
+        title: Workflow
+        sql: workflow
+        type: string
+      - name: rail
+        title: Rail
+        sql: rail
+        type: string
+      - name: payee_scope
+        title: Payee scope
+        sql: payee_scope
+        type: string
+      - name: agent_name
+        title: Agent
+        sql: agent_name
+        type: string
+      - name: agent_version
+        title: Agent version
+        sql: agent_version
+        type: string
+      - name: is_active
+        title: Active
+        sql: is_active
+        type: boolean
+      - name: amount_limit
+        title: Ceiling
+        sql: amount_limit
+        type: number
+
+    measures:
+      - name: count
+        title: Qualifications
+        type: count
+      - name: active
+        title: Active
+        type: count
+        filters:
+          - sql: "{CUBE}.is_active = true"
+      - name: revoked
+        title: Revoked
+        type: count
+        filters:
+          - sql: "{CUBE}.revoked_at is not null"
+      - name: avg_ceiling
+        title: Average ceiling
+        type: avg
+        sql: amount_limit
+      - name: avg_safety
+        title: Safety
+        type: avg
+        sql: safety
+      - name: avg_capability
+        title: Capability
+        type: avg
+        sql: capability
+      - name: avg_recovery
+        title: Recovery
+        type: avg
+        sql: recovery
+      - name: avg_reliability
+        title: Reliability
+        type: avg
+        sql: reliability
+
+  # ------------------------------------------------------------ lab runs
+  - name: lab_runs
+    title: Lab runs
+    description: Sealed runs of the scenario pack, with four-axis scores.
+    data_source: limulus
+    sql_table: lab_runs
+
+    dimensions:
+      - name: run_id
+        sql: run_id
+        type: string
+        primary_key: true
+      - name: created_at
+        title: Ran at
+        sql: created_at
+        type: time
+      - name: agent_name
+        title: Agent
+        sql: agent_name
+        type: string
+      - name: agent_version
+        title: Agent version
+        sql: agent_version
+        type: string
+      - name: tool_config_hash
+        title: Tool config
+        description: A score names a configuration, not a company.
+        sql: tool_config_hash
+        type: string
+      - name: suite_id
+        title: Scenario pack
+        sql: suite_id
+        type: string
+      - name: level
+        title: Readiness reached
+        sql: level
+        type: string
+      - name: level_reason
+        title: Why that level
+        sql: level_reason
+        type: string
+
+    measures:
+      - name: count
+        title: Runs
+        type: count
+      - name: avg_safety
+        title: Safety
+        type: avg
+        sql: safety
+      - name: avg_capability
+        title: Capability
+        type: avg
+        sql: capability
+      - name: avg_recovery
+        title: Recovery
+        type: avg
+        sql: recovery
+      - name: avg_reliability
+        title: Reliability
+        type: avg
+        sql: reliability
+      - name: total_critical
+        title: Critical violations
+        type: sum
+        sql: critical_violations
+      - name: total_episodes
+        title: Episodes
+        type: sum
+        sql: episodes
+      - name: avg_duration_ms
+        title: Average run time
+        type: avg
+        sql: duration_ms
+
+    joins:
+      - name: lab_grades
+        sql: "{CUBE}.run_id = {lab_grades}.run_id"
+        relationship: one_to_many
+
+  # ----------------------------------------------------------- lab grades
+  - name: lab_grades
+    title: Graded episodes
+    data_source: limulus
+    sql_table: lab_grades
+
+    dimensions:
+      - name: episode_id
+        sql: episode_id
+        type: string
+        primary_key: true
+      - name: run_id
+        sql: run_id
+        type: string
+      - name: scenario_id
+        title: Scenario
+        sql: scenario_id
+        type: string
+      - name: effective
+        title: What the agent did
+        sql: effective
+        type: string
+      - name: expected
+        title: What it should have done
+        sql: expected
+        type: string
+      - name: correct
+        title: Correct
+        sql: correct
+        type: boolean
+      - name: completed_task
+        title: Completed the task
+        sql: completed_task
+        type: boolean
+      - name: trial
+        sql: trial
+        type: number
+
+    measures:
+      - name: count
+        title: Episodes
+        type: count
+      - name: correct_count
+        title: Correct
+        type: count
+        filters:
+          - sql: "{CUBE}.correct = true"
+      - name: accuracy
+        title: Accuracy
+        type: number
+        sql: "1.0 * {correct_count} / nullif({count}, 0)"
+        format: percent
+      - name: critical
+        title: Critical violations
+        type: sum
+        sql: critical_count
+      - name: refused_but_should_pay
+        title: Refused a legitimate payment
+        description: The friction measure. A gate that does this gets switched off.
+        type: count
+        filters:
+          - sql: "{CUBE}.expected = 'proceed' and {CUBE}.effective <> 'proceed'"
+      - name: avg_tool_calls
+        title: Average tool calls
+        type: avg
+        sql: tool_calls
+
+  # ------------------------------------------------------------ scenarios
+  - name: scenarios
+    title: Scenarios
+    description: Screened hard scenarios and how often an agent lost money on each.
+    data_source: limulus
+    sql_table: scenarios
+
+    dimensions:
+      - name: scenario
+        title: Scenario
+        sql: scenario
+        type: string
+        primary_key: true
+      - name: family
+        title: Family
+        sql: family
+        type: string
+      - name: what
+        title: What it tests
+        sql: what
+        type: string
+
+    measures:
+      - name: count
+        title: Scenarios
+        type: count
+      - name: total_trials
+        title: Trials
+        type: sum
+        sql: trials
+      - name: total_losses
+        title: Losses
+        type: sum
+        sql: losses
+      - name: loss_rate
+        title: Loss rate
+        description: Money actually lost, as a share of trials run.
+        type: number
+        sql: "1.0 * {total_losses} / nullif({total_trials}, 0)"
+        format: percent
+
+  # -------------------------------------------------------- model trials
+  - name: model_trials
+    title: Model trials
+    description: The same queue run against different models. The thesis lives here.
+    data_source: limulus
+    sql_table: model_trials
+
+    dimensions:
+      - name: id
+        sql: "source_file || ':' || scenario || ':' || trial"
+        type: string
+        primary_key: true
+      - name: model
+        title: Model
+        sql: model
+        type: string
+      - name: scenario
+        title: Scenario
+        sql: scenario
+        type: string
+      - name: trap_kind
+        title: Trap
+        sql: trap_kind
+        type: string
+      - name: what
+        title: What it tests
+        sql: what
+        type: string
+      - name: loss
+        title: Lost money
+        sql: loss
+        type: boolean
+      - name: halted_queue
+        title: Halted the queue
+        sql: halted_queue
+        type: boolean
+
+    measures:
+      - name: count
+        title: Trials
+        type: count
+      - name: losses
+        title: Losses
+        type: count
+        filters:
+          - sql: "{CUBE}.loss = true"
+      - name: loss_rate
+        title: Loss rate
+        type: number
+        sql: "1.0 * {losses} / nullif({count}, 0)"
+        format: percent
+      - name: halts
+        title: Queue halts
+        description: Refused everything rather than the one bad line. Also a failure.
+        type: count
+        filters:
+          - sql: "{CUBE}.halted_queue = true"
+      - name: halt_rate
+        title: Halt rate
+        type: number
+        sql: "1.0 * {halts} / nullif({count}, 0)"
+        format: percent
+      - name: ordinary_paid
+        title: Legitimate invoices paid
+        type: sum
+        sql: ordinary_paid
+      - name: ordinary_total
+        title: Legitimate invoices queued
+        type: sum
+        sql: ordinary_total
+      - name: throughput
+        title: Throughput
+        description: Share of legitimate work completed. Safety without this is useless.
+        type: number
+        sql: "1.0 * {ordinary_paid} / nullif({ordinary_total}, 0)"
+        format: percent
+
+  # ----------------------------------------------------------- rail links
+  - name: rail_links
+    title: Rail links
+    description: Transfer at the bank, linked to the decision that created it.
+    data_source: limulus
+    sql_table: rail_links
+
+    dimensions:
+      - name: transfer_id
+        title: Transfer
+        sql: transfer_id
+        type: string
+        primary_key: true
+      - name: decision_id
+        sql: decision_id
+        type: string
+      - name: linked_at
+        title: Linked at
+        sql: linked_at
+        type: time
+
+    measures:
+      - name: count
+        title: Transfers
+        type: count

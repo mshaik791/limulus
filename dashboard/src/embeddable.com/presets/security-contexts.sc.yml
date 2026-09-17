@@ -1,0 +1,40 @@
+# "View as" presets in the builder, for testing row-level security.
+#
+# Every Limulus dashboard is eventually per-customer: one company must never
+# see another's decisions. These presets let us check that in the builder
+# before any of it is embedded, using the filters a real security token
+# would carry.
+#
+# A filter that can't be applied fails the query rather than silently
+# returning everything — which is the behaviour we want, and worth
+# confirming here rather than discovering in production.
+
+- name: Everything (internal)
+  securityContext: {}
+  environment: default
+
+- name: One approver only
+  securityContext:
+    principal: j.ortiz@midwestfab.example
+  filters:
+    - member: 'decisions.principal'
+      operator: 'equals'
+      values: ['j.ortiz@midwestfab.example']
+  environment: default
+
+- name: One agent version only
+  securityContext:
+    agentVersion: '1.4.2'
+  filters:
+    - member: 'qualifications.agent_version'
+      operator: 'equals'
+      values: ['1.4.2']
+  environment: default
+
+- name: Blocked and escalated only
+  securityContext: {}
+  filters:
+    - member: 'decisions.outcome'
+      operator: 'notEquals'
+      values: ['released']
+  environment: default
