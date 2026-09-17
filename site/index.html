@@ -887,7 +887,7 @@
             <a href="#pillars"><i class="sq t"></i><span><b>Monitor</b><i>Every transfer matched to its decision</i></span></a>
             <a href="#docs"><i class="sq v"></i><span><b>REST API</b><i>Nine endpoints, one with no auth</i></span></a>
             <a href="#docs"><i class="sq p"></i><span><b>MCP server</b><i>Seven tools, two refused</i></span></a>
-            <a href="https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082"><i class="sq g"></i><span><b>Product summary</b><i>How the four stages fit together</i></span></a>
+            <a href="/product-summary"><i class="sq g"></i><span><b>Product summary</b><i>How the four stages fit together</i></span></a>
           </div>
         </li>
         <li><a href="#evidence">Evidence</a></li>
@@ -919,7 +919,7 @@
   <div class="wrap">
     <div class="hero-row">
       <div class="hero-l">
-        <a class="news" href="https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082">
+        <a class="news" href="/product-summary">
           <div class="news-in">
             <span class="chip">Findings</span>
             <span class="news-t">Models are good at judgment and bad at bookkeeping</span>
@@ -1038,7 +1038,7 @@
           <h3 class="t20">Test tells you where the agent breaks. Protect covers exactly that.</h3>
           <p>How the four stages fit together, why testing and protecting are one product, and every number behind it.</p>
         </div>
-        <a class="btn" href="https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082">Read the product summary<span class="sw" aria-hidden="true">
+        <a class="btn" href="/product-summary">Read the product summary<span class="sw" aria-hidden="true">
           <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span></a>
@@ -1404,7 +1404,7 @@ curl -X POST https://api.limulus.dev/v1/gate \
       </div>
 
       <p style="margin-top:24px" class="rev">
-        <a href="https://claude.ai/code/artifact/33bbc676-f91e-4745-8651-5f5aa70305be"
+        <a href="/docs"
            style="display:inline-flex;align-items:center;gap:9px;color:var(--blood);font-family:var(--display);font-weight:500;font-size:16px">
           Full API and MCP reference<span class="sw" aria-hidden="true">
             <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1557,7 +1557,7 @@ curl -X POST https://api.limulus.dev/v1/gate \
     <div class="wrap">
       <h2 class="t36 rev">Featured resources</h2>
       <div class="resrow">
-        <a class="resfeat rev" href="https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082">
+        <a class="resfeat rev" href="/product-summary">
           <div class="shot"><div class="spark" id="sp1"></div></div>
           <div class="reslab">Product summary</div>
           <h3 class="t32" style="max-width:26ch">Test tells you where the agent breaks. Protect covers exactly that.</h3>
@@ -1615,11 +1615,11 @@ curl -X POST https://api.limulus.dev/v1/gate \
         <h5>Developers</h5>
         <a href="#docs">REST API</a><a href="#docs">MCP server</a><a href="#docs">Receipt verification</a>
         <a href="#codes">Explanation codes</a>
-        <a href="https://claude.ai/code/artifact/33bbc676-f91e-4745-8651-5f5aa70305be">Full reference</a>
+        <a href="/docs">Full reference</a>
       </div>
       <div class="fcol">
         <h5>Evidence</h5>
-        <a href="https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082">Product summary</a><a href="#evidence">Findings</a><a href="#pillars">Scenario pack</a><a href="#honest">Status</a>
+        <a href="/product-summary">Product summary</a><a href="#evidence">Findings</a><a href="#pillars">Scenario pack</a><a href="#honest">Status</a>
         <a href="#pillars">Readiness ladder</a>
       </div>
       <div class="fcol">
@@ -1842,7 +1842,7 @@ curl -X POST https://api.limulus.dev/v1/gate \
 
   const PILLARS = [
     { k: "test", n: "01", label: "Test", promise: "Break it where no money moves",
-      link: "https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082#stages",
+      link: "/product-summary#stages",
       gf: "#dde1fd", gt: "#7f8cf8",
       body: "Your agent runs 56 scenarios in a simulated world — forged approvals, hidden bank changes, invoices already settled, rails that time out mid-submit. Graded on the tool calls it made, never on the explanation it wrote afterwards.",
       feats: [
@@ -1851,7 +1851,7 @@ curl -X POST https://api.limulus.dev/v1/gate \
         ["Sealed runs", "Tool set, prompt and scenario pack hashed together, so a score names a configuration and not a company"],
       ] },
     { k: "qualify", n: "02", label: "Qualify", promise: "Permission with edges on it",
-      link: "https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082#stages",
+      link: "/product-summary#stages",
       gf: "#e2d7f4", gt: "#bb9fe7",
       body: "A passing agent earns a signed qualification: this workflow, this rail, this ceiling, these payees, for this long. Bound to the agent version and proven by an API key — not by what the agent says about itself.",
       feats: [
@@ -1860,7 +1860,7 @@ curl -X POST https://api.limulus.dev/v1/gate \
         ["No self-service", "There is deliberately no tool an agent can call to widen its own authority"],
       ] },
     { k: "protect", n: "03", label: "Protect", promise: "Held before it is checked",
-      link: "https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082#argument",
+      link: "/product-summary#argument",
       gf: "#fde4dc", gt: "#f79168",
       body: "The transfer is created at the bank with approval required, so it expires unsent rather than settling. Then the three records get compared. Blocked payments leave no ledger entry at all — nothing to reverse, nothing to claw back.",
       feats: [
@@ -1869,7 +1869,7 @@ curl -X POST https://api.limulus.dev/v1/gate \
         ["A rail outage is not a refusal", "The agent is told the bank is unreachable, so it waits instead of routing around you"],
       ] },
     { k: "monitor", n: "04", label: "Monitor", promise: "Ask the bank, not the customer",
-      link: "https://claude.ai/code/artifact/b35139c1-7cfc-445b-ba6d-1ccd5d51d082#evidence",
+      link: "/product-summary#evidence",
       gf: "#d9f2ec", gt: "#26a38e",
       body: "We pull every transfer from the rail and match it against the decision behind it. The drift that matters is money that moved although we never released it — and that is the one nobody would think to report.",
       feats: [
