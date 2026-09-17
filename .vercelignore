@@ -1,9 +1,25 @@
 # Deploy the marketing site only.
 #
-# Everything below either holds keys, approves payments, or is build tooling.
-# The console in public/ is an operator screen with an Approve button wired to
-# a real bank — it must never be served from a public origin.
-*
-!site/
-!site/**
-!vercel.json
+# vercel.json sets outputDirectory to site/. That is deliberate rather than
+# incidental: Vercel serves a root-level public/ directory by convention, and
+# this repo has one containing the operator console — a screen with an Approve
+# button wired to a live bank. This file is the second guard so a change to
+# vercel.json can never quietly publish it.
+#
+# Excludes are listed explicitly rather than as "* then re-include site/",
+# because an ignore file cannot re-include a path whose parent is excluded —
+# that idiom silently shipped nothing but vercel.json.
+
+src/
+public/
+dashboard/
+scripts/
+data/
+build/
+node_modules/
+.env
+.env.*
+package.json
+package-lock.json
+README.md
+FINDINGS.md

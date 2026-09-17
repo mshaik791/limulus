@@ -1,28 +1,27 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
-  "//": [
-    "Only site/ is deployed. The API in src/ and the operator console in",
-    "public/ are deliberately NOT here: the console calls /v1 endpoints that",
-    "approve real payments, and publishing those would put an approve button on",
-    "the open internet. They stay on a machine that holds the keys.",
-    "",
-    "Vercel serves a root-level public/ directory by convention, and this repo",
-    "has one that is not meant to be public, so outputDirectory is set",
-    "explicitly and .vercelignore excludes everything else as a second guard."
-  ],
-
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "",
   "outputDirectory": "site",
   "cleanUrls": true,
   "trailingSlash": false,
-
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
         {
           "key": "Strict-Transport-Security",
           "value": "max-age=31536000; includeSubDomains"

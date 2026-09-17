@@ -18,3 +18,5 @@ npm-debug.log*
 .env.*
 # ...except the template, which holds names and no values.
 !.env.example
+.vercel
+.env*
