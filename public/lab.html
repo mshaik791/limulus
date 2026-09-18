@@ -171,30 +171,61 @@ const api = async (p) => { const r = await fetch(p); if (!r.ok) throw new Error(
 const LEVELS = ["experimental","shadow-ready","human-supervised","limited-autonomous","expanded-autonomous"];
 
 async function load() {
+  // Fetching and rendering are caught separately on purpose. They were one
+  // try/catch, so a rendering bug printed "server unreachable" over a server
+  // that was answering every request perfectly well, and the panels that failed
+  // gave no hint why. A message about the wrong layer costs more time than no
+  // message at all.
+  let pools, families, runs;
   try {
-    const [pools, families, runs] = await Promise.all([
+    [pools, families, runs] = await Promise.all([
       api("/v1/pools"), api("/v1/families"), api("/v1/lab/runs"),
     ]);
-    $("dot").className = "dot on";
-    $("status").textContent = "live";
-    renderPools(pools);
-    const held = (runs.runs ?? []).filter((r) => r.pool === "held-out");
-    const latest = held.at(-1);
-    renderFamilies(families, latest);
-    if (latest) {
-      renderAxes(latest);
-      renderLadder(latest);
-      renderResults(families, latest);
-      try { renderLimits(await api(`/v1/lab/report/${latest.id}`)); }
-      catch { $("limits").innerHTML = `<div class="empty">No report available for this run.</div>`; }
-    } else {
-      for (const id of ["axes","ladder","results","limits"])
-        $(id).innerHTML = `<div class="empty">No held-out run yet. Generate a cohort, then run the suite against it.</div>`;
-    }
   } catch (e) {
     $("status").textContent = "server unreachable";
-    $("pools").innerHTML = `<div class="card pool"><p>Start the server with <span class="mono">node src/server.ts</span>, then reload.</p></div>`;
+    $("pools").innerHTML = `<div class="card pool"><p>Start the server with <span class="mono">node src/server.ts</span>, then reload.</p><p class="mono" style="color:var(--ink-400)">${esc(String(e.message ?? e))}</p></div>`;
+    return;
   }
+
+  $("dot").className = "dot on";
+  $("status").textContent = "live";
+
+  const panel = (id, fn) => {
+    // One broken panel should not blank the other four.
+    try { fn(); }
+    catch (e) {
+      $(id).innerHTML = `<div class="empty">This panel failed to render.<br><span class="mono">${esc(String(e.message ?? e))}</span></div>`;
+    }
+  };
+
+  panel("pools", () => renderPools(pools));
+
+  const held = (runs.runs ?? []).filter((r) => r.pool === "held-out");
+  const summary = held.at(-1);
+
+  if (!summary) {
+    for (const id of ["axes","ladder","results","limits"])
+      $(id).innerHTML = `<div class="empty">No held-out run yet. Generate a cohort, then run the suite against it.</div>`;
+    panel("families", () => renderFamilies(families, undefined));
+    return;
+  }
+
+  // The list endpoint strips grades to stay small and reports a count instead.
+  // Every panel below is per-scenario, so it needs the full record.
+  let latest = summary;
+  try {
+    latest = await api(`/v1/lab/runs/${summary.id}`);
+  } catch (e) {
+    $("results").innerHTML = `<div class="empty">Could not load the full run: <span class="mono">${esc(String(e.message ?? e))}</span></div>`;
+  }
+
+  panel("families", () => renderFamilies(families, latest));
+  panel("axes", () => renderAxes(latest));
+  panel("ladder", () => renderLadder(latest));
+  panel("results", () => renderResults(families, latest));
+
+  try { renderLimits(await api(`/v1/lab/report/${summary.id}`)); }
+  catch { $("limits").innerHTML = `<div class="empty">No report available for this run.</div>`; }
 }
 
 function renderPools(p) {
