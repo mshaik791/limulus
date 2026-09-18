@@ -1,0 +1,40 @@
+name: Family cadence
+
+# Monthly, not per-pull-request. The question "has the library grown" has no
+# meaningful answer on a single commit, and asking it on every PR would turn a
+# commitment into noise that gets muted.
+#
+# This is allowed to fail. A red run here means nobody has added a failure mode in
+# ninety days, which makes the renewal argument hollow — requalifying against an
+# unchanged library measures how long someone has been a customer, not whether
+# their agent got safer. That is worth a notification and is not a code defect.
+
+on:
+  schedule:
+    # 09:00 UTC on the 1st.
+    - cron: "0 9 1 * *"
+  workflow_dispatch:
+
+jobs:
+  cadence:
+    name: Has the library grown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+
+      - name: Report
+        run: |
+          node src/bench/family-cadence.ts | tee cadence.txt
+          {
+            echo '## Family cadence'
+            echo
+            echo '```'
+            cat cadence.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce
+        run: node src/bench/family-cadence.ts --enforce
