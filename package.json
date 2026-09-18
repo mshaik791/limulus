@@ -16,7 +16,9 @@
     "selftest:instant": "node src/rails/instant-selftest.ts",
     "heldout:generate": "node src/bench/generate-held-out.ts",
     "selftest:pools": "node src/bench/pools-selftest.ts",
-    "experiment:rails": "node src/experiments/rail-caution.ts"
+    "experiment:rails": "node src/experiments/rail-caution.ts",
+    "report": "node src/bench/assurance-report.ts",
+    "audit:fixtures": "node src/bench/fixture-audit.ts"
   },
   "license": "UNLICENSED"
 }
