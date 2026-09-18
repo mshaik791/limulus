@@ -18,7 +18,8 @@
     "selftest:pools": "node src/bench/pools-selftest.ts",
     "experiment:rails": "node src/experiments/rail-caution.ts",
     "report": "node src/bench/assurance-report.ts",
-    "audit:fixtures": "node src/bench/fixture-audit.ts"
+    "audit:fixtures": "node src/bench/fixture-audit.ts",
+    "bridge": "node src/experiments/claude-bridge.ts"
   },
   "license": "UNLICENSED"
 }

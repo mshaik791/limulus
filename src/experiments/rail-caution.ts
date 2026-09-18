@@ -136,10 +136,16 @@ async function measure(target: ToolAgentTarget, arm: Arm, trial: number): Promis
   };
 }
 
-const agents: [string, ToolAgentTarget][] = [
-  ["careful", referenceToolAgents.careful],
-  ["naive", referenceToolAgents.naive],
-];
+const endpoint = arg("--endpoint");
+
+// With --endpoint the subject is a real model behind src/experiments/claude-bridge.ts.
+// Without it, the rule-based reference agents, which only prove the harness works.
+const agents: [string, ToolAgentTarget][] = endpoint
+  ? [[arg("--label", "claude")!, { name: arg("--label", "claude")!, version: "live", endpoint }]]
+  : [
+      ["careful", referenceToolAgents.careful],
+      ["naive", referenceToolAgents.naive],
+    ];
 
 console.log(`\n  Rail caution: identical facts, only the rail varies. ${trials} trial(s) per arm.\n`);
 console.log("  Rails as the world implements them:");
