@@ -24,7 +24,8 @@
     "selftest:twin": "node src/bench/twin-selftest.ts",
     "bundle": "node src/bench/failure-bundle.ts",
     "gate": "node src/bench/ci-gate.ts --scenarios scenarios",
-    "cadence": "node src/bench/family-cadence.ts"
+    "cadence": "node src/bench/family-cadence.ts",
+    "e2e": "node src/e2e.ts"
   },
   "license": "UNLICENSED"
 }
