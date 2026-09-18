@@ -23,7 +23,8 @@
     "scenarios:validate": "node src/bench/validate-scenarios.ts scenarios",
     "selftest:twin": "node src/bench/twin-selftest.ts",
     "bundle": "node src/bench/failure-bundle.ts",
-    "gate": "node src/bench/ci-gate.ts --scenarios scenarios"
+    "gate": "node src/bench/ci-gate.ts --scenarios scenarios",
+    "cadence": "node src/bench/family-cadence.ts"
   },
   "license": "UNLICENSED"
 }
