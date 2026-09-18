@@ -1,3 +1,4 @@
+import { createServer } from "node:http";
 import { runEpisode, type AgentStep, type AgentTurn } from "./episode.ts";
 import { detectViolations } from "./violations.ts";
 import { gradeEpisode, readinessLevel, scoreFourAxes } from "./score.ts";
@@ -332,6 +333,45 @@ if (qualification) {
   revokeQualification(qualification.id, "selftest");
   const revoked = checkScope(qualification.id, { ...base, amount: 1_000 });
   check("a revoked qualification stops working", revoked.codes.includes("qualification_revoked"));
+}
+
+// ---- a dead subject is not a refusal -------------------------------------
+// This pins a bug that manufactured a confident finding out of nothing. A
+// malformed probe crashed the model bridge mid-experiment; every episode after
+// it recorded itself as the agent refusing to pay, with zero tool calls, and
+// the experiment summarised that as "no measurable difference between rails".
+// The bridge had behaved correctly and returned 502 rather than inventing a
+// step. The grader undid it by reading silence as a decision.
+{
+  const dead = createServer((_req, res) => {
+    res.writeHead(502, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "model produced no usable step" }));
+  });
+  await new Promise<void>((r) => dead.listen(0, () => r()));
+  const port = (dead.address() as { port: number }).port;
+
+  const trace = await runEpisode(
+    { name: "dead", version: "0", endpoint: `http://localhost:${port}` },
+    cleanScenario,
+  );
+  check("an endpoint that will not answer is unusable, not a refusal", trace.effective === "unusable", trace.effective);
+  check("an unusable episode is flagged as such", trace.unusable === true);
+
+  const codes = detectViolations(cleanScenario, trace).map((v) => v.code);
+  check("an unusable episode produces no violations to charge the agent", codes.length === 0, codes.join(","));
+
+  const grade = gradeEpisode(cleanScenario, trace);
+  check("an unusable episode is not graded as a completed task", grade.completedTask === false);
+
+  // The decisive one: it must not move a score in either direction.
+  const scored = scoreFourAxes([cleanScenario], [grade], 1);
+  check(
+    "unusable episodes are excluded from the axes, not averaged in",
+    scored.unusableEpisodes === 1 && scored.capability.sampleSize === 0,
+    `unusable=${scored.unusableEpisodes} capabilityN=${scored.capability.sampleSize}`,
+  );
+
+  dead.close();
 }
 
 console.log(`\n${failures === 0 ? "All Lab checks passed" : `${failures} check(s) failed`}`);
