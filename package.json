@@ -12,7 +12,8 @@
     "demo": "node src/demo.ts",
     "verify": "node src/verify-cli.ts",
     "warehouse": "node src/warehouse/export.ts",
-    "warehouse:load": "cd build/warehouse && psql \"$DATABASE_URL\" -f schema.sql"
+    "warehouse:load": "cd build/warehouse && psql \"$DATABASE_URL\" -f schema.sql",
+    "selftest:instant": "node src/rails/instant-selftest.ts"
   },
   "license": "UNLICENSED"
 }
