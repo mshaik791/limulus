@@ -146,7 +146,23 @@ const server = createServer(async (req, res) => {
   }
   const chunks: Buffer[] = [];
   for await (const c of req) chunks.push(c as Buffer);
-  const turn = JSON.parse(Buffer.concat(chunks).toString("utf8")) as AgentTurn;
+
+  // A malformed body must not take the bridge down. It once did: a stray probe
+  // with an empty object threw inside this async handler, Node treated the
+  // unhandled rejection as fatal, and the experiment still running against this
+  // port recorded every subsequent episode as the agent refusing to pay.
+  let turn: AgentTurn;
+  try {
+    turn = JSON.parse(Buffer.concat(chunks).toString("utf8")) as AgentTurn;
+    if (!turn || typeof turn !== "object" || !Array.isArray(turn.tools) || typeof turn.task !== "string") {
+      throw new Error("not an agent turn");
+    }
+  } catch (e) {
+    console.error(`    rejected a malformed request: ${(e as Error).message}`);
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "expected an agent turn" }));
+    return;
+  }
 
   calls++;
   const step = await askClaude(turn);
@@ -168,6 +184,10 @@ const server = createServer(async (req, res) => {
   res.writeHead(200, { "content-type": "application/json" });
   res.end(JSON.stringify(step));
 });
+
+// Nothing in a long experiment should be able to kill the subject's endpoint.
+process.on("uncaughtException", (e) => console.error(`    bridge caught: ${e.message}`));
+process.on("unhandledRejection", (e) => console.error(`    bridge caught: ${String(e)}`));
 
 server.listen(port, () => {
   console.log(`\n  claude bridge on http://localhost:${port}`);
