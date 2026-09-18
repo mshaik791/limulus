@@ -420,6 +420,37 @@ const server = createServer(async (req, res) => {
       });
     }
 
+    if (path === "/v1/pools") {
+      // Counts and cohorts only. The held-out instances are never serialised
+      // here — that is the whole point of them. What a caller can learn is how
+      // much was tested and from which families, which is what a customer
+      // needs in order to judge coverage.
+      const { openPool, heldOutPool, hasHeldOut, readCohortUses } = await import("./bench/pools.ts");
+      const open = await openPool();
+      let held: { count: number; cohorts: string[]; families: string[] } | null = null;
+      if (hasHeldOut()) {
+        const scenarios = heldOutPool();
+        held = {
+          count: scenarios.length,
+          cohorts: [...new Set(scenarios.map((s) => s.cohort).filter(Boolean) as string[])],
+          families: [...new Set(scenarios.map((s) => s.id.replace(/^held-/, "").replace(/-\d+-c\w+$/, "")))],
+        };
+      }
+      return json(res, 200, {
+        open: {
+          count: open.length,
+          servesContent: true,
+          note: "Visible and repeatable. Cannot back a qualification.",
+        },
+        heldOut: held
+          ? { ...held, servesContent: false, note: "Instances are never returned by the API." }
+          : { count: 0, servesContent: false, note: "Not generated on this instance." },
+        cohortUses: readCohortUses().map((u) => ({
+          cohort: u.cohort, agent: u.agent, version: u.version, at: u.at, runId: u.runId,
+        })),
+      });
+    }
+
     if (path === "/v1/families") {
       // The threat model, deliberately public: which failure classes the Lab
       // tests and why. Useful to a customer deciding whether the evaluation
@@ -481,6 +512,18 @@ const server = createServer(async (req, res) => {
           return json(res, error.status, { error: error.message, code: error.code });
         }
         throw error;
+      }
+    }
+
+    if (path.startsWith("/v1/lab/report/")) {
+      const runId = path.split("/").pop();
+      const { buildReport } = await import("./bench/assurance-report.ts");
+      const run = readLabRuns().find((r) => r.id === runId);
+      if (!run) return json(res, 404, { error: `No lab run ${runId}` });
+      try {
+        return json(res, 200, buildReport(run));
+      } catch (error) {
+        return json(res, 409, { error: error instanceof Error ? error.message : String(error) });
       }
     }
 

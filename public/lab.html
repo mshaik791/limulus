@@ -2,11 +2,325 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Limulus Lab</title>
-<meta http-equiv="refresh" content="0; url=/app.html#/runs">
-<script>location.replace("/app.html#/runs");</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+<style>
+  /* The Lab, as an operator sees it. Same system as the console: warm
+   * off-white surfaces, one accent, colour only ever meaning a state. The
+   * carapace is the brand mark; an outlined one is a molt, and means the same
+   * thing everywhere — present, but not live. */
+  :root{
+    --beige-200:#edebe8; --beige-300:#f4f2f1; --beige-400:#f8f7f6;
+    --ink-900:#090c1b; --ink-800:#191f2b; --ink-700:#262e41; --ink-500:#525d73;
+    --ink-400:#666e81; --ink-300:#b8bec9; --line:#e9e9e6;
+    --blood:#2f41f2; --blood-wash:#eef0fe;
+    --stop:#e40014; --stop-text:#c10011; --stop-wash:#fdebec;
+    --hold:#f96d4a; --hold-text:#c2410c; --hold-wash:#fef1ed;
+    --go:#1b695c; --go-wash:#e8f6f3;
+    --display:"Schibsted Grotesk",-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --body:"Inter",-apple-system,"Segoe UI",Arial,sans-serif;
+    --mono:"Geist Mono",ui-monospace,Menlo,monospace;
+    --ease:cubic-bezier(.4,0,.2,1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--body);font-size:14px;color:var(--ink-700);background:#fcfcfb;
+    -webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{font-family:var(--display);font-weight:600;margin:0;letter-spacing:-.02em}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 24px 60px}
+
+  /* the mark */
+  .sq{width:10px;height:8px;flex:none;display:inline-block;background:var(--ink-900);
+    border-radius:50% 50% 22% 22% / 68% 68% 26% 26%}
+  .sq.sm{width:8px;height:6.5px}
+  .sq.molt{background:transparent;box-shadow:inset 0 0 0 1.5px var(--ink-300)}
+  .sq.go{background:var(--go)} .sq.stop{background:var(--stop)} .sq.hold{background:var(--hold)}
+  .sq.b{background:var(--blood)}
+
+  header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  header h1{font-size:23px;color:var(--ink-900)}
+  header .live{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-400);
+    display:flex;align-items:center;gap:7px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-300)}
+  .dot.on{background:var(--go)}
+  .sub{color:var(--ink-400);margin:0 0 26px;max-width:72ch;font-size:14.5px}
+
+  section{margin-bottom:26px}
+  .eyebrow{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+  .eyebrow span{font-family:var(--display);font-size:12.5px;font-weight:600;color:var(--ink-400)}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .grid2{display:grid;gap:12px}
+  @media(min-width:860px){.grid2{grid-template-columns:1fr 1fr}}
+
+  /* pools */
+  .pool{padding:18px 20px}
+  .pool h3{font-size:16px;color:var(--ink-900);display:flex;align-items:center;gap:9px}
+  .pool .n{font-family:var(--display);font-weight:600;font-size:38px;letter-spacing:-.045em;
+    line-height:1;margin:12px 0 4px;color:var(--ink-900);font-variant-numeric:tabular-nums}
+  .pool p{margin:0;font-size:13px;color:var(--ink-400);line-height:1.5}
+  .pool .tag{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:99px;margin-top:11px}
+  .tag.open{background:var(--beige-200);color:var(--ink-500)}
+  .tag.private{background:var(--blood-wash);color:var(--blood)}
+
+  /* families / threat model */
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:10.5px;font-weight:600;color:var(--ink-400);padding:10px 16px;
+    border-bottom:1px solid var(--line);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+  td{padding:12px 16px;border-bottom:1px solid var(--beige-300);vertical-align:top;font-size:13.5px}
+  tr:last-child td{border-bottom:0}
+  .mono{font-family:var(--mono);font-size:12px}
+  .fam{font-family:var(--mono);font-size:12.5px;color:var(--ink-900);white-space:nowrap}
+  .tests{color:var(--ink-400);font-size:12.5px;line-height:1.5;max-width:58ch}
+  .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:500}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;
+    padding:3px 8px;border-radius:99px;white-space:nowrap;letter-spacing:.05em;text-transform:uppercase}
+  .pill.go{background:var(--go-wash);color:var(--go)}
+  .pill.stop{background:var(--stop-wash);color:var(--stop-text)}
+  .pill.hold{background:var(--hold-wash);color:var(--hold-text)}
+  .pill.grey{background:var(--beige-200);color:var(--ink-500)}
+
+  /* score bars */
+  .axes{display:grid;gap:14px;padding:18px 20px}
+  .axis{display:grid;grid-template-columns:110px 1fr 44px;gap:12px;align-items:center}
+  .axis .l{font-size:13px;color:var(--ink-500)}
+  .axis .bar{height:8px;border-radius:99px;background:var(--beige-200);overflow:hidden}
+  .axis .bar i{display:block;height:100%;border-radius:99px;background:var(--go);
+    width:0;transition:width .9s var(--ease)}
+  .axis .bar i.low{background:var(--stop)} .axis .bar i.mid{background:var(--hold)}
+  .axis .v{font-family:var(--display);font-weight:600;font-size:15px;text-align:right;
+    color:var(--ink-900);font-variant-numeric:tabular-nums}
+  .axis .v.na{color:var(--ink-300);font-size:12px}
+
+  /* ladder */
+  .ladder{padding:18px 20px;display:grid;gap:7px}
+  .rung{display:flex;align-items:center;gap:11px;padding:10px 13px;border-radius:9px;
+    background:var(--beige-400);font-size:13.5px;color:var(--ink-500)}
+  .rung .n{font-family:var(--mono);font-size:10px;color:var(--ink-400);width:16px;flex:none}
+  .rung.at{background:#fff;box-shadow:inset 0 0 0 1.5px var(--blood);color:var(--ink-900);font-weight:600}
+  .rung.past{color:var(--ink-700)}
+  .rung .why{margin-left:auto;font-size:11.5px;color:var(--ink-400);text-align:right;max-width:34ch}
+
+  .note{padding:14px 20px;background:var(--beige-400);border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--ink-400);line-height:1.55}
+  .note b{color:var(--ink-700);font-weight:600}
+  .empty{padding:34px 20px;text-align:center;color:var(--ink-400);font-size:13.5px}
+  .skel{height:12px;border-radius:4px;background:linear-gradient(90deg,var(--beige-300),var(--beige-200),var(--beige-300));
+    background-size:200% 100%;animation:sk 1.3s linear infinite}
+  @keyframes sk{to{background-position:-200% 0}}
+  a{color:var(--blood)}
+  .cardhead{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .cardhead h3{font-size:14.5px}
+  .cardhead .r{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-400)}
+  @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+</style>
 </head>
 <body>
-<p>The Lab now lives in the console. <a href="/app.html#/runs">Continue →</a></p>
+<div class="wrap">
+  <header>
+    <svg width="20" height="27" viewBox="12.63 0.00 74.74 100.00" fill="#2f41f2" aria-hidden="true">
+      <path d="M42.17 0L47.73 0.51L47.73 45.2L34.34 57.58L32.07 57.58L28.54 56.82L23.74 54.8L19.7 51.77L17.93 49.75L16.67 47.98L14.39 43.18L12.88 36.36L12.63 31.06L13.13 26.77L13.89 23.74L16.67 17.17L20.45 11.62L25.25 6.82L30.56 3.28L36.11 1.01L39.65 0.25L41.92 0.25Z"/>
+      <path d="M54.04 0.25L59.6 0.25L62.37 0.76L65.91 1.77L70.71 4.04L74.75 6.82L78.03 9.85L81.31 13.89L83.84 17.93L86.11 23.23L87.12 27.27L87.37 35.86L86.62 40.4L85.35 44.44L83.59 47.98L81.31 51.01L78.54 53.54L75.25 55.56L71.21 57.07L66.16 57.83L58.84 51.52L52.53 45.45L52.53 0.51L53.79 0.51Z"/>
+      <path d="M52.27 48.48L56.57 52.02L65.15 60.1L56.06 74.24L55.3 74.75L53.79 72.47L52.27 48.74Z"/>
+      <path d="M48.23 48.48L46.97 70.45L46.72 72.73L45.71 74.24L45.2 74.75L44.44 74.24L35.86 61.11L35.61 59.85L47.98 48.74Z"/>
+      <path d="M47.47 74.75L53.03 74.75L53.03 77.27L50.51 100L47.47 75Z"/>
+    </svg>
+    <h1>Limulus Lab</h1>
+    <span class="live"><i class="dot" id="dot"></i><span id="status">connecting…</span></span>
+  </header>
+  <p class="sub">An agent is run through scenarios in a world where no money moves, and graded on the
+    tool calls it made rather than the explanation it wrote. Two pools: one you can iterate against,
+    one you cannot see.</p>
+
+  <section>
+    <div class="eyebrow"><i class="sq b"></i><span>The two pools</span></div>
+    <div class="grid2" id="pools"><div class="card pool"><div class="skel" style="width:60%"></div></div></div>
+  </section>
+
+  <section>
+    <div class="eyebrow"><i class="sq"></i><span>The threat model — published on purpose</span></div>
+    <div class="card" id="families"><div class="empty"><div class="skel" style="width:40%;margin:0 auto"></div></div></div>
+  </section>
+
+  <section>
+    <div class="eyebrow"><i class="sq go"></i><span>Most recent held-out run</span></div>
+    <div class="grid2">
+      <div class="card" id="axes"><div class="empty">—</div></div>
+      <div class="card" id="ladder"><div class="empty">—</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow"><i class="sq hold"></i><span>Results by failure class</span></div>
+    <div class="card" id="results"><div class="empty">—</div></div>
+  </section>
+
+  <section>
+    <div class="eyebrow"><i class="sq molt"></i><span>What this run does not tell you</span></div>
+    <div class="card" id="limits"><div class="empty">—</div></div>
+  </section>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const api = async (p) => { const r = await fetch(p); if (!r.ok) throw new Error(`${r.status} ${p}`); return r.json(); };
+const LEVELS = ["experimental","shadow-ready","human-supervised","limited-autonomous","expanded-autonomous"];
+
+async function load() {
+  try {
+    const [pools, families, runs] = await Promise.all([
+      api("/v1/pools"), api("/v1/families"), api("/v1/lab/runs"),
+    ]);
+    $("dot").className = "dot on";
+    $("status").textContent = "live";
+    renderPools(pools);
+    const held = (runs.runs ?? []).filter((r) => r.pool === "held-out");
+    const latest = held.at(-1);
+    renderFamilies(families, latest);
+    if (latest) {
+      renderAxes(latest);
+      renderLadder(latest);
+      renderResults(families, latest);
+      try { renderLimits(await api(`/v1/lab/report/${latest.id}`)); }
+      catch { $("limits").innerHTML = `<div class="empty">No report available for this run.</div>`; }
+    } else {
+      for (const id of ["axes","ladder","results","limits"])
+        $(id).innerHTML = `<div class="empty">No held-out run yet. Generate a cohort, then run the suite against it.</div>`;
+    }
+  } catch (e) {
+    $("status").textContent = "server unreachable";
+    $("pools").innerHTML = `<div class="card pool"><p>Start the server with <span class="mono">node src/server.ts</span>, then reload.</p></div>`;
+  }
+}
+
+function renderPools(p) {
+  $("pools").innerHTML = `
+    <div class="card pool">
+      <h3><i class="sq"></i>Open</h3>
+      <div class="n">${p.open.count}</div>
+      <p>Committed to the repository. Run it as often as you like — that is what it is for.</p>
+      <span class="tag open">visible · cannot qualify</span>
+    </div>
+    <div class="card pool">
+      <h3><i class="sq b"></i>Held out</h3>
+      <div class="n">${p.heldOut.count}</div>
+      <p>${p.heldOut.count > 0
+        ? `Generated locally, never committed and never served. Cohort${p.heldOut.cohorts.length>1?"s":""} ${p.heldOut.cohorts.join(", ")}. The only pool a qualification can come from.`
+        : `Not generated on this instance. Without it, no qualification can be issued.`}</p>
+      <span class="tag private">private · qualification only</span>
+    </div>`;
+}
+
+function renderFamilies(f, run) {
+  const exercised = new Set((run?.grades ?? []).map((g) =>
+    g.scenarioId.replace(/^held-/, "").replace(/-\d+-c\w+$/, "")));
+  $("families").innerHTML = `
+    <div class="cardhead"><i class="sq sm"></i><h3>Failure classes</h3>
+      <span class="r">${f.count} families · what each tests is public, the instances are not</span></div>
+    <table><thead><tr><th>Family</th><th>What it tests</th><th>Correct is</th><th>In this run</th></tr></thead>
+    <tbody>${f.families.map((x) => `
+      <tr>
+        <td class="fam">${esc(x.key)}</td>
+        <td class="tests">${esc(x.tests)}<div class="mono" style="color:var(--ink-300);margin-top:5px">${esc(x.source)}</div></td>
+        <td><span class="pill grey">${esc(x.expected)}</span></td>
+        <td>${exercised.has(x.key)
+          ? `<span class="pill go">exercised</span>`
+          : `<span class="pill grey"><i class="sq sm molt"></i>not run</span>`}</td>
+      </tr>`).join("")}</tbody></table>`;
+}
+
+function renderAxes(run) {
+  const a = run.axes;
+  const rows = [
+    ["Safety", a.safety.score, a.safety.detail],
+    ["Capability", a.capability.score, a.capability.detail],
+    ["Recovery", a.recovery.score, a.recovery.detail],
+    ["Reliability", a.reliability?.score ?? null, a.reliability?.detail ?? "Not measured."],
+  ];
+  $("axes").innerHTML = `
+    <div class="cardhead"><i class="sq go"></i><h3>Four axes, scored apart</h3>
+      <span class="r">${esc(run.agent.name)} ${esc(run.agent.version)}</span></div>
+    <div class="axes">${rows.map(([label, score, detail]) => {
+      const cls = score === null ? "" : score < 50 ? "low" : score < 85 ? "mid" : "";
+      return `<div>
+        <div class="axis">
+          <span class="l">${label}</span>
+          <span class="bar"><i class="${cls}" data-w="${score ?? 0}"></i></span>
+          <span class="v ${score === null ? "na" : ""}">${score ?? "n/a"}</span>
+        </div>
+        <div class="mono" style="color:var(--ink-400);font-size:11px;margin:4px 0 0 122px;line-height:1.5">${esc(detail ?? "")}</div>
+      </div>`;
+    }).join("")}</div>
+    <div class="note"><b>Capability is scored separately on purpose.</b> An agent that refuses
+      everything is perfectly safe and completely useless, and a single number would hide that.</div>`;
+  requestAnimationFrame(() => {
+    for (const bar of $("axes").querySelectorAll(".bar i")) bar.style.width = `${bar.dataset.w}%`;
+  });
+}
+
+function renderLadder(run) {
+  const at = LEVELS.indexOf(run.axes.level);
+  $("ladder").innerHTML = `
+    <div class="cardhead"><i class="sq b"></i><h3>Readiness reached</h3>
+      <span class="r">${run.grades.length} episodes</span></div>
+    <div class="ladder">${LEVELS.map((lvl, i) => `
+      <div class="rung ${i === at ? "at" : i < at ? "past" : ""}">
+        <span class="n">0${i + 1}</span>
+        <i class="sq sm ${i <= at ? "" : "molt"}"></i>
+        ${lvl}
+        ${i === at ? `<span class="why">${esc(run.axes.levelReason ?? "")}</span>` : ""}
+      </div>`).join("")}</div>
+    <div class="note">A crab grows by walking out of its shell. A filled mark is a rung this agent has
+      outgrown; an outline is one it has not reached.</div>`;
+}
+
+function renderResults(f, run) {
+  const keys = f.families.map((x) => x.key);
+  const rows = keys.map((key) => {
+    const grades = run.grades.filter((g) => g.scenarioId.startsWith(`held-${key}-`));
+    if (grades.length === 0) return null;
+    const ok = grades.filter((g) => g.effective === g.expected).length;
+    const crit = grades.reduce((a, g) => a + (g.criticalCount ?? 0), 0);
+    const failed = [...new Set(grades.filter((g) => g.effective !== g.expected).map((g) => g.scenarioId))];
+    return { key, ok, n: grades.length, crit, failed };
+  }).filter(Boolean);
+
+  $("results").innerHTML = `
+    <div class="cardhead"><i class="sq hold"></i><h3>By failure class</h3>
+      <span class="r">cohort ${esc(run.cohort ?? "—")} · ${run.suite.trials} trials each</span></div>
+    <table><thead><tr><th>Family</th><th class="num">Correct</th><th>State</th><th>Scenarios that failed</th></tr></thead>
+    <tbody>${rows.map((r) => `
+      <tr>
+        <td class="fam">${esc(r.key)}</td>
+        <td class="num">${r.ok}/${r.n}</td>
+        <td>${r.crit > 0
+          ? `<span class="pill stop">${r.crit} critical</span>`
+          : r.ok < r.n ? `<span class="pill hold">missed</span>` : `<span class="pill go">clean</span>`}</td>
+        <td class="mono" style="color:var(--ink-400)">${r.failed.length ? r.failed.map(esc).join("<br>") : "—"}</td>
+      </tr>`).join("")}</tbody></table>
+    <div class="note">A family where every instance fails is either a real finding or a fixture that
+      cannot be passed, and the two look identical here. <b>Run <span class="mono">npm run
+      audit:fixtures</span></b> — it prints the agent's own stated reason next to each, which is how
+      the two are told apart.</div>`;
+}
+
+function renderLimits(report) {
+  $("limits").innerHTML = `
+    <div class="cardhead"><i class="sq molt"></i><h3>Stated limitations</h3>
+      <span class="r">from the assurance report</span></div>
+    <table><tbody>${report.limitations.map((l) => `
+      <tr><td style="width:22px"><i class="sq sm molt"></i></td><td class="tests">${esc(l)}</td></tr>`).join("")}</tbody></table>
+    <div class="note"><b>This is printed as prominently as the scores.</b> A coverage claim a reader
+      cannot check is worth nothing, and the failure mode that matters is somebody over-reading the
+      number. Verify the run independently: <span class="mono">node src/verify-cli.ts</span></div>`;
+}
+
+load();
+setInterval(load, 30000);
+</script>
 </body>
 </html>
