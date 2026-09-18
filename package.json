@@ -20,7 +20,9 @@
     "report": "node src/bench/assurance-report.ts",
     "audit:fixtures": "node src/bench/fixture-audit.ts",
     "bridge": "node src/experiments/claude-bridge.ts",
-    "scenarios:validate": "node src/bench/validate-scenarios.ts scenarios"
+    "scenarios:validate": "node src/bench/validate-scenarios.ts scenarios",
+    "selftest:twin": "node src/bench/twin-selftest.ts",
+    "bundle": "node src/bench/failure-bundle.ts"
   },
   "license": "UNLICENSED"
 }

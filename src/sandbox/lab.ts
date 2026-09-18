@@ -135,12 +135,6 @@ export async function runSuite(
     throw new PoolError("empty_pack", `The ${pool} pool is empty.`);
   }
 
-  // What this run will claim it measured. A caller-supplied suite is identified
-  // by its own name and a fingerprint of the scenarios that actually ran, so a
-  // signed record never labels a customer's suite as our standard pack.
-  const suiteId = options.suite?.id ?? (options.pack ? `custom:${suiteFingerprint(pack)}` : packId);
-  const suiteVersion = options.suite?.version ?? (options.pack ? suiteFingerprint(pack) : packVersion);
-
   // A caller can pass its own pack. That must not become a way around the
   // guard above: if this run is going to certify anything, every scenario in
   // it has to actually be held out, whoever supplied them.
@@ -159,6 +153,17 @@ export async function runSuite(
   // One cohort, one score, per agent version.
   const cohort = options.cohort
     ?? (pool === "held-out" ? (pack[0] as { cohort?: string }).cohort : undefined);
+
+  // What this run will claim it measured. A held-out run is named for its
+  // cohort; a caller-supplied suite by its own name and a fingerprint of the
+  // scenarios that actually ran. The run record and the qualification binding
+  // read this from one place, because they are two views of the same claim.
+  const suiteId =
+    options.suite?.id
+    ?? (pool === "held-out" ? `held-out:${cohort}` : options.pack ? `custom:${suiteFingerprint(pack)}` : packId);
+  const suiteVersion =
+    options.suite?.version
+    ?? (pool === "held-out" || options.pack ? suiteFingerprint(pack) : packVersion);
   if (options.qualifyFor && cohort && !options.allowRetake) {
     const version = target.version ?? "unversioned";
     if (cohortAlreadyUsed(cohort, target.name, version)) {
@@ -250,7 +255,7 @@ export async function runSuite(
             promptHash: run.agent.promptHash,
             toolConfigHash: run.agent.toolConfigHash,
           },
-          suite: { id: pool === "held-out" ? `held-out:${cohort}` : suiteId, version: suiteVersion, scenarioCount: pack.length, trials },
+          suite: { id: suiteId, version: suiteVersion, scenarioCount: pack.length, trials },
         },
       })
     : undefined;
