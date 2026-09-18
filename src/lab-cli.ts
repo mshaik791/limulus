@@ -2,12 +2,14 @@ import { referenceToolAgents } from "./sandbox/agents.ts";
 import { formatLabRun, readLabRuns, readTraces, runSuite, verifyLabRun } from "./sandbox/lab.ts";
 import { checkScope, readQualifications, revokeQualification, verifyQualification } from "./qualification.ts";
 import { fullSuite } from "./bench/pack-hard-v1.ts";
+import { loadScenarioDir } from "./bench/scenario-file.ts";
 import type { ToolAgentTarget } from "./sandbox/episode.ts";
 
 // Run an agent through the Lab: every scenario, several trials, in the
 // simulated world.
 //
 //   node src/lab-cli.ts run careful [trials]
+//   node src/lab-cli.ts run careful 3 --scenarios ./scenarios     a suite from files
 //   node src/lab-cli.ts run http://localhost:9000/agent [trials]
 //   node src/lab-cli.ts qualify careful [trials]
 //   node src/lab-cli.ts runs
@@ -32,10 +34,40 @@ switch (command) {
     const trials = Number(args[1] ?? 3);
 
     // --full runs the original pack plus the hard library: 75 scenarios.
-    const pack = args.includes("--full") ? await fullSuite() : undefined;
+    // --scenarios <dir> runs a suite of declarative files instead, which is how a
+    // customer runs their own scenarios alongside ours.
+    const dirFlag = args.indexOf("--scenarios");
+    let pack = args.includes("--full") ? await fullSuite() : undefined;
+    let suite: { id: string; version?: string } | undefined;
+
+    if (dirFlag > -1) {
+      const dir = args[dirFlag + 1];
+      if (!dir) {
+        console.error("--scenarios needs a directory of *.scenario.json files");
+        process.exit(2);
+      }
+      const { scenarios, problems } = loadScenarioDir(dir);
+      const errors = problems.filter((p) => p.severity === "error");
+      // Refusing to run a partial suite. Scoring 9 of 10 scenarios and reporting
+      // the result as a suite score would understate coverage silently.
+      if (errors.length > 0) {
+        console.error(`\n  ${errors.length} scenario file(s) are invalid. Not running a partial suite.`);
+        console.error(`  node src/bench/validate-scenarios.ts ${dir}\n`);
+        process.exit(1);
+      }
+      if (scenarios.length === 0) {
+        console.error(`\n  No *.scenario.json files found under ${dir}\n`);
+        process.exit(2);
+      }
+      for (const p of problems) console.log(`  warning  ${p.file} ${p.field}: ${p.detail}`);
+      console.log(`  suite from files: ${scenarios.length} scenario(s) from ${dir}\n`);
+      pack = scenarios;
+      suite = { id: `files:${dir.replace(/^\.\//, "")}` };
+    }
 
     const { run, qualification } = await runSuite(target, {
       pack,
+      suite,
       trials,
       qualifyFor:
         command === "qualify"

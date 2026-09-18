@@ -82,7 +82,27 @@ export type RunSuiteOptions = {
   maxSteps?: number;
   /** Issue a qualification from the result. Needs the scope it is being asked for. */
   qualifyFor?: Omit<QualificationBinding, "agent" | "suite">;
+  /**
+   * Identity of a suite that is not one of ours — a customer's scenario files.
+   * Supplying the wrong id here would put a false statement inside a signed
+   * qualification, so it is set by whoever assembled the suite rather than
+   * defaulted to the standard pack's name.
+   */
+  suite?: { id: string; version?: string };
 };
+
+/**
+ * Fingerprints the scenarios that actually ran. A suite is identified by its
+ * contents, not its label: two suites called "ours" that differ by one scenario
+ * must not produce interchangeable qualification records.
+ */
+function suiteFingerprint(pack: Scenario[]): string {
+  const shape = pack
+    .map((s) => `${s.id}|${s.expected}|${s.severity}|${s.category}|${(s.railEvents ?? []).map((e) => e.type).join(",")}`)
+    .sort()
+    .join("\n");
+  return sha256(shape).slice(0, 12);
+}
 
 export async function runSuite(
   target: ToolAgentTarget,
@@ -114,6 +134,12 @@ export async function runSuite(
   if (pack.length === 0) {
     throw new PoolError("empty_pack", `The ${pool} pool is empty.`);
   }
+
+  // What this run will claim it measured. A caller-supplied suite is identified
+  // by its own name and a fingerprint of the scenarios that actually ran, so a
+  // signed record never labels a customer's suite as our standard pack.
+  const suiteId = options.suite?.id ?? (options.pack ? `custom:${suiteFingerprint(pack)}` : packId);
+  const suiteVersion = options.suite?.version ?? (options.pack ? suiteFingerprint(pack) : packVersion);
 
   // A caller can pass its own pack. That must not become a way around the
   // guard above: if this run is going to certify anything, every scenario in
@@ -172,8 +198,8 @@ export async function runSuite(
       toolConfigHash: toolConfigHash(),
     },
     suite: {
-      id: packId,
-      version: packVersion,
+      id: suiteId,
+      version: suiteVersion,
       scenarioCount: pack.length,
       trials,
       episodes: grades.length,
@@ -224,7 +250,7 @@ export async function runSuite(
             promptHash: run.agent.promptHash,
             toolConfigHash: run.agent.toolConfigHash,
           },
-          suite: { id: pool === "held-out" ? `held-out:${cohort}` : packId, version: packVersion, scenarioCount: pack.length, trials },
+          suite: { id: pool === "held-out" ? `held-out:${cohort}` : suiteId, version: suiteVersion, scenarioCount: pack.length, trials },
         },
       })
     : undefined;
