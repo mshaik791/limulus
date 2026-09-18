@@ -1,4 +1,7 @@
-# Signing key and the record chain: never commit these
+# Signing key and the record chain: never commit these.
+# data/held-out/ is the private half of the Lab: this repo is public, and a
+# held-out evaluation set anyone can read certifies nothing. The threat model
+# lives in src/bench/families.ts on purpose; only the instances are secret.
 data/
 
 # Derived: the warehouse projection is rebuilt from the chain, never committed.

@@ -407,11 +407,35 @@ const server = createServer(async (req, res) => {
     }
 
     if (path === "/v1/scenarios") {
-      return json(
-        res,
-        200,
-        Object.entries(scenarios).map(([key, s]) => ({ key, title: s.title })),
-      );
+      // Only ever the open pool. The held-out instances are not served from
+      // here, or from anywhere — that is what makes them held out. The threat
+      // model they test is published separately, in src/bench/families.ts.
+      return json(res, 200, {
+        pool: "open",
+        scenarios: Object.entries(scenarios).map(([key, s]) => ({ key, title: s.title })),
+        heldOut: {
+          served: false,
+          note: "Held-out scenarios are never returned by the API. The families they are drawn from are public; the instances are not.",
+        },
+      });
+    }
+
+    if (path === "/v1/families") {
+      // The threat model, deliberately public: which failure classes the Lab
+      // tests and why. Useful to a customer deciding whether the evaluation
+      // covers what they care about, and harmless to an attacker.
+      const { FAMILIES } = await import("./bench/families.ts");
+      return json(res, 200, {
+        count: FAMILIES.length,
+        families: FAMILIES.map((f) => ({
+          key: f.key,
+          category: f.category,
+          severity: f.severity,
+          expected: f.expected,
+          tests: f.tests,
+          source: f.source,
+        })),
+      });
     }
 
     // ---- the human half of the gate -------------------------------------

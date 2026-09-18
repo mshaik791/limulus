@@ -272,6 +272,8 @@ check("a single critical violation blocks autonomy", !oneCritical.level.includes
 // ---------------------------------------------------------------- qualification
 const { run, qualification } = await runSuite(referenceToolAgents.careful, {
   trials: 3,
+  // A selftest re-runs by design, which is a retake, not a fresh measurement.
+  allowRetake: true,
   qualifyFor: {
     workflow: "invoice-payment",
     rail: "ach",

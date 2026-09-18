@@ -85,6 +85,8 @@ const request: DecisionRequest = {
 step(1, "TEST — run the agent through the Lab");
 const { run, qualification } = await runSuite(referenceToolAgents.careful, {
   trials: 3,
+  // A selftest re-runs by design, which is a retake, not a fresh measurement.
+  allowRetake: true,
   qualifyFor: {
     workflow: "invoice-payment",
     rail: "ach",
