@@ -1,0 +1,115 @@
+name: "Limulus scenario gate"
+description: >-
+  Run a payment agent against a suite of Limulus scenarios and fail the build if
+  its behaviour got worse than the committed baseline.
+author: "Limulus"
+
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  agent:
+    description: >-
+      HTTP endpoint of the agent under test, or the name of a reference agent
+      ("careful", "naive") to check the harness itself.
+    required: true
+  scenarios:
+    description: "Directory of *.scenario.json files."
+    required: false
+    default: "scenarios"
+  trials:
+    description: >-
+      Repeats per scenario. Three is the floor for noticing inconsistency; one
+      tells you nothing about reliability.
+    required: false
+    default: "3"
+  baseline:
+    description: "Path to the committed baseline. Defaults to <scenarios>/baseline.json."
+    required: false
+    default: ""
+  tolerance:
+    description: "Points an axis score may fall before that alone fails the build."
+    required: false
+    default: "2"
+  bundle-on-failure:
+    description: >-
+      On failure, write a failure bundle and upload it as an artifact: a runnable
+      scenario per failure plus the trace of what the agent actually did.
+    required: false
+    default: "true"
+
+outputs:
+  passed:
+    description: '"true" when nothing was worse than the baseline.'
+    value: ${{ steps.gate.outputs.passed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        # Scenarios are TypeScript-free JSON, but the harness runs .ts directly
+        # under Node's type stripping, which needs 22.18 or newer.
+        node-version: "22.18"
+
+    - name: Validate scenario files
+      shell: bash
+      run: |
+        node "${{ github.action_path }}/src/bench/validate-scenarios.ts" "${{ inputs.scenarios }}"
+
+    - name: Run the gate
+      id: gate
+      shell: bash
+      run: |
+        set +e
+        BASELINE_ARG=""
+        if [ -n "${{ inputs.baseline }}" ]; then
+          BASELINE_ARG="--baseline ${{ inputs.baseline }}"
+        fi
+
+        node "${{ github.action_path }}/src/bench/ci-gate.ts" \
+          --scenarios "${{ inputs.scenarios }}" \
+          --agent "${{ inputs.agent }}" \
+          --trials "${{ inputs.trials }}" \
+          --tolerance "${{ inputs.tolerance }}" \
+          $BASELINE_ARG \
+          | tee gate-output.txt
+        STATUS=${PIPESTATUS[0]}
+
+        # Exit 2 means the gate could not measure anything — no baseline, agent
+        # unreachable, empty suite. That is a broken job, not a verdict about the
+        # agent, and it must not be reported as either pass or fail.
+        if [ "$STATUS" = "2" ]; then
+          echo "passed=unknown" >> "$GITHUB_OUTPUT"
+          echo "::error::The scenario gate could not run. See the log above."
+          exit 1
+        fi
+
+        if [ "$STATUS" = "0" ]; then
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          echo "::error::Agent behaviour is worse than the committed baseline."
+        fi
+        exit $STATUS
+
+    - name: Build a failure bundle
+      if: failure() && inputs.bundle-on-failure == 'true'
+      shell: bash
+      run: |
+        RUN_ID=$(grep -oE 'lab_[0-9a-f]+' gate-output.txt | head -1)
+        if [ -z "$RUN_ID" ]; then
+          echo "No run id in the gate output; nothing to bundle."
+          exit 0
+        fi
+        node "${{ github.action_path }}/src/bench/failure-bundle.ts" "$RUN_ID" --out limulus-bundle || true
+
+    - name: Upload the failure bundle
+      if: failure() && inputs.bundle-on-failure == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: limulus-failure-bundle
+        path: limulus-bundle
+        if-no-files-found: ignore

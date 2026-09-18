@@ -1,0 +1,54 @@
+name: Scenarios
+
+# Dogfooding the gate we ship. The reference agents are deterministic, so this
+# also catches the case that matters most: a change to the graders that silently
+# alters what counts as a violation. If scoring drifts, the reference agents'
+# results move even though no agent changed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  selftests:
+    name: Selftests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+
+      # The held-out pool is gitignored, so a fresh clone has none and anything
+      # touching qualification fails with held_out_missing. CI generates its own
+      # throwaway cohort from a fresh random seed. That is safe precisely because
+      # it is disposable: it is never committed, never uploaded as an artifact,
+      # and no qualification issued from it leaves this job.
+      - name: Generate a throwaway held-out pool
+        run: node src/bench/generate-held-out.ts --cohort ci
+
+      # Ordered cheapest and most fundamental first, so a broken grader is
+      # reported before a slower suite fails as a consequence of it.
+      - name: Graders and qualification
+        run: node src/sandbox/selftest.ts
+
+      - name: Twin and leak machinery
+        run: node src/bench/twin-selftest.ts
+
+      - name: Pools
+        run: node src/bench/pools-selftest.ts
+
+      - name: Scenario files
+        run: node src/bench/validate-scenarios.ts scenarios --strict
+
+  gate:
+    name: Regression gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          agent: careful
+          scenarios: scenarios
+          trials: 3

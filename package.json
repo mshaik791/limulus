@@ -22,7 +22,8 @@
     "bridge": "node src/experiments/claude-bridge.ts",
     "scenarios:validate": "node src/bench/validate-scenarios.ts scenarios",
     "selftest:twin": "node src/bench/twin-selftest.ts",
-    "bundle": "node src/bench/failure-bundle.ts"
+    "bundle": "node src/bench/failure-bundle.ts",
+    "gate": "node src/bench/ci-gate.ts --scenarios scenarios"
   },
   "license": "UNLICENSED"
 }
