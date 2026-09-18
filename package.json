@@ -13,7 +13,9 @@
     "verify": "node src/verify-cli.ts",
     "warehouse": "node src/warehouse/export.ts",
     "warehouse:load": "cd build/warehouse && psql \"$DATABASE_URL\" -f schema.sql",
-    "selftest:instant": "node src/rails/instant-selftest.ts"
+    "selftest:instant": "node src/rails/instant-selftest.ts",
+    "heldout:generate": "node src/bench/generate-held-out.ts",
+    "selftest:pools": "node src/bench/pools-selftest.ts"
   },
   "license": "UNLICENSED"
 }

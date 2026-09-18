@@ -8,6 +8,9 @@ import { gradeEpisode, scoreFourAxes, type EpisodeGrade, type FourAxisResult } f
 import { toolCatalog } from "./env.ts";
 import { issueQualification, type Qualification, type QualificationBinding } from "../qualification.ts";
 import { packId, packVersion, scenarios as defaultPack } from "../bench/pack-payments-v1.ts";
+import {
+  cohortAlreadyUsed, heldOutPool, openPool, PoolError, recordCohortUse, type Pool,
+} from "../bench/pools.ts";
 import type { Scenario } from "../bench/types.ts";
 
 // A Lab run: every scenario, several times, in the simulated world, graded
@@ -27,6 +30,10 @@ export type LabRun = {
   suite: { id: string; version: string; scenarioCount: number; trials: number; episodes: number };
   axes: FourAxisResult;
   grades: EpisodeGrade[];
+  /** Which pool produced this run. Only "held-out" may back a qualification. */
+  pool: Pool;
+  /** The held-out cohort, when there was one. */
+  cohort?: string;
   durationMs: number;
   prevHash: string | null;
   hash: string;
@@ -57,6 +64,19 @@ export function readTraces(runId?: string): (EpisodeTrace & { runId: string })[]
 
 export type RunSuiteOptions = {
   pack?: Scenario[];
+  /**
+   * Which pool to run. "open" is the development loop: visible, repeatable,
+   * and deliberately not sufficient for a qualification. "held-out" is the
+   * private set and the only pool a qualification may be issued from.
+   */
+  pool?: Pool;
+  /** Which held-out cohort. Defaults to whatever is present. */
+  cohort?: string;
+  /**
+   * Allows a second scored run of the same agent version against a cohort it
+   * has already seen. Off by default, because a retake is not a measurement.
+   */
+  allowRetake?: boolean;
   /** Repeat count per scenario. Three is the floor for measuring consistency. */
   trials?: number;
   maxSteps?: number;
@@ -68,9 +88,61 @@ export async function runSuite(
   target: ToolAgentTarget,
   options: RunSuiteOptions = {},
 ): Promise<{ run: LabRun; qualification?: Qualification }> {
-  const pack = options.pack ?? defaultPack;
   const trials = options.trials ?? 3;
   const started = Date.now();
+
+  // Which scenarios, and may this run certify anything?
+  //
+  // The guard below is the whole point of splitting the pools. A qualification
+  // issued from the open pool would be indistinguishable from a real one and
+  // would certify only that the agent's authors had read the tests. Rather
+  // than quietly downgrade such a run, this refuses it.
+  const pool: Pool = options.pool ?? (options.qualifyFor ? "held-out" : "open");
+
+  if (options.qualifyFor && pool !== "held-out") {
+    throw new PoolError(
+      "qualification_requires_held_out",
+      "A qualification can only be issued from the held-out pool. The open pool is for " +
+        "iteration: an agent can be tuned against it until it passes, which is what makes " +
+        "the score meaningless. Re-run with pool: \"held-out\".",
+    );
+  }
+
+  const pack = options.pack
+    ?? (pool === "held-out" ? heldOutPool(options.cohort) : await openPool());
+
+  if (pack.length === 0) {
+    throw new PoolError("empty_pack", `The ${pool} pool is empty.`);
+  }
+
+  // A caller can pass its own pack. That must not become a way around the
+  // guard above: if this run is going to certify anything, every scenario in
+  // it has to actually be held out, whoever supplied them.
+  if (options.qualifyFor) {
+    const leaked = (pack as { id: string; pool?: Pool }[]).filter((s) => s.pool !== "held-out");
+    if (leaked.length > 0) {
+      throw new PoolError(
+        "pack_not_held_out",
+        `${leaked.length} of ${pack.length} scenarios in this pack are not from the held-out pool ` +
+          `(${leaked.slice(0, 3).map((s) => s.id).join(", ")}${leaked.length > 3 ? ", …" : ""}). ` +
+          "A qualification cannot be issued from scenarios the agent's authors can read.",
+      );
+    }
+  }
+
+  // One cohort, one score, per agent version.
+  const cohort = options.cohort
+    ?? (pool === "held-out" ? (pack[0] as { cohort?: string }).cohort : undefined);
+  if (options.qualifyFor && cohort && !options.allowRetake) {
+    const version = target.version ?? "unversioned";
+    if (cohortAlreadyUsed(cohort, target.name, version)) {
+      throw new PoolError(
+        "cohort_already_used",
+        `${target.name} ${version} has already been scored against cohort ${cohort}. ` +
+          "Generate a new cohort, or pass allowRetake to record this as a retake.",
+      );
+    }
+  }
 
   if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 
@@ -108,6 +180,8 @@ export async function runSuite(
     },
     axes,
     grades,
+    pool,
+    ...(cohort ? { cohort } : {}),
     durationMs: Date.now() - started,
     prevHash: previous ? previous.hash : null,
   };
@@ -116,6 +190,18 @@ export async function runSuite(
   const run: LabRun = { ...body, hash, signature: signHash(hash), publicKey: publicKeyPem };
 
   appendFileSync(runsPath, `${JSON.stringify(run)}\n`);
+
+  // Burn the cohort for this agent version, so the next scored run has to use
+  // scenarios it has not seen.
+  if (options.qualifyFor && cohort) {
+    recordCohortUse({
+      cohort,
+      agent: target.name,
+      version: target.version ?? "unversioned",
+      at: new Date().toISOString(),
+      runId: run.id,
+    });
+  }
   for (const trace of traces) appendFileSync(tracesPath, `${JSON.stringify({ ...trace, runId: run.id })}\n`);
 
   // A qualification is only issued when one was asked for, and always at the
@@ -138,7 +224,7 @@ export async function runSuite(
             promptHash: run.agent.promptHash,
             toolConfigHash: run.agent.toolConfigHash,
           },
-          suite: { id: packId, version: packVersion, scenarioCount: pack.length, trials },
+          suite: { id: pool === "held-out" ? `held-out:${cohort}` : packId, version: packVersion, scenarioCount: pack.length, trials },
         },
       })
     : undefined;

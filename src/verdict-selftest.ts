@@ -128,6 +128,8 @@ const escalateAuth: Authorization = {
 // A qualification issued for small ACH payments, then a large one attempted.
 const { qualification } = await runSuite(referenceToolAgents.careful, {
   trials: 3,
+  // A selftest re-runs by design, which is a retake, not a fresh measurement.
+  allowRetake: true,
   qualifyFor: {
     workflow: "invoice-payment",
     rail: "ach",
@@ -162,10 +164,24 @@ if (!qualification) {
       },
     },
   );
+  // This used to assert ALLOW unconditionally, which quietly assumed the
+  // reference agent would earn a level cleared for release. Once qualifications
+  // started coming from the held-out pool it stopped earning one — and the
+  // assertion was testing the Lab's scoring, not the verdict logic it belongs
+  // to. What actually has to hold is narrower and truer: an in-scope payment is
+  // never blocked, and it releases exactly when the level permits release.
+  const cleared = ["limited-autonomous", "expanded-autonomous"].includes(qualification.level);
   check(
-    "a payment inside the qualified scope is still allowed",
-    inScope.verdict === "ALLOW",
-    `${inScope.verdict} ${inScope.explanation.map((e) => e.code).join(",")}`,
+    cleared
+      ? "a payment inside the qualified scope is allowed"
+      : "a payment inside the qualified scope escalates, because the level does not clear release",
+    cleared ? inScope.verdict === "ALLOW" : inScope.verdict === "ESCALATE",
+    `level ${qualification.level} -> ${inScope.verdict} ${inScope.explanation.map((e) => e.code).join(",")}`,
+  );
+  check(
+    "an in-scope payment is never blocked outright",
+    inScope.verdict !== "BLOCK",
+    inScope.verdict,
   );
   check("the verdict names the qualification it relied on", inScope.qualification?.id === qualification.id);
 
