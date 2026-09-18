@@ -19,7 +19,8 @@
     "experiment:rails": "node src/experiments/rail-caution.ts",
     "report": "node src/bench/assurance-report.ts",
     "audit:fixtures": "node src/bench/fixture-audit.ts",
-    "bridge": "node src/experiments/claude-bridge.ts"
+    "bridge": "node src/experiments/claude-bridge.ts",
+    "scenarios:validate": "node src/bench/validate-scenarios.ts scenarios"
   },
   "license": "UNLICENSED"
 }
