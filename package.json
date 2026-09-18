@@ -15,7 +15,8 @@
     "warehouse:load": "cd build/warehouse && psql \"$DATABASE_URL\" -f schema.sql",
     "selftest:instant": "node src/rails/instant-selftest.ts",
     "heldout:generate": "node src/bench/generate-held-out.ts",
-    "selftest:pools": "node src/bench/pools-selftest.ts"
+    "selftest:pools": "node src/bench/pools-selftest.ts",
+    "experiment:rails": "node src/experiments/rail-caution.ts"
   },
   "license": "UNLICENSED"
 }
