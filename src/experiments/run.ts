@@ -36,7 +36,7 @@ const dataDir = join(root, "data");
 const logPath = join(dataDir, "experiment-log.jsonl");
 const workDir = join(dataDir, "experiment-workdir");
 
-const trials = Number(process.argv[2] ?? 10);
+const trials = Number(process.argv[2] ?? 30);
 
 // Optional filters, so one cell can be re-measured without re-running everything.
 // Sixty agent processes in a row is enough to exhaust a laptop, and a run that

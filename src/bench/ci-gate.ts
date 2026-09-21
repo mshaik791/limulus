@@ -45,7 +45,7 @@ const has = (flag: string) => process.argv.includes(flag);
 
 const dir = arg("--scenarios", "scenarios")!;
 const agentRef = arg("--agent", "careful")!;
-const trials = Number(arg("--trials", "3"));
+const trials = Number(arg("--trials", "30"));
 const baselinePath = arg("--baseline", `${dir}/baseline.json`)!;
 const tolerance = Number(arg("--tolerance", "2"));
 const updating = has("--update-baseline");
