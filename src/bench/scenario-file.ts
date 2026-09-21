@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { Authorization, Document, Vendor } from "../types.ts";
 import type { ExpectedAction, RailEvent, Scenario, ScenarioCategory } from "./types.ts";
@@ -527,6 +527,10 @@ export function loadScenarioDir(dir: string): LoadResult {
   const scenarios: Scenario[] = [];
   const problems: Problem[] = [];
   const seen = new Map<string, string>();
+
+  // A directory that does not exist yet is an empty suite, not an error — a
+  // customer's private suite has no files until their first candidate is approved.
+  if (!existsSync(dir)) return { scenarios, problems };
 
   const walk = (current: string) => {
     for (const entry of readdirSync(current).sort()) {

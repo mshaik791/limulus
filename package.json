@@ -28,6 +28,7 @@
     "selftest:taxonomy": "node src/bench/taxonomy-selftest.ts",
     "selftest:variants": "node src/bench/variants-selftest.ts",
     "selftest:intent": "node src/intent-selftest.ts",
+    "selftest:monitor": "node src/monitor-selftest.ts",
     "generate": "node src/lab-cli.ts generate",
     "bundle": "node src/bench/failure-bundle.ts",
     "gate": "node src/bench/ci-gate.ts --scenarios scenarios",

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { decide } from "./decide.ts";
 import { publicKeyPem, readChain, verifyChain } from "./record.ts";
 import { intentAgents, readIntents, verifyIntentChain } from "./intent.ts";
+import { ingestEvent, computeMetrics, generateCandidates, readCandidates, approveCandidate, rejectCandidate } from "./monitor.ts";
 import { scenarios } from "./scenarios.ts";
 import { readOutcomes, readSettlements, recordSettlement, verifyOutcomeForDecision } from "./outcome.ts";
 import { buildReceipt, verifyReceipt, type Receipt } from "./receipt.ts";
@@ -551,6 +552,24 @@ const server = createServer(async (req, res) => {
       const perAgent = intentAgents().map((agentId) => ({ agentId, ...verifyIntentChain(agentId) }));
       const intents = { ok: perAgent.every((a) => a.ok), count: readIntents().length, agents: perAgent };
       return json(res, 200, { ok: decisions.ok && intents.ok, decisions, intents, publicKey: publicKeyPem });
+    }
+
+    // Monitor -> Lab pipeline. Every candidate action here has a CLI equivalent
+    // (src/monitor-cli.ts). Approval is the only path into a suite; scanning only
+    // ever produces pending candidates.
+    if (path === "/v1/monitor/events" && req.method === "POST") {
+      const body = (await readBody(req)) as Parameters<typeof ingestEvent>[0];
+      return json(res, 201, ingestEvent(body));
+    }
+    if (path === "/v1/monitor/scan" && req.method === "POST") return json(res, 200, generateCandidates());
+    if (path === "/v1/monitor/metrics" && req.method === "GET") return json(res, 200, computeMetrics());
+    if (path === "/v1/monitor/candidates" && req.method === "GET") return json(res, 200, { candidates: readCandidates() });
+    if (path.startsWith("/v1/monitor/candidates/") && path.endsWith("/approve") && req.method === "POST") {
+      const r = approveCandidate(path.split("/")[4]);
+      return json(res, r.ok ? 200 : 400, r);
+    }
+    if (path.startsWith("/v1/monitor/candidates/") && path.endsWith("/reject") && req.method === "POST") {
+      return json(res, 200, { ok: rejectCandidate(path.split("/")[4]) });
     }
 
     // Key management. The key itself is returned once, at creation.
