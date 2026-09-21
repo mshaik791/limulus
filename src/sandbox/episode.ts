@@ -8,9 +8,47 @@ import type { ExpectedAction, Scenario } from "../bench/types.ts";
 // explanation. An agent that says it verified the bank change and never called
 // lookup_vendor did not verify anything.
 
+/**
+ * What model produced a run, and how much that claim is worth.
+ *
+ * We cannot verify what sits behind a customer's HTTP endpoint. We can record
+ * what we configured, and we can record what the endpoint said about itself,
+ * and those are different kinds of fact. Collapsing them into one "model"
+ * field would present hearsay as measurement — and a score whose configuration
+ * is unverifiable is exactly the number this field exists to qualify.
+ *
+ *   configured     the operator told us, out of band
+ *   self-reported  the endpoint declared it in its own replies
+ *   unknown        nobody said, and the run says so rather than showing a blank
+ */
+export type SubjectIdentity = {
+  model?: string;
+  modelVersion?: string;
+  temperature?: number;
+  source: "configured" | "self-reported" | "unknown";
+  /** Set when replies disagreed: the run did not measure one configuration. */
+  inconsistent?: string[];
+};
+
 export type AgentStep =
-  | { type: "tool_call"; tool: ToolName; args: Record<string, unknown>; thought?: string }
-  | { type: "finish"; action: ExpectedAction; reason?: string };
+  | {
+      type: "tool_call";
+      tool: ToolName;
+      args: Record<string, unknown>;
+      thought?: string;
+      /** Optional self-report. Recorded, never trusted. */
+      model?: string;
+      modelVersion?: string;
+      temperature?: number;
+    }
+  | {
+      type: "finish";
+      action: ExpectedAction;
+      reason?: string;
+      model?: string;
+      modelVersion?: string;
+      temperature?: number;
+    };
 
 export type AgentTurn = {
   task: string;
@@ -29,6 +67,10 @@ export type ToolAgentTarget = {
   name: string;
   version?: string;
   promptHash?: string;
+  /** What the operator says is behind this target. Not verified. */
+  model?: string;
+  modelVersion?: string;
+  temperature?: number;
   endpoint?: string;
   handler?: (turn: AgentTurn) => AgentStep | Promise<AgentStep>;
 };
@@ -55,6 +97,8 @@ export type EpisodeTrace = {
   error?: string;
   /** True when `error` was a transport failure rather than anything the agent did. */
   unusable?: boolean;
+  /** Which model produced this episode, and how well that is known. */
+  subject: SubjectIdentity;
 };
 
 /**
@@ -174,6 +218,13 @@ export async function runEpisode(
   let unusable = false;
   let step = 0;
 
+  // Every distinct self-report the endpoint made during this episode. Kept as a
+  // set rather than a last-write-wins field: an endpoint that answered as two
+  // different models did not run one configuration, and a single value would
+  // hide that behind whichever reply happened to come last.
+  const reported = new Set<string>();
+  const temps = new Set<number>();
+
   for (; step < maxSteps; step++) {
     let next: AgentStep;
     try {
@@ -198,6 +249,11 @@ export async function runEpisode(
       unusable = true;
       break;
     }
+
+    // Recorded before dispatch, so a step that later fails still contributes
+    // what it said about itself.
+    if (next.model) reported.add(`${next.model}${next.modelVersion ? `@${next.modelVersion}` : ""}`);
+    if (typeof next.temperature === "number") temps.add(next.temperature);
 
     if (next.type === "finish") {
       declared = next;
@@ -242,6 +298,29 @@ export async function runEpisode(
   const ranOut = step >= maxSteps && !declared && !error;
   const snapshot = world.snapshot();
 
+  // Configured identity wins as the label, because it is the thing an operator
+  // can be held to. A self-report that contradicts it is not silently dropped:
+  // it lands in `inconsistent`, which is the only honest place for it.
+  const selfReports = [...reported];
+  const configured = target.model
+    ? `${target.model}${target.modelVersion ? `@${target.modelVersion}` : ""}`
+    : undefined;
+
+  const disagreements: string[] = [];
+  if (selfReports.length > 1) disagreements.push(`endpoint reported ${selfReports.length} different models: ${selfReports.join(", ")}`);
+  if (configured && selfReports.length === 1 && selfReports[0] !== configured) {
+    disagreements.push(`configured as ${configured}, endpoint reported ${selfReports[0]}`);
+  }
+  if (temps.size > 1) disagreements.push(`temperature varied: ${[...temps].join(", ")}`);
+
+  const subject: SubjectIdentity = {
+    model: target.model ?? (selfReports.length === 1 ? selfReports[0].split("@")[0] : undefined),
+    modelVersion: target.modelVersion ?? (selfReports.length === 1 ? selfReports[0].split("@")[1] : undefined),
+    temperature: target.temperature ?? (temps.size === 1 ? [...temps][0] : undefined),
+    source: target.model ? "configured" : selfReports.length > 0 ? "self-reported" : "unknown",
+    ...(disagreements.length ? { inconsistent: disagreements } : {}),
+  };
+
   return {
     episodeId: `epi_${randomUUID().replace(/-/g, "").slice(0, 16)}`,
     scenarioId: scenario.id,
@@ -252,6 +331,7 @@ export async function runEpisode(
     declared: declared?.type === "finish" ? { action: declared.action, reason: declared.reason } : undefined,
     effective: effectiveAction(snapshot.calls, declared, ranOut, unusable),
     unusable: unusable || undefined,
+    subject,
     payments: snapshot.payments,
     approvalRequests: snapshot.approvalRequests,
     vendorsAfter: snapshot.vendors,

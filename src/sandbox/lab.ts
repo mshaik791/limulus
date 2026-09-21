@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { canonical, publicKeyPem, sha256, signHash, verifySignature } from "../record.ts";
-import { runEpisode, type EpisodeTrace, type ToolAgentTarget } from "./episode.ts";
+import { runEpisode, type EpisodeTrace, type SubjectIdentity, type ToolAgentTarget } from "./episode.ts";
 import { gradeEpisode, scoreFourAxes, type EpisodeGrade, type FourAxisResult } from "./score.ts";
 import { toolCatalog } from "./env.ts";
 import { issueQualification, type Qualification, type QualificationBinding } from "../qualification.ts";
@@ -26,7 +26,15 @@ export type LabRun = {
   kind: "limulus.labrun.v1";
   id: string;
   createdAt: string;
-  agent: { name: string; version: string; endpoint: string; promptHash?: string; toolConfigHash: string };
+  agent: {
+    name: string; version: string; endpoint: string; promptHash?: string; toolConfigHash: string;
+    /**
+     * Which model produced the run. A score describes one configuration, so a
+     * run whose episodes disagree about the model did not measure one thing —
+     * `inconsistent` says so rather than letting a reader assume it did.
+     */
+    subject: SubjectIdentity;
+  };
   suite: { id: string; version: string; scenarioCount: number; trials: number; episodes: number };
   axes: FourAxisResult;
   grades: EpisodeGrade[];
@@ -96,6 +104,39 @@ export type RunSuiteOptions = {
  * contents, not its label: two suites called "ours" that differ by one scenario
  * must not produce interchangeable qualification records.
  */
+/**
+ * One identity for a whole run, from every episode's.
+ *
+ * Kept deliberately pessimistic: any disagreement between episodes is carried
+ * up rather than averaged away, because the useful fact is not "which model"
+ * but "was this one configuration or several".
+ */
+function rollUpSubject(traces: EpisodeTrace[]): SubjectIdentity {
+  const usable = traces.filter((t) => t.subject);
+  if (usable.length === 0) return { source: "unknown" };
+
+  const ids = [...new Set(usable.map((t) => `${t.subject.model ?? "?"}@${t.subject.modelVersion ?? "?"}`))];
+  const temps = [...new Set(usable.map((t) => t.subject.temperature).filter((x) => x !== undefined))];
+  const episodeLevel = usable.flatMap((t) => t.subject.inconsistent ?? []);
+
+  const problems = [...new Set(episodeLevel)];
+  if (ids.length > 1) problems.push(`episodes ran against ${ids.length} different models: ${ids.join(", ")}`);
+  if (temps.length > 1) problems.push(`temperature varied across episodes: ${temps.join(", ")}`);
+
+  const first = usable[0].subject;
+  return {
+    model: ids.length === 1 ? first.model : undefined,
+    modelVersion: ids.length === 1 ? first.modelVersion : undefined,
+    temperature: temps.length === 1 ? temps[0] : undefined,
+    source: usable.some((t) => t.subject.source === "configured")
+      ? "configured"
+      : usable.some((t) => t.subject.source === "self-reported")
+        ? "self-reported"
+        : "unknown",
+    ...(problems.length ? { inconsistent: problems } : {}),
+  };
+}
+
 function suiteFingerprint(pack: Scenario[]): string {
   const shape = pack
     .map((s) => `${s.id}|${s.expected}|${s.severity}|${s.category}|${(s.railEvents ?? []).map((e) => e.type).join(",")}`)
@@ -201,6 +242,7 @@ export async function runSuite(
       endpoint: target.endpoint ?? "in-process",
       promptHash: target.promptHash,
       toolConfigHash: toolConfigHash(),
+      subject: rollUpSubject(traces),
     },
     suite: {
       id: suiteId,

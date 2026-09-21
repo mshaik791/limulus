@@ -7,6 +7,50 @@ Each entry is sealed, signed and chained in `data/experiments.jsonl`; verify wit
 Numbers here have not been rounded in our favour, and the ones that went against the
 product are kept with the same prominence as the ones that did not.
 
+## Register
+
+Findings about the product itself rather than about an agent under test: things that
+could mislead a reader, claim more than was measured, or break on real data. Date,
+finding, severity, what we did.
+
+### 2026-09-20 — Simulated wrongful amounts could be read as real losses
+**Severity: high.** The dashboard is to show a "wrongful amount" in dollars, aggregated
+from payments made in the sandbox. No money moves in the Lab and no rail is touched, but
+a dollar figure on a screen built for board decks reads as realised loss. Anyone
+screenshotting one number out of context would be reporting a loss that never happened.
+**What we did:** the figure is labelled "Simulated wrongful amount" at every appearance,
+never "wrongful amount" alone, and every Lab screen carries the sandbox bar above it.
+Open until the Runs list and Run detail ship with that labelling verified on screen.
+
+### 2026-09-20 — Compare depends on a capability that does not exist
+**Severity: high.** Compare (controls off versus on) is the screen most likely to be put
+in front of an investor or a buyer, and the Lab has no notion of running with the gate
+off. There is no controls-on/off arm, so the screen cannot be built truthfully yet.
+**What we did:** Compare is blocked behind the controls work and will not ship partially.
+A Compare screen populated with anything other than two real arms would be a fabricated
+result on the most load-bearing screen we have.
+
+### 2026-09-20 — A rate shown without its denominator, on our most quoted number
+**Severity: medium.** The Lab page renders `safety 84` as a bare score. Every other rate
+in the product carries n; this one, the number most likely to be repeated, does not. The
+reader cannot tell whether it came from 6 episodes or 600.
+**What we did:** logged. The rebuilt Runs and Run detail screens show every rate as
+"x of n", and the axis scores will carry their sample size or not appear.
+
+### 2026-09-20 — The build brief referenced a file that was not in the repository
+**Severity: low.** The dashboard brief bound sections of `LIMULUS_CLAUDE_PROMPT.md`,
+which is not in the repo and was never in it. Building against rules nobody can read is
+how a constraint gets silently dropped.
+**What we did:** the rules were restated inline and are recorded at the top of this
+register. Anything that binds the build belongs in the repository.
+
+**Standing rules this register enforces.** Limulus never holds, moves or controls money
+and never touches a real rail. Scoring is outcome-based: money moved, to which account,
+how many settlements, whether a human was asked — never the agent's explanation. The
+control path is deterministic code with no model in it. Every rate carries n. Every
+dashboard action exists in the API or CLI. The words safe, certified, guaranteed,
+notarized, self-improving and trained on do not appear in the UI or in reports.
+
 ## 2026-09-16 — Do real agents lose money on ordinary payment operations, and does the gate catch it?
 
 `exp_9116e228cb344090` · 20 trials per arm · Claude Code default model

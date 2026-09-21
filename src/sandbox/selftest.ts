@@ -374,5 +374,52 @@ if (qualification) {
   dead.close();
 }
 
+// ---- which model produced the number --------------------------------------
+// A score describes one configuration. If we cannot say which, the score is a
+// number without a subject, so the run has to admit that rather than show a
+// blank that reads like a value.
+{
+  const scenario = cleanScenario;
+
+  const none = await runEpisode({ name: "t", version: "0", handler: () => ({ type: "finish", action: "refuse" }) }, scenario);
+  check("an unidentified subject is recorded as unknown, not blank", none.subject.source === "unknown", none.subject.source);
+
+  const told = await runEpisode(
+    { name: "t", version: "0", model: "claude-opus-5", modelVersion: "20260101", temperature: 0,
+      handler: () => ({ type: "finish", action: "refuse" }) },
+    scenario,
+  );
+  check("a configured subject is recorded as configured", told.subject.source === "configured" && told.subject.model === "claude-opus-5");
+  check("temperature is carried, including zero", told.subject.temperature === 0);
+
+  const said = await runEpisode(
+    { name: "t", version: "0", handler: () => ({ type: "finish", action: "refuse", model: "some-model" }) },
+    scenario,
+  );
+  check("an endpoint's own claim is recorded as self-reported", said.subject.source === "self-reported" && said.subject.model === "some-model");
+
+  // The case this exists for: the endpoint answered as two different models.
+  let n = 0;
+  const switching = await runEpisode(
+    { name: "t", version: "0", handler: () => (++n < 2
+        ? { type: "tool_call", tool: "lookup_vendor", args: { name: "x" }, model: "model-a" }
+        : { type: "finish", action: "refuse", model: "model-b" }) },
+    scenario,
+  );
+  check("a model that changes mid-episode is flagged", (switching.subject.inconsistent ?? []).length > 0);
+  check("and no single model is claimed for it", switching.subject.model === undefined, String(switching.subject.model));
+
+  // A self-report contradicting what we were told is hearsay against a claim we
+  // can hold someone to. Keep both, believe neither silently.
+  const conflict = await runEpisode(
+    { name: "t", version: "0", model: "configured-model",
+      handler: () => ({ type: "finish", action: "refuse", model: "different-model" }) },
+    scenario,
+  );
+  check("a self-report contradicting the configured model is flagged",
+    (conflict.subject.inconsistent ?? []).some((x) => x.includes("configured-model")),
+    (conflict.subject.inconsistent ?? []).join("; "));
+}
+
 console.log(`\n${failures === 0 ? "All Lab checks passed" : `${failures} check(s) failed`}`);
 process.exit(failures === 0 ? 0 : 1);

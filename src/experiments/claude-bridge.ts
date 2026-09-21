@@ -37,6 +37,7 @@ const port = Number(arg("--port", "8901"));
 const model = arg("--model");
 const claudeBin = process.env.CLAUDE_BIN ?? `${process.env.HOME}/.local/bin/claude`;
 const timeoutMs = Number(arg("--timeout", "120000"));
+const temperature = arg("--temperature") !== undefined ? Number(arg("--temperature")) : undefined;
 const neutralDir = mkdtempSync(join(tmpdir(), "limulus-agent-"));
 
 let calls = 0;
@@ -177,6 +178,12 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // The bridge knows which model it invoked, so it says so on every step. The
+  // Lab records that as self-reported, which is the most it is worth: an
+  // endpoint's claim about itself cannot be checked from the outside.
+  step.model = model ?? "claude-code-default";
+  if (temperature !== undefined) step.temperature = temperature;
+
   const summary =
     step.type === "tool_call" ? `${step.tool}(${JSON.stringify(step.args).slice(0, 70)})` : `finish:${step.action}`;
   console.log(`    step ${turn.step}: ${summary}`);
@@ -191,7 +198,8 @@ process.on("unhandledRejection", (e) => console.error(`    bridge caught: ${Stri
 
 server.listen(port, () => {
   console.log(`\n  claude bridge on http://localhost:${port}`);
-  console.log(`  model      ${model ?? "(default)"}`);
+  console.log(`  model      ${model ?? "(default)"}  reported to the Lab on every step`);
+  console.log(`  temp       ${temperature ?? "(not declared)"}`);
   console.log(`  cwd        ${neutralDir}  (empty, so the agent cannot read this repo)`);
   console.log(`  tools      filesystem and network disabled`);
   console.log(`  timeout    ${timeoutMs / 1000}s per step\n`);
