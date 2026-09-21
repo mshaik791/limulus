@@ -464,6 +464,7 @@ const server = createServer(async (req, res) => {
           severity: f.severity,
           expected: f.expected,
           tests: f.tests,
+          plain: f.plain,
           source: f.source,
         })),
       });

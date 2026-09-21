@@ -115,6 +115,48 @@
   .cardhead{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
   .cardhead h3{font-size:14.5px}
   .cardhead .r{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-400)}
+  /* the finding, which is the only thing most readers will take away */
+  .finding{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .finding .top{padding:26px 28px 22px}
+  .headline{font-family:var(--display);font-weight:600;font-size:clamp(20px,3vw,27px);
+    letter-spacing:-.03em;line-height:1.22;color:var(--ink-900);margin:0 0 14px;max-width:26ch;
+    text-wrap:balance}
+  .headline em{font-style:normal;color:var(--stop-text)}
+  .said{font-size:15px;color:var(--ink-500);line-height:1.6;max-width:62ch;margin:0}
+  .said b{color:var(--ink-900);font-weight:600}
+  .tally{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .chip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:99px;
+    font-size:12.5px;background:var(--beige-400);border:1px solid var(--line);color:var(--ink-500)}
+  .chip b{font-family:var(--display);font-weight:600;color:var(--ink-900);font-variant-numeric:tabular-nums}
+  .chip.bad{background:var(--stop-wash);border-color:#f7ced1;color:var(--stop-text)}
+  .chip.bad b{color:var(--stop-text)}
+  .why{padding:18px 28px;background:var(--beige-400);border-top:1px solid var(--line);
+    font-size:13.5px;color:var(--ink-500);line-height:1.6}
+  .why b{color:var(--ink-900);font-weight:600}
+
+  /* what it may and may not do */
+  .verdict{display:grid;gap:0}
+  @media(min-width:760px){.verdict{grid-template-columns:1fr 1fr}}
+  .vcol{padding:18px 22px}
+  .vcol+.vcol{border-top:1px solid var(--line)}
+  @media(min-width:760px){.vcol+.vcol{border-top:0;border-left:1px solid var(--line)}}
+  .vcol h4{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    font-weight:500;margin:0 0 11px}
+  .vcol.can h4{color:var(--go)} .vcol.cant h4{color:var(--stop-text)}
+  .vcol ul{margin:0;padding:0;list-style:none;display:grid;gap:8px}
+  .vcol li{display:flex;gap:9px;font-size:13.5px;line-height:1.5;color:var(--ink-700)}
+  .vcol li i{flex:none;margin-top:5px}
+
+  details.more{margin-top:12px}
+  details.more>summary{cursor:pointer;font-family:var(--display);font-size:12.5px;font-weight:600;
+    color:var(--ink-400);list-style:none;display:flex;align-items:center;gap:8px;padding:9px 0}
+  details.more>summary::-webkit-details-marker{display:none}
+  details.more>summary::after{content:"";width:6px;height:6px;border-right:1.5px solid var(--ink-300);
+    border-bottom:1.5px solid var(--ink-300);transform:rotate(45deg);margin-top:-3px}
+  details.more[open]>summary::after{transform:rotate(-135deg);margin-top:2px}
+  details.more>summary:hover{color:var(--ink-700)}
+  .plainline{color:var(--ink-500);font-size:12.5px;line-height:1.5;margin-top:5px}
+
   @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
 </style>
 </head>
@@ -131,31 +173,36 @@
     <h1>Limulus Lab</h1>
     <span class="live"><i class="dot" id="dot"></i><span id="status">connecting…</span></span>
   </header>
-  <p class="sub">An agent is run through scenarios in a world where no money moves, and graded on the
-    tool calls it made rather than the explanation it wrote. Two pools: one you can iterate against,
-    one you cannot see.</p>
+  <p class="sub">We run a payment agent through scenarios in a world where no money moves, and grade
+    it on what it actually did rather than what it said it would do.</p>
 
   <section>
-    <div class="eyebrow"><i class="sq b"></i><span>The two pools</span></div>
-    <div class="grid2" id="pools"><div class="card pool"><div class="skel" style="width:60%"></div></div></div>
-  </section>
-
-  <section>
-    <div class="eyebrow"><i class="sq"></i><span>The threat model — published on purpose</span></div>
-    <div class="card" id="families"><div class="empty"><div class="skel" style="width:40%;margin:0 auto"></div></div></div>
-  </section>
-
-  <section>
-    <div class="eyebrow"><i class="sq go"></i><span>Most recent held-out run</span></div>
-    <div class="grid2">
-      <div class="card" id="axes"><div class="empty">—</div></div>
-      <div class="card" id="ladder"><div class="empty">—</div></div>
+    <div class="finding" id="finding">
+      <div class="top"><div class="skel" style="width:55%;height:22px"></div></div>
     </div>
   </section>
 
   <section>
-    <div class="eyebrow"><i class="sq hold"></i><span>Results by failure class</span></div>
+    <div class="eyebrow"><i class="sq b"></i><span>What this agent may and may not be trusted with</span></div>
+    <div class="card" id="verdict"><div class="empty">—</div></div>
+  </section>
+
+  <section>
+    <div class="eyebrow"><i class="sq hold"></i><span>Every failure class we tested</span></div>
     <div class="card" id="results"><div class="empty">—</div></div>
+  </section>
+
+  <section>
+    <div class="eyebrow"><i class="sq go"></i><span>Why you can believe the number</span></div>
+    <div class="grid2" id="pools"><div class="card pool"><div class="skel" style="width:60%"></div></div></div>
+    <details class="more">
+      <summary>The full threat model, and how the agent scored on each axis</summary>
+      <div class="card" id="families" style="margin-bottom:12px"><div class="empty">—</div></div>
+      <div class="grid2">
+        <div class="card" id="axes"><div class="empty">—</div></div>
+        <div class="card" id="ladder"><div class="empty">—</div></div>
+      </div>
+    </details>
   </section>
 
   <section>
@@ -204,7 +251,7 @@ async function load() {
   const summary = held.at(-1);
 
   if (!summary) {
-    for (const id of ["axes","ladder","results","limits"])
+    for (const id of ["finding","verdict","axes","ladder","results","limits"])
       $(id).innerHTML = `<div class="empty">No held-out run yet. Generate a cohort, then run the suite against it.</div>`;
     panel("families", () => renderFamilies(families, undefined));
     return;
@@ -219,13 +266,88 @@ async function load() {
     $("results").innerHTML = `<div class="empty">Could not load the full run: <span class="mono">${esc(String(e.message ?? e))}</span></div>`;
   }
 
+  // The finding first: it is the only thing most readers will take away, and it
+  // must not wait on the report request below.
+  panel("finding", () => renderFinding(families, latest));
+  panel("results", () => renderResults(families, latest));
   panel("families", () => renderFamilies(families, latest));
   panel("axes", () => renderAxes(latest));
   panel("ladder", () => renderLadder(latest));
-  panel("results", () => renderResults(families, latest));
 
-  try { renderLimits(await api(`/v1/lab/report/${summary.id}`)); }
-  catch { $("limits").innerHTML = `<div class="empty">No report available for this run.</div>`; }
+  try {
+    const report = await api(`/v1/lab/report/${summary.id}`);
+    panel("verdict", () => renderVerdict(report));
+    panel("limits", () => renderLimits(report));
+  } catch {
+    $("verdict").innerHTML = `<div class="empty">No assurance report for this run.</div>`;
+    $("limits").innerHTML = `<div class="empty">No report available for this run.</div>`;
+  }
+}
+
+/**
+ * The headline. Computed rather than written, so it cannot drift from the run
+ * it describes: the worst family by pass rate, stated in the plain-language
+ * line the threat model already carries.
+ */
+function renderFinding(f, run) {
+  const rows = f.families.map((fam) => {
+    const g = run.grades.filter((x) => x.scenarioId.startsWith(`held-${fam.key}-`));
+    if (!g.length) return null;
+    const ok = g.filter((x) => x.effective === x.expected).length;
+    const crit = g.reduce((a, x) => a + (x.criticalCount ?? 0), 0);
+    return { fam, ok, n: g.length, crit };
+  }).filter(Boolean);
+
+  const failed = rows.filter((r) => r.ok < r.n).sort((a, b) => (a.ok / a.n) - (b.ok / b.n));
+  const clean = rows.length - failed.length;
+  const worst = failed[0];
+
+  if (!worst) {
+    $("finding").innerHTML = `
+      <div class="top">
+        <h2 class="headline">It handled all ${rows.length} failure classes we tested.</h2>
+        <p class="said">Every scenario, every trial. That is a clean result on this cohort, and the
+          limitations below say what it still does not prove.</p>
+        <div class="tally"><span class="chip"><b>${rows.length}</b> of ${rows.length} clean</span>
+          <span class="chip"><b>${run.grades.length}</b> episodes</span></div>
+      </div>`;
+    return;
+  }
+
+  const n = worst.n;
+  $("finding").innerHTML = `
+    <div class="top">
+      <h2 class="headline">We ran an AI payment agent through
+        ${rows.length} failure classes. It fell for <em>${failed.length === 1 ? "one" : failed.length}</em>
+        ${failed.length === 1 ? `, all ${n} times.` : "of them."}</h2>
+      <p class="said">${esc(worst.fam.plain ?? worst.fam.tests)}</p>
+      <div class="tally">
+        <span class="chip"><b>${clean}</b> of ${rows.length} classes clean</span>
+        <span class="chip bad"><i class="sq stop sm"></i><b>${worst.ok}/${worst.n}</b> ${esc(worst.fam.key)}</span>
+        ${worst.crit ? `<span class="chip bad"><b>${worst.crit}</b> critical violations</span>` : ""}
+        <span class="chip"><b>${run.grades.length}</b> episodes</span>
+      </div>
+    </div>
+    <div class="why"><b>Why this one is hard.</b> Every payment involved is individually correct and
+      individually approved. Only the combination is wrong, so a check that looks at one payment at a
+      time cannot catch it no matter how good it is. That is the whole reason this has to be tested by
+      running the agent rather than by reading its code.</div>`;
+}
+
+/** What the level actually permits and withholds, in the report's own words. */
+function renderVerdict(report) {
+  const o = report.outcome ?? {};
+  const permits = o.permits ?? [], withholds = o.withholds ?? [];
+  $("verdict").innerHTML = `
+    <div class="cardhead"><i class="sq b"></i><h3>${esc(o.level ?? "not assessed")}</h3>
+      <span class="r">${esc(report.subject?.agent ?? "")} ${esc(report.subject?.version ?? "")}</span></div>
+    <div class="verdict">
+      <div class="vcol can"><h4>Cleared for</h4><ul>${permits.map((x) =>
+        `<li><i class="sq go sm"></i><span>${esc(x)}</span></li>`).join("")}</ul></div>
+      <div class="vcol cant"><h4>Not cleared for</h4><ul>${withholds.map((x) =>
+        `<li><i class="sq stop sm"></i><span>${esc(x)}</span></li>`).join("")}</ul></div>
+    </div>
+    ${o.reason ? `<div class="note">${esc(o.reason)}</div>` : ""}`;
 }
 
 function renderPools(p) {
@@ -317,21 +439,22 @@ function renderResults(f, run) {
     const ok = grades.filter((g) => g.effective === g.expected).length;
     const crit = grades.reduce((a, g) => a + (g.criticalCount ?? 0), 0);
     const failed = [...new Set(grades.filter((g) => g.effective !== g.expected).map((g) => g.scenarioId))];
-    return { key, ok, n: grades.length, crit, failed };
+    return { key, ok, n: grades.length, crit, failed, plain: f.families.find((x) => x.key === key)?.plain };
   }).filter(Boolean);
 
   $("results").innerHTML = `
     <div class="cardhead"><i class="sq hold"></i><h3>By failure class</h3>
       <span class="r">cohort ${esc(run.cohort ?? "—")} · ${run.suite.trials} trials each</span></div>
-    <table><thead><tr><th>Family</th><th class="num">Correct</th><th>State</th><th>Scenarios that failed</th></tr></thead>
+    <table><thead><tr><th>What it was tested against</th><th class="num">Passed</th><th>Result</th></tr></thead>
     <tbody>${rows.map((r) => `
       <tr>
-        <td class="fam">${esc(r.key)}</td>
+        <td><span class="fam">${esc(r.key)}</span>
+          <div class="plainline">${esc(r.plain ?? "")}</div></td>
         <td class="num">${r.ok}/${r.n}</td>
         <td>${r.crit > 0
-          ? `<span class="pill stop">${r.crit} critical</span>`
-          : r.ok < r.n ? `<span class="pill hold">missed</span>` : `<span class="pill go">clean</span>`}</td>
-        <td class="mono" style="color:var(--ink-400)">${r.failed.length ? r.failed.map(esc).join("<br>") : "—"}</td>
+            ? `<span class="pill stop">${r.crit} critical</span>`
+            : r.ok < r.n ? `<span class="pill hold">missed</span>` : `<span class="pill go">clean</span>`}
+          ${r.failed.length ? `<div class="plainline mono" style="font-size:11px">${r.failed.map(esc).join("<br>")}</div>` : ""}</td>
       </tr>`).join("")}</tbody></table>
     <div class="note">A family where every instance fails is either a real finding or a fixture that
       cannot be passed, and the two look identical here. <b>Run <span class="mono">npm run
