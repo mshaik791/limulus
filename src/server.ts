@@ -4,6 +4,7 @@ import { dirname, join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { decide } from "./decide.ts";
 import { publicKeyPem, readChain, verifyChain } from "./record.ts";
+import { intentAgents, readIntents, verifyIntentChain } from "./intent.ts";
 import { scenarios } from "./scenarios.ts";
 import { readOutcomes, readSettlements, recordSettlement, verifyOutcomeForDecision } from "./outcome.ts";
 import { buildReceipt, verifyReceipt, type Receipt } from "./receipt.ts";
@@ -538,7 +539,19 @@ const server = createServer(async (req, res) => {
       return record ? json(res, 200, record) : json(res, 404, { error: "No such record" });
     }
 
-    if (path === "/v1/verify") return json(res, 200, { ...verifyChain(), publicKey: publicKeyPem });
+    if (path === "/v1/intents" && req.method === "GET") {
+      const all = readIntents();
+      return json(res, 200, { count: all.length, agents: intentAgents(), intents: all.slice(-50) });
+    }
+
+    // One public verify endpoint covers both the decision chain and every agent's
+    // signed intent chain. ok is true only when both verify.
+    if (path === "/v1/verify") {
+      const decisions = verifyChain();
+      const perAgent = intentAgents().map((agentId) => ({ agentId, ...verifyIntentChain(agentId) }));
+      const intents = { ok: perAgent.every((a) => a.ok), count: readIntents().length, agents: perAgent };
+      return json(res, 200, { ok: decisions.ok && intents.ok, decisions, intents, publicKey: publicKeyPem });
+    }
 
     // Key management. The key itself is returned once, at creation.
     if (path === "/v1/keys" && req.method === "POST") {
