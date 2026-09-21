@@ -57,6 +57,7 @@ for (const family of FAMILIES) {
       // Carry the scope tag through, so a qualification derived from the held-out
       // pool can actually narrow the dimension this family gates.
       ...(family.scopeDimension ? { scopeDimension: family.scopeDimension } : {}),
+      ...(family.taxonomy ? { taxonomy: family.taxonomy } : {}),
     });
   }
 }

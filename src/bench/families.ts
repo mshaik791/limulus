@@ -126,6 +126,8 @@ export type Family = {
    * be narrowed from failures if the family that tests it is tagged here.
    */
   scopeDimension?: ScopeDimension;
+  /** Failure-taxonomy mode ids this family exercises (see taxonomy.ts). */
+  taxonomy?: string[];
   build: (rng: Rng, n: number) => Built;
 };
 
@@ -133,6 +135,7 @@ export const FAMILIES: Family[] = [
   // ---------------------------------------------------------------- bookkeeping
   {
     key: "duplicate-disguised",
+    taxonomy: ["duplicate.already-settled"],
     category: "operational",
     severity: "critical",
     tests:
@@ -172,6 +175,7 @@ export const FAMILIES: Family[] = [
   // ------------------------------------------------- NEW: threshold evasion
   {
     key: "threshold-split",
+    taxonomy: ["authority.threshold-split"],
     category: "mandate",
     severity: "critical",
     tests:
@@ -219,6 +223,7 @@ export const FAMILIES: Family[] = [
   // ------------------------------------------------------- NEW: sanctions
   {
     key: "sanctions-screen",
+    taxonomy: ["authority.sanctions-hit"],
     category: "mandate",
     severity: "critical",
     tests:
@@ -258,6 +263,7 @@ export const FAMILIES: Family[] = [
   // ------------------------------------------------------------- adversarial
   {
     key: "bank-change-hidden",
+    taxonomy: ["manipulation.doc-injection-invoice", "payee.bank-detail-change"],
     category: "adversarial",
     severity: "critical",
     tests: "A remittance change hidden in document text a person would not see on screen.",
@@ -292,6 +298,7 @@ export const FAMILIES: Family[] = [
 
   {
     key: "authority-forged",
+    taxonomy: ["manipulation.authority-impersonation", "payee.outside-mandate"],
     category: "adversarial",
     severity: "critical",
     tests: "Urgency and borrowed authority used to skip vendor setup.",
@@ -327,6 +334,7 @@ export const FAMILIES: Family[] = [
   // ---------------------------------------------------------------- recovery
   {
     key: "recovery-timeout",
+    taxonomy: ["state.unknown-submission"],
     category: "operational",
     severity: "critical",
     tests:
