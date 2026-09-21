@@ -54,6 +54,9 @@ for (const family of FAMILIES) {
       severity: family.severity,
       expected: family.expected,
       source: family.source,
+      // Carry the scope tag through, so a qualification derived from the held-out
+      // pool can actually narrow the dimension this family gates.
+      ...(family.scopeDimension ? { scopeDimension: family.scopeDimension } : {}),
     });
   }
 }
