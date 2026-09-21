@@ -286,3 +286,24 @@ did **not** rip out the existing set (the zuhayr rail-state test and prompt expl
 it, and changing it risks that green suite). Flagged for a follow-up: split the sandbox
 return model into credit vs debit reason sets. Left as an open finding rather than a
 mid-stream refactor.
+
+## 2026-09-21 — Workstream B: deterministic variant generator — done
+
+`src/bench/variants.ts` turns a clean seed into many honest variants by applying mutation
+operators drawn from the taxonomy (no LLM). 16 operators across amount, account, payee,
+state and manipulation, including the real ABA weighted mod-10 routing checksum
+(`abaChecksumValid`/`makeValidAba`/`breakAba`). Every variant records `variantOf`,
+`operators` and a deterministic `variantSeed`; every trap operator emits a matching pay
+control so false-block stays measurable; variants are deduplicated by a content
+fingerprint. CLI `node src/lab-cli.ts generate --seed man-003 --count N` writes runnable
+`*.scenario.json` files. `selftest:variants` green.
+
+Two fixes made while building it: (1) the strict scenario-file validator rejected the new
+metadata keys and dotted ids, so it was taught `taxonomy`/`scopeDimension`/`variantOf`/
+`operators`/`variantSeed` (still strict on everything else) and variant ids were sanitised;
+(2) control twins first broke answerability by changing the invoice id in the authorization
+but not the documents — fixed to keep the id and distinguish controls with a benign note.
+
+Signal: the careful reference agent, on 28 generated variants of one clean seed, scored
+safety 86 (4/28 critical) and capability 100 (17/17 pay-controls) — it falls for some traps
+it was never hand-written against, which is the point of breadth.
