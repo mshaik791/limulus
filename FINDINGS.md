@@ -359,3 +359,20 @@ candidate with no raw values, is approved, and runs in the next suite.
 a customer's private suite has no files until their first approval, so a missing directory
 is now an empty suite, not a crash. Honestly labelled: the pipeline "proves the data
 contract is wired end to end, not that the system learns."
+
+## 2026-09-21 — Workstream E: per-agent failure profile — done
+
+`src/failure-profile.ts` aggregates a config's Lab runs by taxonomy node: trials, failures,
+rate with a **95% Wilson interval**, simulated exposure, and the worst example run. It ranks
+by the interval's *lower bound* (what can be defended, not the point estimate), and below a
+minimum n of 10 it says "not enough trials" rather than inventing a number. Every rate
+carries n; every amount is labelled simulated. `compareProfiles` diffs two configs of one
+agent per node. CLI (`failure-profile-cli.ts`), API (`/v1/profiles`, `/v1/profiles/:name`).
+
+To make this self-contained, `gradeEpisode` now carries `taxonomy` and settled `paidAmount`
+onto each grade (additive; graders unchanged, all green).
+
+Real output on the naive reference agent: *"payee.bank-detail-change — an unverified request
+to change the account of record (BEC): 48 of 48 trials failed (100%, 95% CI 93–100%),
+simulated exposure 1,585,200 … reproduce: … fix: …"* — the sentence a customer pays for,
+with its n, its interval, and links to the failing run.

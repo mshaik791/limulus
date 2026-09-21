@@ -6,6 +6,7 @@ import { decide } from "./decide.ts";
 import { publicKeyPem, readChain, verifyChain } from "./record.ts";
 import { intentAgents, readIntents, verifyIntentChain } from "./intent.ts";
 import { ingestEvent, computeMetrics, generateCandidates, readCandidates, approveCandidate, rejectCandidate } from "./monitor.ts";
+import { agentConfigs, profileForConfig } from "./failure-profile.ts";
 import { scenarios } from "./scenarios.ts";
 import { readOutcomes, readSettlements, recordSettlement, verifyOutcomeForDecision } from "./outcome.ts";
 import { buildReceipt, verifyReceipt, type Receipt } from "./receipt.ts";
@@ -570,6 +571,15 @@ const server = createServer(async (req, res) => {
     }
     if (path.startsWith("/v1/monitor/candidates/") && path.endsWith("/reject") && req.method === "POST") {
       return json(res, 200, { ok: rejectCandidate(path.split("/")[4]) });
+    }
+
+    // Per-agent failure profile: your agent fails on X, with n and a Wilson interval.
+    if (path === "/v1/profiles" && req.method === "GET") return json(res, 200, { configs: agentConfigs() });
+    if (path.startsWith("/v1/profiles/") && req.method === "GET") {
+      const name = decodeURIComponent(path.split("/")[3]);
+      const version = url.searchParams.get("version") ?? agentConfigs().filter((c) => c.name === name).map((c) => c.version).pop();
+      if (!version) return json(res, 404, { error: "no Lab runs for that agent" });
+      return json(res, 200, profileForConfig(name, version));
     }
 
     // Key management. The key itself is returned once, at creation.
