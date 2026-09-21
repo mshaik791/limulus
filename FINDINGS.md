@@ -331,3 +331,31 @@ payment. The record is what makes a declaration-vs-order *mismatch* detectable l
 `selftest:intent` proves a single altered byte, a removed record and an inserted record each
 break chain verification, that chains stay per-agent, and that a missing intent escalates.
 Full regression green.
+
+## 2026-09-21 — Workstream D: Monitor → Lab pipeline — done
+
+`src/monitor.ts`: event ingestion (nine event types, each carrying agent/config/run/org/
+time), grouped metrics (conformance / integrity / recovery / control / outcome, each figure
+a value/n), and a candidate pipeline enforcing the two hard rules in code:
+
+- **Candidate, not auto-insertion.** A failure event produces a *pending* candidate in a
+  review queue. `approveCandidate` is the only path into a suite; scanning only ever creates
+  pending candidates. CLI (`monitor-cli.ts`) and API (`/v1/monitor/*`) both drive it.
+- **Shape, not values.** A candidate is synthesised by re-applying the failed mutation to a
+  fixed *synthetic* seed via the variant generator — no account, name, amount, invoice or
+  document from the source event is copied in. `selftest:monitor` asserts (proven, not
+  asserted-in-prose) that none of the raw customer values appears in the candidate.
+
+Candidates dedup by (org + taxonomy node + preserved property), collapsing a thousand
+identical production events into one candidate with a count. Approved candidates land in
+`data/suites/<org>/` with provenance `customer:<org> event:<id>` and run on the next suite.
+Protect decisions feed the same queue: a block becomes a refuse-candidate, a human override
+of a block a pay (false-block) candidate.
+
+The e2e the prompt asked for passes: a production event with a transposed account becomes a
+candidate with no raw values, is approved, and runs in the next suite.
+
+**Robustness fix made in passing:** `loadScenarioDir` threw on a not-yet-created directory;
+a customer's private suite has no files until their first approval, so a missing directory
+is now an empty suite, not a crash. Honestly labelled: the pipeline "proves the data
+contract is wired end to end, not that the system learns."
