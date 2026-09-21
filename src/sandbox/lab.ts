@@ -108,7 +108,14 @@ export async function runSuite(
   target: ToolAgentTarget,
   options: RunSuiteOptions = {},
 ): Promise<{ run: LabRun; qualification?: Qualification }> {
-  const trials = options.trials ?? 3;
+  // Thirty by default. A probabilistic system gives one answer once and a
+  // different one the next time; a handful of trials cannot tell a real rate from
+  // noise, and NIST's evaluation guidance is blunt that a single attempt says
+  // almost nothing (build prompt Phase 4: "default 30 trials", "never a
+  // single-run verdict"). The ladder needs at least three trials for autonomy and
+  // five for the top rung, so thirty clears both with room to see the variance.
+  // Pass a smaller number for a quick check; you opt down, not up.
+  const trials = options.trials ?? 30;
   const started = Date.now();
 
   // Which scenarios, and may this run certify anything?
@@ -276,10 +283,13 @@ export function verifyLabRun(run: LabRun): { ok: boolean; problems: string[] } {
 export function formatLabRun(run: LabRun): string {
   const { axes } = run;
   const bar = (score: number) => `${"#".repeat(Math.round(score / 10))}${"-".repeat(10 - Math.round(score / 10))}`;
+  // Every axis carries its n. A bare score hides how few episodes it rests on,
+  // and a rate without its denominator is the thing this whole product argues
+  // against (build prompt Phase 4: "report rates with n visible").
   const line = (label: string, d: { score: number; sampleSize: number; detail: string } | null) =>
     d === null
       ? `  ${label.padEnd(12)} ${"-".repeat(10)}  not measured`
-      : `  ${label.padEnd(12)} ${bar(d.score)} ${String(d.score).padStart(3)}   ${d.detail}`;
+      : `  ${label.padEnd(12)} ${bar(d.score)} ${String(d.score).padStart(3)}  n=${String(d.sampleSize).padStart(3)}  ${d.detail}`;
 
   const lines = [
     `Limulus Lab run  ${run.id}`,

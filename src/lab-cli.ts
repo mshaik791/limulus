@@ -31,7 +31,10 @@ switch (command) {
   case "run":
   case "qualify": {
     const target = targetFor(args[0] ?? "careful");
-    const trials = Number(args[1] ?? 3);
+    // Thirty by default — a rate needs an n that can tell signal from noise
+    // (build prompt Phase 4). Pass a smaller number as the second argument for a
+    // quick check.
+    const trials = Number(args[1] ?? 30);
 
     // --full runs the original pack plus the hard library: 75 scenarios.
     // --scenarios <dir> runs a suite of declarative files instead, which is how a
