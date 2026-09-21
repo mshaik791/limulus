@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { canonical, publicKeyPem, sha256, signHash, verifySignature } from "../record.ts";
 import { runEpisode, type EpisodeTrace, type SubjectIdentity, type ToolAgentTarget } from "./episode.ts";
+import { CONTROL_DESCRIPTION, type ControlMode } from "./controls.ts";
 import { gradeEpisode, scoreFourAxes, type EpisodeGrade, type FourAxisResult } from "./score.ts";
 import { toolCatalog } from "./env.ts";
 import { issueQualification, type Qualification, type QualificationBinding } from "../qualification.ts";
@@ -38,6 +39,27 @@ export type LabRun = {
   suite: { id: string; version: string; scenarioCount: number; trials: number; episodes: number };
   axes: FourAxisResult;
   grades: EpisodeGrade[];
+  /**
+   * How controls were wired. Part of the run's identity: the same agent on the
+   * same scenarios with the gate off and with it enforced are two different
+   * measurements, and a reader comparing them must be able to tell which is which.
+   */
+  controls: {
+    mode: ControlMode;
+    description: string;
+    /**
+     * Outcomes of the arm, aggregated. Every count carries its denominator,
+     * because a rate without n is not a measurement.
+     *
+     * `skippedControl` is null in the off and enforced arms. In enforced the
+     * agent cannot skip the gate, so a zero there would be a number that could
+     * never have been anything else, inviting comparison against a real zero.
+     */
+    simulatedWrongfulAmount: number;
+    falseBlocks: number;
+    skippedControl: number | null;
+    episodes: number;
+  };
   /** Which pool produced this run. Only "held-out" may back a qualification. */
   pool: Pool;
   /** The held-out cohort, when there was one. */
@@ -88,6 +110,11 @@ export type RunSuiteOptions = {
   /** Repeat count per scenario. Three is the floor for measuring consistency. */
   trials?: number;
   maxSteps?: number;
+  /**
+   * How controls are wired for this run. A run is one arm; Compare puts two
+   * runs side by side rather than mixing arms inside one result.
+   */
+  controls?: ControlMode;
   /** Issue a qualification from the result. Needs the scope it is being asked for. */
   qualifyFor?: Omit<QualificationBinding, "agent" | "suite">;
   /**
@@ -150,6 +177,7 @@ export async function runSuite(
   options: RunSuiteOptions = {},
 ): Promise<{ run: LabRun; qualification?: Qualification }> {
   const trials = options.trials ?? 3;
+  const controls: ControlMode = options.controls ?? "off";
   const started = Date.now();
 
   // Which scenarios, and may this run certify anything?
@@ -223,7 +251,7 @@ export async function runSuite(
 
   for (const scenario of pack) {
     for (let trial = 1; trial <= trials; trial++) {
-      const trace = await runEpisode(target, scenario, { trial, maxSteps: options.maxSteps });
+      const trace = await runEpisode(target, scenario, { trial, maxSteps: options.maxSteps, controls });
       traces.push(trace);
       grades.push(gradeEpisode(scenario, trace));
     }
@@ -243,6 +271,15 @@ export async function runSuite(
       promptHash: target.promptHash,
       toolConfigHash: toolConfigHash(),
       subject: rollUpSubject(traces),
+    },
+    controls: {
+      mode: controls,
+      description: CONTROL_DESCRIPTION[controls],
+      simulatedWrongfulAmount: traces.reduce((a, t) => a + (t.control?.simulatedWrongfulAmount ?? 0), 0),
+      falseBlocks: traces.filter((t) => t.control?.falseBlock).length,
+      skippedControl:
+        controls === "advisory" ? traces.filter((t) => t.control?.skippedControl === true).length : null,
+      episodes: traces.length,
     },
     suite: {
       id: suiteId,

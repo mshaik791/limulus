@@ -37,6 +37,42 @@ reader cannot tell whether it came from 6 episodes or 600.
 **What we did:** logged. The rebuilt Runs and Run detail screens show every rate as
 "x of n", and the axis scores will carry their sample size or not appear.
 
+### 2026-09-21 — The advisory arm cannot be measured with the reference agents
+**Severity: medium.** The advisory arm is the one where "skipped the control" can happen, and with
+the built-in reference agents it reads 21 of 21 skipped in every run. That is not a finding about
+agent behaviour: the reference agents are hardcoded and never call `check_payment` at all, so they
+skip by construction rather than by choice. A Compare screen putting advisory beside enforced with
+reference agents would show a 100% skip rate that measures nothing.
+**What we did:** the advisory arm is only meaningful against a live model that can decide whether to
+call the gate. Compare must label which agent produced each arm, and an advisory arm run against a
+reference agent is to be marked as not measuring skip behaviour. Open until Compare enforces that.
+
+### 2026-09-21 — The enforced gate cannot catch the first payment of a split pair
+**Severity: medium.** Enforcement holds an order only when a check fails, and on the first payment of
+a duplicate-disguised or threshold-split pair nothing has failed yet: one payment, correctly
+authorised, inside every limit. The gate catches the second, because by then the first is in the
+history. So enforcement reduces the loss on these families rather than preventing it, and a screen
+reporting enforcement as a clean stop would overstate it. Measured: on a duplicate pair the off and
+advisory arms settled both payments, and the enforced arm held both — but only because the seeded
+history made the first fail a check too. Where it does not, the first payment goes through.
+**What we did:** recorded. The gate is a per-payment check and inherits the per-payment blind spot
+that the threshold-split family exists to demonstrate. Compare must not claim prevention where it
+measured reduction. A daily-limit check would close part of this and does not exist yet.
+
+### 2026-09-21 — Our published experiment measured an advisory gate, not an enforced one
+**Severity: high.** The 2026-09-16 experiments below report the product arm as `limulus`, without
+saying how the gate was wired. It was advisory: the gate existed as a tool the agent was told to
+call, and the rail accepted payment orders that never went through it. That is why the agent could
+skip it entirely in one trial of twenty, and why one credit-memo trial was recorded as inconclusive
+because the agent never called the gate at all. Read as enforcement results, those numbers overstate
+what an advisory wiring can do and understate what an enforced one does: under enforcement the rail
+holds every order and skipping is impossible by construction, so "the agent never reached the gate"
+cannot occur.
+**What we did:** every number from those experiments is an advisory-arm result and is to be labelled
+that way wherever it appears, including in the sections below, in the deck and in the memos. The
+Lab is being rebuilt to run three arms — off, advisory, enforced — so the distinction is measured
+rather than assumed. Open until the arm labels are applied to the existing sections.
+
 ### 2026-09-20 — The build brief referenced a file that was not in the repository
 **Severity: low.** The dashboard brief bound sections of `LIMULUS_CLAUDE_PROMPT.md`,
 which is not in the repo and was never in it. Building against rules nobody can read is
