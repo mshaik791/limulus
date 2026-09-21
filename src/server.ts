@@ -325,7 +325,7 @@ const server = createServer(async (req, res) => {
       }
 
       const { run, qualification } = await runSuite(target, {
-        trials: body.trials ?? 3,
+        trials: body.trials ?? 30,
         qualifyFor: body.qualifyFor,
       });
       return json(res, 200, { run, qualification });

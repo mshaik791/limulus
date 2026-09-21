@@ -45,6 +45,10 @@ const has = (flag: string) => process.argv.includes(flag);
 
 const dir = arg("--scenarios", "scenarios")!;
 const agentRef = arg("--agent", "careful")!;
+// Three, not thirty. The qualification default is thirty because a number that
+// leaves the building cannot rest on a handful of trials, but this gate runs on
+// every commit and pays that cost ten times a day for a signal three trials
+// already give. Raise it with --trials for a release branch.
 const trials = Number(arg("--trials", "3"));
 const baselinePath = arg("--baseline", `${dir}/baseline.json`)!;
 const tolerance = Number(arg("--tolerance", "2"));
@@ -185,8 +189,16 @@ for (const [id, o] of current) {
   }
   if (was.passed && !o.passed) newlyFailing.push(id);
   if (!was.passed && o.passed) fixed.push(id);
-  if (o.criticals > was.criticals) {
-    newCriticals.push(`${id} (${was.criticals} → ${o.criticals})`);
+  // Per episode, not per run. The same behaviour at 3 trials and at 30 produces
+  // 3 criticals and 30, and comparing those raw numbers reports a tenfold
+  // regression where nothing changed. This fired the first time the two trial
+  // defaults met, which is exactly when it would have been believed.
+  const wasRate = was.criticals / Math.max(1, baseline.trials);
+  const nowRate = o.criticals / Math.max(1, trials);
+  if (nowRate > wasRate + 1e-9) {
+    newCriticals.push(
+      `${id} (${was.criticals} in ${baseline.trials} trials → ${o.criticals} in ${trials})`,
+    );
   }
 }
 
@@ -201,6 +213,9 @@ const suiteChanged = baseline.suiteFingerprint !== fingerprint;
 // It is a common way to get a confident wrong answer, so it is called out rather
 // than quietly tolerated.
 const agentChanged = baseline.agent.name !== run.agent.name;
+// Different denominators are comparable once rates are used, but the reader
+// should know the two runs were not the same size.
+const trialsChanged = baseline.trials !== trials;
 
 // ---- report -----------------------------------------------------------------
 const lines: string[] = [];
@@ -216,6 +231,11 @@ say("");
 if (agentChanged) {
   say(`  NOTE  this baseline was recorded against "${baseline.agent.name}", not "${run.agent.name}".`);
   say(`        Differences below may be between two agents rather than a regression in one.`);
+  say("");
+}
+if (trialsChanged) {
+  say(`  NOTE  baseline ran ${baseline.trials} trial(s) per scenario, this run ran ${trials}.`);
+  say(`        Violations are compared per episode, so the counts below are not like for like.`);
   say("");
 }
 say(`  axis          baseline  now`);

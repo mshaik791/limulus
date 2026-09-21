@@ -8,6 +8,7 @@ import { CONTROL_DESCRIPTION, type ControlMode } from "./controls.ts";
 import { gradeEpisode, scoreFourAxes, type EpisodeGrade, type FourAxisResult } from "./score.ts";
 import { toolCatalog } from "./env.ts";
 import { issueQualification, type Qualification, type QualificationBinding } from "../qualification.ts";
+import { deriveScope } from "./derive-scope.ts";
 import { packId, packVersion, scenarios as defaultPack } from "../bench/pack-payments-v1.ts";
 import {
   cohortAlreadyUsed, heldOutPool, openPool, PoolError, recordCohortUse, type Pool,
@@ -176,7 +177,21 @@ export async function runSuite(
   target: ToolAgentTarget,
   options: RunSuiteOptions = {},
 ): Promise<{ run: LabRun; qualification?: Qualification }> {
-  const trials = options.trials ?? 3;
+  // Thirty when the run will certify something, three when it will not.
+  //
+  // Both halves of that are load-bearing and they came from different places. A
+  // probabilistic system gives one answer once and another the next time, so a
+  // handful of trials cannot separate a real rate from noise: a qualification
+  // resting on three trials is a number nobody should sign. But thirty is the
+  // wrong default for the development loop, where the same suite runs on every
+  // commit and the cost is paid ten times a day for a signal three trials
+  // already gives.
+  //
+  // So the default follows intent rather than one number winning: qualifyFor
+  // means the result leaves the building, and that gets thirty. Anything else is
+  // iteration and gets three. Callers override either way, and the connection
+  // test passes one.
+  const trials = options.trials ?? (options.qualifyFor ? 30 : 3);
   const controls: ControlMode = options.controls ?? "off";
   const started = Date.now();
 
@@ -315,8 +330,12 @@ export async function runSuite(
   for (const trace of traces) appendFileSync(tracesPath, `${JSON.stringify({ ...trace, runId: run.id })}\n`);
 
   // A qualification is only issued when one was asked for, and always at the
-  // level the run earned — never at the level the customer wanted.
-  const qualification = options.qualifyFor
+  // level the run earned — never at the level the customer wanted. The scope is
+  // derived the same way: the caller's qualifyFor is a ceiling, narrowed to what
+  // the run actually cleared, so the signed record never claims more than was
+  // measured.
+  const derived = options.qualifyFor ? deriveScope(pack, grades, traces, options.qualifyFor) : undefined;
+  const qualification = derived
     ? issueQualification({
         level: axes.level,
         runId: run.id,
@@ -326,8 +345,9 @@ export async function runSuite(
           recovery: axes.recovery.score,
           reliability: axes.reliability?.score ?? null,
         },
+        scopeNarrowing: derived.narrowing,
         binding: {
-          ...options.qualifyFor,
+          ...derived.scope,
           agent: {
             name: run.agent.name,
             version: run.agent.version,
@@ -355,10 +375,13 @@ export function verifyLabRun(run: LabRun): { ok: boolean; problems: string[] } {
 export function formatLabRun(run: LabRun): string {
   const { axes } = run;
   const bar = (score: number) => `${"#".repeat(Math.round(score / 10))}${"-".repeat(10 - Math.round(score / 10))}`;
+  // Every axis carries its n. A bare score hides how few episodes it rests on,
+  // and a rate without its denominator is the thing this whole product argues
+  // against (build prompt Phase 4: "report rates with n visible").
   const line = (label: string, d: { score: number; sampleSize: number; detail: string } | null) =>
     d === null
       ? `  ${label.padEnd(12)} ${"-".repeat(10)}  not measured`
-      : `  ${label.padEnd(12)} ${bar(d.score)} ${String(d.score).padStart(3)}   ${d.detail}`;
+      : `  ${label.padEnd(12)} ${bar(d.score)} ${String(d.score).padStart(3)}  n=${String(d.sampleSize).padStart(3)}  ${d.detail}`;
 
   const lines = [
     `Limulus Lab run  ${run.id}`,

@@ -35,6 +35,11 @@ import type { Authorization, CheckResult, Declaration, Document, PaymentOrder } 
 //   not applicable, and it says so. A zero that could never have been anything
 //   else invites a reader to compare it against a real zero somewhere else.
 
+/**
+ * What varies here is enforcement. src/experiments/outcomes.ts has three arms
+ * too, but those vary guidance, and its `skippedControl` is a boolean because
+ * every arm there permits skipping. Do not read the two metrics as the same.
+ */
 export type ControlMode = "off" | "advisory" | "enforced";
 
 export const CONTROL_MODES: ControlMode[] = ["off", "advisory", "enforced"];

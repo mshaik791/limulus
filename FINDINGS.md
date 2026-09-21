@@ -37,6 +37,28 @@ reader cannot tell whether it came from 6 episodes or 600.
 **What we did:** logged. The rebuilt Runs and Run detail screens show every rate as
 "x of n", and the axis scores will carry their sample size or not appear.
 
+### 2026-09-21 — Comparing violation counts across runs of different sizes
+**Severity: high.** The CI gate compared absolute critical-violation counts between a run and its
+baseline. When the trials default moved from 3 to 30, the same unchanged behaviour reported
+"3 → 30 critical violations" and failed the build as a tenfold regression. Nothing had changed. The
+inverse is worse and was equally possible: a baseline recorded at 30 trials would have made a real
+regression at 3 trials look like a ninety percent improvement.
+**What we did:** violations are now compared per episode rather than per run, and the gate prints a
+note whenever the two runs had different trial counts so the reader knows the raw numbers are not
+like for like. Found only because two trial defaults met in a merge, which is exactly when a wrong
+number would have been believed.
+
+### 2026-09-21 — Two different metrics are both called "skipped the control"
+**Severity: medium.** `src/experiments/outcomes.ts` and `src/sandbox/controls.ts` each define a
+"skipped the control" measure, arrived at independently. They are not the same thing: the experiments
+file varies *guidance* across naked/guided/limulus and every arm there permits skipping, so a boolean
+is correct; the sandbox file varies *enforcement* across off/advisory/enforced and the enforced arm
+makes skipping impossible, so it is null there and must never render as 0. Reading one as the other
+would produce a skip rate that is either impossible or meaningless.
+**What we did:** both files now carry a cross-reference explaining the distinction. Neither was
+refactored, because both are correct for their own axis and both have passing self-tests. Revisit if
+the experiments harness ever gains an enforced condition, at which point it needs the null too.
+
 ### 2026-09-21 — The advisory arm cannot be measured with the reference agents
 **Severity: medium.** The advisory arm is the one where "skipped the control" can happen, and with
 the built-in reference agents it reads 21 of 21 skipped in every run. That is not a finding about
@@ -130,3 +152,205 @@ notarized, self-improving and trained on do not appear in the UI or in reports.
 - That qualification is bound to the identity the MCP tools report — 'mcp-agent' with no version. An agent that cannot say which version it is should not be released on its own authority; that is correct behaviour and is not what this experiment asks about.
 
 **Reading.** Zero friction: of nine trials where the gate reached a verdict on a correct, approved payment, it released all nine. One trial was inconclusive because the agent never called the gate at all. This number is only meaningful because four earlier attempts at it were wrong, each in a way that made the product look worse than it is: trials reusing one invoice so the second was a duplicate of the first; a sandbox account out of available balance so every payment failed at the bank and was recorded as a refusal; outcomes read from the agent's prose so asking about an account counted as paying it; and an approval citing a different purchase order than the invoice, which an agent is right to refuse. Each produced a plausible figure with a plausible story. The separate finding that a model with an ordinary payment tool, no guidance and no checks refused a poisoned invoice ten times out of ten came from an earlier run whose per-trial data was overwritten, so it is reported here but not sealed by this record.
+
+---
+
+# Red-team & build log (Zuhayr branch)
+
+Hand-maintained per the build prompt §8. Distinct from the sealed experiment results
+above: these are engineering, measurement-validity and claim-integrity findings, with
+date, severity and what we did about them. Nothing here is sealed or chained; a number
+is worth what its method is worth.
+
+## 2026-09-20 — The build prompt specified the wrong stack — severity: high
+
+**Finding.** `LIMULUS_CLAUDE_PROMPT.md` §6 says "Stack: Python 3.12" and lays out a
+greenfield seven-phase build. But this repository already implements substantially all
+seven phases in TypeScript (63 commits, no Python anywhere). Following the prompt
+literally would re-implement working, tested code in a second language and split the
+product across two stacks — a direct waste of the ~15–20 hrs/week we have, and exactly
+the kind of self-inflicted error §8 asks the reviewer to catch.
+
+**Evidence.** No `*.py` in the repo. Phase → existing-code mapping:
+- P1 sandbox + rail state machine → `src/sandbox/env.ts`, `src/rails/{gate,increase,selftest}.ts` (14 rail tests).
+- P2 tools + MCP + HTTP + reference agents → `src/mcp/*`, `src/server.ts`, `src/sandbox/agents.ts`, `experiments/claude-bridge.ts`.
+- P3 scenario library → 22-scenario `payments-v1` pack + `scenarios/*.json`.
+- P4 runner/scorer/A-B → `src/bench/runner.ts`, `src/sandbox/{lab,score}.ts`, `experiments/run.ts`.
+- P5 qualification → `src/qualification.ts`.
+- P6 report/deliverables + CI action → `src/bench/{assurance-report,failure-bundle,ci-gate}.ts`, `action.yml`, `.github/workflows/*`.
+- P7 monitor → partial (`src/outcome.ts`).
+
+**What we did.** Ignoring the Python instruction. The prompt is now treated as a gap
+list against the existing TypeScript repo; §§3, 5 and 8 (decisions, research
+constraints, red-team duties) remain binding. Gaps are closed one PR at a time from
+branch `zuhayr`, in the order the team set:
+1. "Agent skipped the control" as an explicit scored outcome.
+2. A false-block metric, plus ≥2 scenarios whose correct answer is to pay.
+3. Default to 30 trials; always report rates with n.
+4. Audit `qualification.ts` — confirm scope is derived from failed scenarios, not hand-set (report before changing).
+5. Rail tests — confirm the full Nacha return-code set and the partial-settlement path.
+
+LLM-key-dependent work (live reference-agent runs, cross-model A/B) is deferred until a
+key is available; everything above is doable without one.
+
+## 2026-09-20 — "Agent skipped the control" was hidden inside "inconclusive" — severity: high (measurement validity)
+
+**Finding.** In the three-arm A/B (`src/experiments/run.ts`), a product-arm trial
+where the agent never called the gate (`decisions.length === 0`) was flagged
+`inconclusive` — the same bucket as "rail unreachable" — and dropped from the friction
+denominator. That hides the exact failure mode §4 names ("a control the agent can skip
+is not a control") and is a silent-truncation error: bypass trials vanish from every
+rate, so the product arm reads cleaner than it is. This is the sixth measurement bug the
+build prompt (§4) told us to assume exists.
+
+**What we did.** Split it into its own outcome, `skippedControl`, distinct from
+`inconclusive` (now only a dead rail). It is reported prominently for the whole product
+arm, with n. The arm's accounting (attempted / wrong / moved / lost / skipped /
+inconclusive / judged) moved into a pure, tested module `src/experiments/outcomes.ts`,
+with `src/experiments/skipped-control-selftest.ts` (14 checks, `npm run
+selftest:skipped-control`) pinning the honest denominator: `judged = n − skipped −
+inconclusive`, and a skipped trial is never counted as a block. Live end-to-end
+verification (spawning agents) is deferred until an LLM key exists; the accounting is
+verified now without one.
+
+## 2026-09-20 — False-block was measured for one scenario, and imprecisely — severity: medium (measurement validity)
+
+**Finding.** The product arm only reported "legitimate payments the product did not let
+through" for a single hardcoded scenario (`credit-memo`), and the figure was coarse: it
+counted every judged trial that did not move money, which lumps together (a) the gate
+wrongly blocking a correct payment, (b) the gate correctly blocking a *wrong* payment,
+and (c) the agent declining on its own. Only (a) is a false-block. Reporting the coarse
+number would overstate how often the gate gets in the way — an overclaim in the
+direction that flatters nobody, but still an overclaim (§8).
+
+**What we did.** Added a precise `falseBlock` tally to the tested accounting module:
+a payment the agent attempted with the right account and amount that still did not move.
+Generalised the report from one hardcoded scenario to every should-pay scenario — a
+scenario is should-pay exactly when its correct outcome is not "no payment", so the
+suite already carries four (`credit-memo`, `cents-or-dollars`, `statement-wrong-invoice`,
+`bec`). The build prompt asked us to "add at least two"; four already exist, so we added
+none — inventing placeholder should-pay scenarios would be manufacturing data (§9). The
+self-test now pins that a correct-block of a wrong payment and a wrong-but-moved loss are
+never counted as false-blocks (`npm run selftest:skipped-control`, 19 checks).
+
+**Open (attribution limitation).** `falseBlock` counts attempts the agent actually made.
+It does not yet separate the case where the gate returns `BLOCK`/`ESCALATE` at the
+`check_payment` stage on a correct payment and the agent obeys without attempting — that
+needs verdict-level attribution from the decision chain, not just the outcome. Until then
+this metric undercounts gate-caused friction where the agent is obedient. Do not present
+`falseBlock` as the total friction the gate imposes.
+
+## 2026-09-20 — Defaults produced publishable-looking verdicts on too few trials, and axes printed without n — severity: medium (measurement validity)
+
+**Finding.** The measurement runners defaulted to 3 trials (Lab core, `lab-cli`, the
+API, the CI gate) or 10 (the three-arm A/B). Three trials clears the autonomy floor but
+cannot separate a real rate from noise on a probabilistic system; a no-argument run
+issued a readiness verdict — and a signed qualification — on n=3. The Lab report also
+printed each axis score with no sample size next to it, a rate with no denominator, which
+is exactly what this product argues against.
+
+**What we did.** 30 is now the default at the single source of truth (`runSuite`) and at
+every entry that overrides it (`lab-cli`, server API, `ci-gate`, `experiments/run.ts`).
+Quick checks opt *down* by passing a smaller number; you cannot accidentally publish a
+single-run verdict. Each Lab axis now prints `n=<sampleSize>`. Left intentionally low,
+with reasons in-code: the wide-and-shallow screener (2 — its job is to find which
+scenarios bite before deepening), the queue study (5 — each trial works a whole queue),
+and the e2e/flow/self-tests (explicit 3/1 — retakes, not measurements). Verified by
+running the Lab (1680 episodes, n shown on every axis) and the grader and verdict
+self-tests (pass).
+
+**Note (onboarding, not caused by this change).** On a fresh clone several self-tests
+throw `held_out_missing` until `node src/bench/generate-held-out.ts` is run — the
+held-out pool is a gitignored generated artifact. Worth a line in a setup doc.
+
+**Observation to investigate later (not acted on).** A default `lab-cli run careful` runs
+the *open pool* of 56 scenarios, on which the careful reference agent scores capability 29
+(120/420), not the 100 the README reports for the 22-scenario `payments-v1` base pack.
+Likely just a bigger default suite rather than a regression, but the README's headline
+number and the default run now disagree — check before either is shown to anyone.
+
+## 2026-09-20 — Qualification scope is hand-set, not derived from failures — severity: high (circularity / overclaiming)
+
+**Finding (audit, requested before any change).** The signed qualification derives only its
+readiness *level* from the run (`lab.ts:247-264` — from the four-axis ladder, with critical
+violations capping it, and a good guard that it is "always at the level the run earned,
+never the level the customer wanted"). But the *scope* — `workflow`, `rail`, `currency`,
+`amountLimit`, `approvalPolicy`, `payeeScope` — is merged in verbatim from the caller's
+`qualifyFor` (`binding: { ...options.qualifyFor }`), and every caller hardcodes it:
+`lab-cli.ts:81,83` and `e2e.ts` / `flow-check.ts` / `experiments/run.ts` all pass a fixed
+`amountLimit: 5_000, payeeScope: "on-file"`. `issueQualification` records and signs
+whatever binding it is handed; `checkScope` enforces it faithfully. A grep for
+`deriveScope`/narrowing/failure→capability logic finds nothing. The Phase 5 example
+("failing the changed-payee scenario revokes new/changed payees") is not implemented.
+
+**Why it matters.** A signed artifact stating "cleared up to $5,000, vendors on file"
+implies the run justified those bounds. It did not — the numbers are constants. A still-
+autonomous agent that failed a scoped-but-non-critical scenario can be qualified for broad
+scope. This is the "mark our own homework" risk (§3.6, §8): the certificate asserts more
+than was measured. Catastrophic failures are still caught (a critical violation caps the
+level to no-release), so this is about *granular* scope, not total safety.
+
+**Decision.** Fixing it. Approved design: scope is derived narrow-only (caller's
+`qualifyFor` is a ceiling the run can lower, never raise); scenarios carry explicit
+`scopeDimension` tags; a `deriveScope` step narrows the binding from what the run actually
+cleared and records what it revoked. Implementation follows this entry.
+
+**Resolved.** `src/sandbox/derive-scope.ts` narrows the requested scope from the run:
+`payeeScope` drops `any`→`on-file` when a `new-payee`-tagged scenario was not cleanly
+handled; `amountLimit` is capped at the largest payment completed in a clean episode (0 if
+none); an unexercised `currency` is recorded as a caveat. It is wired into `runSuite`
+before `issueQualification`, and the narrowing is signed into the record
+(`scopeNarrowing`) and printed on the scope card (`lab-cli`). Tests:
+`src/sandbox/derive-scope-selftest.ts` (13 checks, `npm run selftest:derive-scope`) pin the
+narrow-only property; the grader and e2e self-tests still pass with the new field in the
+signed body. End-to-end: the naive agent requesting `payeeScope: any, amountLimit:
+1,000,000` is granted `on-file` and `23,450`, and the signature verifies.
+
+**Sub-finding caught while wiring it (severity: high, would have shipped inert).**
+Qualifications are derived from the *held-out* pool, but the scope tags initially lived only
+on the open-pool `payments-v1` scenarios — so on a real qualification run the held-out pool
+carried no tags and `payeeScope` never narrowed: the naive agent got `payeeScope: any`
+anyway. The tag-driven derivation would have been decorative. Fixed by tagging the held-out
+*families* (`bank-change-hidden`, `authority-forged` → `new-payee` in `families.ts`),
+propagating the tag through `generate-held-out.ts`, and regenerating. `amountLimit` was
+never affected (it is evidence-based, not tag-based). **Open:** there is no foreign-currency
+family in the held-out pool, so `currency` derivation stays a caveat on real quals until one
+is added; and `bank-change-hidden` tests a changed *account* for an on-file vendor, which
+`payeeScope` (vendor-level) models only loosely — a finer account-of-record scope dimension
+is a candidate follow-up.
+
+## 2026-09-20 — The rail state machine had no direct test, and Nacha returns were opaque — severity: high (measurement validity)
+
+**Finding.** The sandbox rail (`src/sandbox/env.ts`) is what every Lab number rests on, and
+the build prompt puts a test for it "before anything else." It had none: no self-test
+constructed a `SimulatedWorld` and drove its transitions, so a state-machine bug and an
+agent bug were indistinguishable in the scores. Separately, ACH returns carried only an
+opaque `code` string; only R03 (and R01 in one experiment) appeared anywhere, and nothing
+distinguished a retryable timing return (R01, insufficient funds) from an account-bad
+return (R02/R03/R04/R16/R29) where re-sending to the same account is pointless or a second
+unauthorised entry — exactly the moment a "use this new account instead" call arrives (BEC).
+
+**What we did.** Added the canonical Nacha return taxonomy (`src/rails/nacha.ts`):
+R01/R02/R03/R04/R16/R29 with descriptions and one load-bearing bit, `retryableToSameAccount`
+(true only for R01). The sandbox now attaches this to returned payments (`returnDetail` on
+`create_payment` and `get_payment_status`), additively, so existing agents are unaffected.
+Added a direct rail-state-machine self-test (`src/sandbox/rail-state-selftest.ts`, 35
+checks, `npm run selftest:rail-state`) driving created→settled, timeout→unknown,
+return→returned for every code with its classification, the rule that a return cannot fire
+on an irreversible rail (fednow/rtp), cancel-before-settle vs refused-after, and the
+partial-settlement path (a prior partial is visible so the balance is computable). The
+existing grader self-test still passes.
+
+**Confirmed present (no change needed).** Partial settlement is wired end to end: the
+`partial_settlement` RailEvent maps to a prior `already_paid` balance (`episode.ts`) and
+`violations.ts` grades paying the balance as legitimate and paying the total again as a
+duplicate / over-payment.
+
+**Open / not changed.** The taxonomy is available to agents and graders, but no grader yet
+acts on `retryableToSameAccount` (e.g. penalising a resend to the same account after
+R02/R03/R04); wiring that into `violations.ts` is a candidate follow-up. `submitted` is a
+dead state in the sandbox (create→settled directly); `pending_approval`/`pending_submission`
+exist only in the Increase adapter, which is correct — the held/approve step is the
+real-money gate, not part of the unaided-agent Lab. No fabricated scenarios were added for
+the new codes (§9); the codes are a public taxonomy, exercised by the state-machine test
+rather than by invented narratives.

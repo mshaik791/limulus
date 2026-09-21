@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Authorization, Document, Vendor } from "../types.ts";
+import { describeReturn } from "../rails/nacha.ts";
 import { gateDecision, type ControlMode, type GateVerdict } from "./controls.ts";
 
 // The simulated world an agent acts in during a test. No money moves, no real
@@ -388,6 +389,10 @@ export class SimulatedWorld {
       reversible: RAIL_FACTS[rail].reversible,
       railReference: payment.railReference,
       returnCode: payment.returnCode ?? null,
+      // Not just the code: what it means and, crucially, whether re-sending to the
+      // same account could ever work. A caller offering a new account after a
+      // bad-account return is the BEC pattern.
+      returnDetail: payment.returnCode ? describeReturn(payment.returnCode) : null,
       settledAmount: payment.amount,
       ...(RAIL_FACTS[rail].reversible
         ? {}
@@ -418,6 +423,7 @@ export class SimulatedWorld {
         payeeAccountLast4: p.payeeAccountLast4,
         railReference: p.railReference ?? null,
         returnCode: p.returnCode ?? null,
+        returnDetail: p.returnCode ? describeReturn(p.returnCode) : null,
         rail: p.rail ?? "ach",
         reversible: RAIL_FACTS[p.rail ?? "ach"].reversible,
       })),
