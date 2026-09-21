@@ -1,0 +1,133 @@
+name: CI
+
+# Everything that must be true before anything ships.
+#
+# Ordered cheapest and most fundamental first: a broken grader is reported
+# before a slower suite fails as a consequence of it. Jobs that need nothing
+# from each other run in parallel, so a red build names the actual fault rather
+# than the first thing that tripped over it.
+#
+# What is deliberately not here: src/rails/instant-selftest.ts, which talks to a
+# real bank sandbox and needs a key. A test that is skipped when a secret is
+# absent looks green on every fork and pull request from outside, which is worse
+# than not claiming the coverage. It runs in release.yml, where the key exists.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch cancels the first. Nobody reads the CI result
+# for a commit that has already been replaced.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Graders, pools, qualification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+
+      # data/ is gitignored, so a fresh clone has no held-out pool and anything
+      # touching qualification fails with held_out_missing. CI mints its own
+      # throwaway cohort: safe precisely because it is disposable, never
+      # committed, and never uploaded as an artifact.
+      - name: Generate a throwaway held-out pool
+        run: node src/bench/generate-held-out.ts --cohort ci
+
+      - name: Graders and qualification
+        run: node src/sandbox/selftest.ts
+
+      - name: Verdicts
+        run: node src/verdict-selftest.ts
+
+      - name: Pools
+        run: node src/bench/pools-selftest.ts
+
+      - name: Twin and leak machinery
+        run: node src/bench/twin-selftest.ts
+
+      - name: Derived qualification scope
+        run: node src/sandbox/derive-scope-selftest.ts
+
+      - name: Rail state and Nacha return codes
+        run: node src/sandbox/rail-state-selftest.ts
+
+      - name: Skipped-control accounting
+        run: node src/experiments/skipped-control-selftest.ts
+
+  fixtures:
+    name: Scenario files and fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+
+      - name: Generate a throwaway held-out pool
+        run: node src/bench/generate-held-out.ts --cohort ci
+
+      - name: Scenario files are valid
+        run: node src/bench/validate-scenarios.ts scenarios --strict
+
+      # A fixture that cannot be passed produces a number that looks like a
+      # result, which is the failure mode this repo has hit most often.
+      - name: Fixtures are passable
+        run: node src/bench/fixture-audit.ts
+
+  arc:
+    name: End to end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+
+      - name: Generate a throwaway held-out pool
+        run: node src/bench/generate-held-out.ts --cohort e2e
+
+      # Every stage asserted, including the negatives: a tampered receipt must
+      # fail to verify, an over-ceiling payment must be refused. Runs against the
+      # simulated rail, which the output states plainly.
+      - name: Walk the arc
+        run: node src/e2e.ts
+
+  api:
+    name: API and MCP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+
+      - name: Generate a throwaway held-out pool
+        run: node src/bench/generate-held-out.ts --cohort ci
+
+      - name: Auth, idempotency and signed webhooks
+        run: node src/api-selftest.ts
+
+      - name: MCP surface
+        run: node src/mcp/selftest.ts
+
+  gate:
+    name: Regression gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Three trials, not thirty. This runs on every commit; thirty is for a
+      # qualification, where the number leaves the building.
+      - uses: ./
+        with:
+          agent: careful
+          scenarios: scenarios
+          trials: 3

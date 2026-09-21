@@ -1,0 +1,108 @@
+name: Deploy
+
+# The marketing site goes out only after CI has passed on the same commit.
+#
+# This is the whole point of the file. Vercel's own Git integration deploys on
+# push, before any test has run, which means a commit that breaks the product
+# is live while CI is still thinking about it. For a company whose argument is
+# "prove it before the money moves", shipping before the proof is a bad look in
+# a way that is hard to explain afterwards.
+#
+# So: Vercel's Git integration must be OFF for this project, and this workflow
+# is the only thing that deploys. If both are on, the gate is theatre — Vercel
+# will have shipped the commit before this file runs.
+#
+# Needs three repository secrets:
+#   VERCEL_TOKEN        a token from vercel.com/account/tokens
+#   VERCEL_ORG_ID       team_puM4bkNceEqSrUB5iL7cwHHA  (from .vercel/project.json)
+#   VERCEL_PROJECT_ID   prj_CZlErwZSMqiUJEpeNIJP8ok42W1g
+#
+# The two ids are not secret — they are in the repo — but they live alongside
+# the token so the deploy target is configured in one place.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy the site
+    runs-on: ubuntu-latest
+    # Only on a CI run that actually succeeded. workflow_run fires on failure
+    # too, and without this a red build would deploy.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      # Deploy the commit CI tested, not whatever is newest on main. Without
+      # this, a push landing during the CI run would ship untested.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+
+      - name: Install the Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Deploy
+        id: deploy
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          URL=$(vercel deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed to $URL"
+
+      # A deploy that reports success and serves the wrong bytes has happened
+      # here before: a .vercelignore rule shipped one file while the CLI said it
+      # was fine, and it was only caught by reading the uploaded file list back.
+      # So the site is checked against the repo rather than trusted.
+      - name: Verify what is actually being served
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5 6; do
+            LIVE_STATUS=$(curl -s -o /tmp/live.html -w '%{http_code}' https://trylimulus.com --max-time 20 || echo 000)
+            [ "$LIVE_STATUS" = "200" ] && break
+            echo "attempt $i: HTTP $LIVE_STATUS, waiting for propagation"
+            sleep 10
+          done
+
+          if [ "$LIVE_STATUS" != "200" ]; then
+            echo "::error::trylimulus.com returned $LIVE_STATUS after the deploy"
+            exit 1
+          fi
+
+          LIVE=$(shasum -a 256 /tmp/live.html | cut -d' ' -f1)
+          REPO=$(shasum -a 256 site/index.html | cut -d' ' -f1)
+          echo "live $LIVE"
+          echo "repo $REPO"
+
+          if [ "$LIVE" != "$REPO" ]; then
+            echo "::error::The live site does not match site/index.html at this commit."
+            echo "The deploy reported success but is serving different bytes."
+            exit 1
+          fi
+          echo "Live site matches the committed source."
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Deploy"
+            echo
+            echo "Commit: \`${{ github.event.workflow_run.head_sha || github.sha }}\`"
+            echo "URL: ${{ steps.deploy.outputs.url }}"
+            echo "Live: https://trylimulus.com"
+          } >> "$GITHUB_STEP_SUMMARY"
