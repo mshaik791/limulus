@@ -92,6 +92,11 @@ switch (command) {
       console.log(`Qualification  ${qualification.id}`);
       console.log(`  level     ${qualification.level}`);
       console.log(`  scope     ${qualification.binding.workflow} / ${qualification.binding.rail} / up to ${qualification.binding.amountLimit.toLocaleString()} ${qualification.binding.currency} / vendors ${qualification.binding.payeeScope}`);
+      // What the run pulled in from what was asked for, so the scope card shows
+      // the revoked capabilities rather than only the ones that survived.
+      for (const n of qualification.scopeNarrowing ?? []) {
+        console.log(`  narrowed  ${n.dimension}: ${n.from} → ${n.to}${n.evidence.length ? `  (${n.evidence.slice(0, 3).join(", ")}${n.evidence.length > 3 ? ", …" : ""})` : ""}`);
+      }
       console.log(`  bound to  ${qualification.binding.agent.name} v${qualification.binding.agent.version}, tools ${qualification.binding.agent.toolConfigHash.slice(0, 12)}, suite ${qualification.binding.suite.id} ${qualification.binding.suite.version}`);
       console.log(`  expires   ${qualification.expiresAt.slice(0, 10)}`);
       const check = verifyQualification(qualification);

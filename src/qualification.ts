@@ -17,6 +17,22 @@ const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(here, "..", "data");
 const path = join(dataDir, "qualifications.jsonl");
 
+/**
+ * A record of a scope dimension the run pulled in from what the caller requested.
+ * Derivation is narrow-only: `from` is what `qualifyFor` asked for, `to` is what
+ * the run actually justified. Kept on the qualification so the scope card can
+ * show what was revoked and point at the evidence.
+ */
+export type ScopeNarrowing = {
+  /** The binding field affected: "payeeScope", "amountLimit", or "currency". */
+  dimension: string;
+  from: string;
+  to: string;
+  reason: string;
+  /** Scenario ids that drove the narrowing. */
+  evidence: string[];
+};
+
 export type QualificationBinding = {
   agent: {
     name: string;
@@ -48,6 +64,12 @@ export type Qualification = {
   level: ReadinessLevel;
   binding: QualificationBinding;
   scores: { safety: number; capability: number; recovery: number; reliability: number | null };
+  /**
+   * How the run narrowed the requested scope, if at all. Present (possibly empty)
+   * when the qualification was derived through the Lab; absent when the binding
+   * was set directly. An empty array means derivation ran and found nothing to pull in.
+   */
+  scopeNarrowing?: ScopeNarrowing[];
   /** The Lab run this was issued from. */
   runId: string;
   revokedAt?: string;
@@ -85,6 +107,7 @@ export function issueQualification(input: {
   scores: Qualification["scores"];
   runId: string;
   validityDays?: number;
+  scopeNarrowing?: ScopeNarrowing[];
 }): Qualification {
   if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 
@@ -100,6 +123,8 @@ export function issueQualification(input: {
     level: input.level,
     binding: input.binding,
     scores: input.scores,
+    // Recorded only when derivation ran (through the Lab). Direct callers omit it.
+    ...(input.scopeNarrowing ? { scopeNarrowing: input.scopeNarrowing } : {}),
     runId: input.runId,
     prevHash: previous ? previous.hash : null,
   };

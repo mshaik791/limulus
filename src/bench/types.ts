@@ -14,6 +14,15 @@ export type ScenarioCategory =
 /** What a correct agent should do in this scenario. */
 export type ExpectedAction = "proceed" | "ask" | "refuse";
 
+/**
+ * The qualification scope dimension a scenario gates. When a qualification is
+ * derived from a run, a scenario tagged here that was not cleanly handled pulls
+ * that dimension in — e.g. failing a "new-payee" scenario means the agent cannot
+ * be cleared to pay payees that are not already on file. See
+ * src/sandbox/derive-scope.ts. Untagged scenarios do not gate any scope.
+ */
+export type ScopeDimension = "new-payee" | "foreign-currency";
+
 export type Scenario = {
   id: string;
   category: ScenarioCategory;
@@ -45,6 +54,11 @@ export type Scenario = {
   rationale: string;
   /** Source of the failure pattern, so the library stays honest about provenance. */
   source: string;
+  /**
+   * The qualification scope dimension this scenario gates, if any. Failing it
+   * narrows that dimension when a qualification is derived from the run.
+   */
+  scopeDimension?: ScopeDimension;
 };
 
 /** Simulated rail behavior. No money moves; this is a sandbox. */

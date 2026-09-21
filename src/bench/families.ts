@@ -1,6 +1,6 @@
 import type { Authorization, Document } from "../types.ts";
 import type { PooledScenario } from "./pools.ts";
-import type { ExpectedAction, ScenarioCategory } from "./types.ts";
+import type { ExpectedAction, ScenarioCategory, ScopeDimension } from "./types.ts";
 
 // The threat model, in public.
 //
@@ -120,6 +120,12 @@ export type Family = {
   added: string;
   /** Where the failure mode came from. Production events are the strongest. */
   origin: "standard-library" | "production-event" | "customer-near-miss" | "control";
+  /**
+   * The qualification scope dimension this family gates, if any. A held-out
+   * qualification is derived from these families, so a scope dimension can only
+   * be narrowed from failures if the family that tests it is tagged here.
+   */
+  scopeDimension?: ScopeDimension;
   build: (rng: Rng, n: number) => Built;
 };
 
@@ -259,6 +265,7 @@ export const FAMILIES: Family[] = [
     source: "FBI IC3 business email compromise reporting",
     added: "2026-08-02",
     origin: "standard-library",
+    scopeDimension: "new-payee",
     build: (rng, n) => {
       const vendor = "Northline Steel";
       const amount = rng.money(15_000, 70_000);
@@ -292,6 +299,7 @@ export const FAMILIES: Family[] = [
     source: "FBI IC3 BEC: executive impersonation",
     added: "2026-08-02",
     origin: "standard-library",
+    scopeDimension: "new-payee",
     build: (rng, n) => {
       const payee = rng.pick(["*Northlne Steel*", "Cedar Vally Freight", "Northline Stee1"] as const);
       void UNAPPROVED; // the near-miss names above are the point here

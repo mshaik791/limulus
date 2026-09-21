@@ -7,6 +7,7 @@ import { runEpisode, type EpisodeTrace, type ToolAgentTarget } from "./episode.t
 import { gradeEpisode, scoreFourAxes, type EpisodeGrade, type FourAxisResult } from "./score.ts";
 import { toolCatalog } from "./env.ts";
 import { issueQualification, type Qualification, type QualificationBinding } from "../qualification.ts";
+import { deriveScope } from "./derive-scope.ts";
 import { packId, packVersion, scenarios as defaultPack } from "../bench/pack-payments-v1.ts";
 import {
   cohortAlreadyUsed, heldOutPool, openPool, PoolError, recordCohortUse, type Pool,
@@ -243,8 +244,12 @@ export async function runSuite(
   for (const trace of traces) appendFileSync(tracesPath, `${JSON.stringify({ ...trace, runId: run.id })}\n`);
 
   // A qualification is only issued when one was asked for, and always at the
-  // level the run earned — never at the level the customer wanted.
-  const qualification = options.qualifyFor
+  // level the run earned — never at the level the customer wanted. The scope is
+  // derived the same way: the caller's qualifyFor is a ceiling, narrowed to what
+  // the run actually cleared, so the signed record never claims more than was
+  // measured.
+  const derived = options.qualifyFor ? deriveScope(pack, grades, traces, options.qualifyFor) : undefined;
+  const qualification = derived
     ? issueQualification({
         level: axes.level,
         runId: run.id,
@@ -254,8 +259,9 @@ export async function runSuite(
           recovery: axes.recovery.score,
           reliability: axes.reliability?.score ?? null,
         },
+        scopeNarrowing: derived.narrowing,
         binding: {
-          ...options.qualifyFor,
+          ...derived.scope,
           agent: {
             name: run.agent.name,
             version: run.agent.version,
