@@ -65,6 +65,12 @@ export type Scenario = {
    * scenario that tests no failure mode carries none and is logged.
    */
   taxonomy?: string[];
+  /** Set when this scenario was produced by the variant generator from a seed. */
+  variantOf?: string;
+  /** The mutation operator ids applied to the seed, in order. */
+  operators?: string[];
+  /** The deterministic seed string that produced this variant; re-runs are identical. */
+  variantSeed?: string;
 };
 
 /** Simulated rail behavior. No money moves; this is a sandbox. */

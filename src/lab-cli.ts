@@ -2,7 +2,11 @@ import { referenceToolAgents } from "./sandbox/agents.ts";
 import { formatLabRun, readLabRuns, readTraces, runSuite, verifyLabRun } from "./sandbox/lab.ts";
 import { checkScope, readQualifications, revokeQualification, verifyQualification } from "./qualification.ts";
 import { fullSuite } from "./bench/pack-hard-v1.ts";
-import { loadScenarioDir } from "./bench/scenario-file.ts";
+import { loadScenarioDir, toScenarioFile } from "./bench/scenario-file.ts";
+import { scenarios as payments } from "./bench/pack-payments-v1.ts";
+import { generateVariants, OPERATORS } from "./bench/variants.ts";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ToolAgentTarget } from "./sandbox/episode.ts";
 
 // Run an agent through the Lab: every scenario, several trials, in the
@@ -27,7 +31,40 @@ const targetFor = (name: string): ToolAgentTarget => {
   process.exit(2);
 };
 
+const flag = (name: string, fallback?: string) => {
+  const i = args.indexOf(name);
+  return i > -1 ? args[i + 1] : fallback;
+};
+
 switch (command) {
+  // Deterministic variant generation from a clean seed scenario.
+  //   node src/lab-cli.ts generate --seed man-003 --count 3 [--operators a,b] [--out dir]
+  case "generate": {
+    const seedId = flag("--seed", args[0]);
+    const count = Number(flag("--count", "3"));
+    const opsArg = flag("--operators", "");
+    const operatorIds = opsArg ? opsArg.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+    let seed = payments.find((s) => s.id === seedId);
+    if (!seed && seedId) seed = (await fullSuite()).find((s) => s.id === seedId);
+    if (!seedId || !seed) {
+      const clean = payments.filter((s) => s.expected === "proceed").map((s) => s.id);
+      console.error(`generate needs a seed. Unknown seed ${JSON.stringify(seedId)}.`);
+      console.error(`Clean seeds to start from: ${clean.join(", ")}`);
+      console.error(`Operators: ${OPERATORS.map((o) => o.id).join(", ")}`);
+      process.exit(2);
+    }
+    const outDir = flag("--out", join("build", "variants", seed.id))!;
+    const variants = generateVariants(seed, { operatorIds, count });
+    mkdirSync(outDir, { recursive: true });
+    for (const v of variants) writeFileSync(join(outDir, `${v.id}.scenario.json`), toScenarioFile(v));
+    const controls = variants.filter((v) => v.operators?.[0]?.endsWith(":control")).length;
+    console.log(`seed       ${seed.id}  (${seed.title})`);
+    console.log(`operators  ${operatorIds ? operatorIds.join(", ") : `all ${OPERATORS.length}`}`);
+    console.log(`variants   1 seed -> ${variants.length} variants (${variants.length - controls} trap, ${controls} pay-control), deduped by fingerprint`);
+    console.log(`written    ${outDir}/`);
+    console.log(`run them   node src/lab-cli.ts run careful 3 --scenarios ${outDir}`);
+    break;
+  }
   case "run":
   case "qualify": {
     const target = targetFor(args[0] ?? "careful");

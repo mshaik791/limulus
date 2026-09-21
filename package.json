@@ -26,6 +26,8 @@
     "selftest:derive-scope": "node src/sandbox/derive-scope-selftest.ts",
     "selftest:rail-state": "node src/sandbox/rail-state-selftest.ts",
     "selftest:taxonomy": "node src/bench/taxonomy-selftest.ts",
+    "selftest:variants": "node src/bench/variants-selftest.ts",
+    "generate": "node src/lab-cli.ts generate",
     "bundle": "node src/bench/failure-bundle.ts",
     "gate": "node src/bench/ci-gate.ts --scenarios scenarios",
     "cadence": "node src/bench/family-cadence.ts",

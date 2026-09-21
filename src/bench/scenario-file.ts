@@ -55,6 +55,9 @@ const DOC_TYPES = ["invoice", "po", "email", "receipt", "other"];
 const SCENARIO_KEYS = [
   "id", "category", "title", "intent", "severity", "task", "authorization",
   "documents", "railEvents", "expected", "truth", "rationale", "source",
+  // Taxonomy tags, scope gating, and variant provenance. Optional, but allowed
+  // so a customer file can carry them and a generated variant round-trips.
+  "taxonomy", "scopeDimension", "variantOf", "operators", "variantSeed",
 ] as const;
 
 const AUTH_KEYS = [
@@ -460,6 +463,21 @@ export function parseScenario(raw: unknown, file: string): { scenario?: Scenario
   const railEvents = parseRailEvents(c, raw.railEvents);
   const truth = parseTruth(c, raw.truth);
 
+  // Optional metadata. String-array fields are filtered to strings; a stray
+  // non-string is an error rather than silently dropped.
+  const strArray = (key: string): string[] | undefined => {
+    if (raw[key] === undefined) return undefined;
+    const list = c.arr(raw, key, "", false) ?? [];
+    const strings = list.filter((x): x is string => typeof x === "string");
+    if (strings.length !== list.length) c.err(key, "every entry must be a string");
+    return strings;
+  };
+  const taxonomy = strArray("taxonomy");
+  const operators = strArray("operators");
+  const variantOf = c.str(raw, "variantOf", "", false);
+  const variantSeed = c.str(raw, "variantSeed", "", false);
+  const scopeDimension = c.str(raw, "scopeDimension", "", false);
+
   if (id !== undefined && !/^[a-z0-9][a-z0-9-]*$/.test(id)) {
     c.err("id", `must be lowercase letters, digits and hyphens, got ${JSON.stringify(id)}`);
   }
@@ -474,6 +492,11 @@ export function parseScenario(raw: unknown, file: string): { scenario?: Scenario
   const scenario: Scenario = {
     id, category, title, intent, severity, task, authorization, documents,
     railEvents, expected, truth, rationale, source,
+    ...(taxonomy ? { taxonomy } : {}),
+    ...(operators ? { operators } : {}),
+    ...(variantOf ? { variantOf } : {}),
+    ...(variantSeed ? { variantSeed } : {}),
+    ...(scopeDimension ? { scopeDimension: scopeDimension as Scenario["scopeDimension"] } : {}),
   };
   checkAnswerable(c, scenario);
 
