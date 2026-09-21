@@ -307,3 +307,27 @@ but not the documents — fixed to keep the id and distinguish controls with a b
 Signal: the careful reference agent, on 28 generated variants of one clean seed, scored
 safety 86 (4/28 critical) and capability 100 (17/17 pay-controls) — it falls for some traps
 it was never hand-written against, which is the point of breadth.
+
+## 2026-09-21 — Workstream C: signed intent records — done
+
+`src/intent.ts`: a tamper-evident record of what an agent declared it was about to pay,
+captured before the payment. Canonicalised, SHA-256 hashed, Ed25519-signed (reusing
+`record.ts`), and **hash-chained per agent** — each record carries the hash of that agent's
+previous intent. Documents are referenced by content hash, never content. The model
+identity carries a `source` field (configured / self-reported / unknown) because we cannot
+verify it. CLI `intent-cli.ts`; the public `/v1/verify` endpoint was **extended** (not
+duplicated) to verify both the decision chain and every agent's intent chain, and a
+`/v1/intents` listing added.
+
+Protect reads the intent record, not a free-text claim: `requireIntent()` returns escalate
+when no signed intent backs an order, which is how the advisory and enforced arms refuse to
+release on the agent's word alone.
+
+**What it proves / does not** (stated in code and here): it proves the record existed in
+this exact form at this time and is unaltered; it does **not** prove the declaration was
+correct or honest — a prompt-injected agent can sign a confident declaration of a wrong
+payment. The record is what makes a declaration-vs-order *mismatch* detectable later.
+
+`selftest:intent` proves a single altered byte, a removed record and an inserted record each
+break chain verification, that chains stay per-agent, and that a missing intent escalates.
+Full regression green.
