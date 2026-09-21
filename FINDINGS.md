@@ -252,3 +252,37 @@ exist only in the Increase adapter, which is correct — the held/approve step i
 real-money gate, not part of the unaided-agent Lab. No fabricated scenarios were added for
 the new codes (§9); the codes are a public taxonomy, exercised by the state-machine test
 rather than by invented narratives.
+
+---
+
+# Overnight build log (2026-09-21)
+
+Autonomous session. Branch `overnight/2026-09-21`, cut from `zuhayr` (not `main`) because
+the prompt builds on derive-scope, the false-block metric, skipped-control and the Nacha
+taxonomy — all of which live in `zuhayr`, not `main`. The overnight PR therefore stacks on
+PR #1; noted for the reviewer. Network was available, so real sources were fetched where
+they mattered most; everything else is marked `unverified-model-recall` and queued in
+`research/VERIFY.md`. No URL, title, statistic or case was invented.
+
+## 2026-09-21 — Workstream A: failure taxonomy + research corpus — done
+
+Added `research/` (eight sourced area files + `VERIFY.md`), `src/bench/taxonomy.ts` (eight
+families, ~45 sourced failure modes), tagged all 22 open-pool scenarios and the 7 held-out
+families, and a validating self-test (`npm run selftest:taxonomy`). Clean/legitimate
+scenarios that test no failure mode (`man-003`, `man-004`, family `legitimate-clean`) are
+logged as untagged rather than force-fitted.
+
+## 2026-09-21 — The existing Nacha set mixes credit and debit returns — severity: medium (correctness)
+
+**Finding.** `src/rails/nacha.ts` carries R01/R02/R03/R04/R16/R29 as one undifferentiated
+"return" set. But an AP agent *paying* a vendor originates a **credit**, and R01 (insufficient
+funds), R29 (corporate not authorised), R05/R07/R08/R10/R11 are **debit** return reasons —
+they arise when money is *pulled*, not pushed (Modern Treasury ACH reference, fetched
+2026-09-21; see `research/ach.md`). Credit-relevant returns are R02/R03/R04/R16/R20/R23.
+Modelling R01 as a "return_after_settle" on a vendor credit is not realistic.
+
+**What I did.** Documented the credit-vs-debit split in `research/ach.md` and the taxonomy;
+did **not** rip out the existing set (the zuhayr rail-state test and prompt explicitly use
+it, and changing it risks that green suite). Flagged for a follow-up: split the sandbox
+return model into credit vs debit reason sets. Left as an open finding rather than a
+mid-stream refactor.

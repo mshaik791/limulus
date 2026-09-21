@@ -59,6 +59,12 @@ export type Scenario = {
    * narrows that dimension when a qualification is derived from the run.
    */
   scopeDimension?: ScopeDimension;
+  /**
+   * Failure-taxonomy mode ids this scenario exercises (see src/bench/taxonomy.ts).
+   * The failure profile (workstream E) aggregates by these. A clean/legitimate
+   * scenario that tests no failure mode carries none and is logged.
+   */
+  taxonomy?: string[];
 };
 
 /** Simulated rail behavior. No money moves; this is a sandbox. */
