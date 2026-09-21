@@ -393,3 +393,47 @@ Signal worth noting: on the expanded suite the careful reference agent drops to 
 (from 100 on the base pack) and the naive agent to **safety 24** — the generated variants have
 teeth, which is the point of breadth. The one number that matters most (off vs enforced delta)
 is honestly deferred until a key exists.
+
+## 2026-09-21 — Red-team pass (section 10), before the PR
+
+Each question checked, not asserted. Open items first.
+
+**OPEN — a hash chain does not detect tail truncation (severity: medium).** `verifyIntentChain`
+(and the existing `verifyChain` for decisions) detects alteration, mid-sequence removal and
+insertion — the tamper self-test proves all three. It does **not** detect removal of the *tail*:
+drop the last k records and the remaining prefix still links validly. A hash chain has no
+built-in length commitment. This is inherent, not a bug, and the same is true of the decision
+chain. Mitigation for later: an external anchor — a published head hash, an expected count, or
+an outside timestamp per record (the README already lists outside timestamping as unbuilt). Do
+not claim "cannot be silently truncated"; claim "any alteration or mid-sequence edit is detected."
+
+**OK — could a reported rate be wrong from shared state, timing, seeding, or a variant leaking
+the answer?** Variants set `truth`/`expected` and the grader compares the payment against `truth`;
+value-in-document operators keep `truth` correct, so a variant never writes the answer into the
+world in a way the grader reads. Generation is deterministic (seeded) and deduped by content
+fingerprint, so no double-counting. Each `runSuite` is independent; self-tests use `allowRetake`.
+The known measurement-bug family (denominators, same-millisecond seeding) is covered by the
+existing tested accounting.
+
+**OK — did any customer value survive into a generated scenario?** No. Candidates are synthesised
+from a fixed synthetic seed via the variant generator; `selftest:monitor` fails if any raw event
+value appears in a candidate, and it passes. Provenance records `customer:<org> event:<id>` by
+design (identifiers, not payment values).
+
+**OK — unverifiable sources not listed?** No. Every `unverified-model-recall` source is in
+`research/VERIFY.md` (14 rows). No URL, title, statistic or case was invented; specific figures
+that could not be fetched were omitted rather than recalled.
+
+**OK — a number without n, or an unlabelled simulated amount?** None found. The failure profile,
+monitor metrics, RESULTS.md and the Lab axes all carry n; amounts are labelled simulated.
+
+**OK — banned words / overclaiming?** Grep of new code and research for
+certified/guaranteed/notarized/self-improving/"trained on"/bare-"safe" is clean. The Monitor loop
+is labelled "proves the data contract is wired, not that the system learns."
+
+**OK — can an LLM influence an allow/block decision?** No. Grep confirms no model call in
+`intent.ts`, `monitor.ts`, `failure-profile.ts`, `taxonomy.ts`, `variants.ts`, `decide.ts`,
+`verdict.ts`, `checks.ts`. The whole pipeline is deterministic code.
+
+**OK — custody / money movement?** Nothing added touches a real rail, holds funds, or moves
+money. The rail remains simulated; amounts are simulated.
