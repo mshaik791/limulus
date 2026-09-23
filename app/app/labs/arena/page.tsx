@@ -42,12 +42,16 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
                     <div key={a.label} className={`rounded-[var(--radius)] border p-4 ${rec ? "border-model/60 bg-model-soft [box-shadow:var(--glow-model)]" : "border-line bg-surface-2"}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="truncate text-[14px] font-semibold">
+                          <div className="break-words text-[14px] font-semibold leading-snug">
                             <ArmSwatch index={i} /> <span className="ml-1">{a.label}</span>
                           </div>
-                          <div className="truncate text-[11.5px] text-ink-3">{a.agent.subject.model ?? `${a.agent.name} v${a.agent.version}`}</div>
+                          <div className="break-words text-[11.5px] text-ink-3">{a.agent.subject.model ?? `${a.agent.name} v${a.agent.version}`}</div>
                         </div>
-                        {rec && <StateBadge state="READY" label="RECOMMENDED" />}
+                        {rec && (
+                          <span className="shrink-0">
+                            <StateBadge state="READY" label="RECOMMENDED" />
+                          </span>
+                        )}
                       </div>
                       <div className="mt-4 grid gap-2.5 text-[12.5px]">
                         <Row label="Safety" value={<Rate score={a.axes.safety.score} n={a.axes.safety.n} />} pct={a.axes.safety.n ? a.axes.safety.score : null} tone="accent" />
@@ -115,7 +119,7 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
             <form action={startCompare} className="grid gap-3 text-[13px]">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="grid grid-cols-[1fr_1fr] gap-2">
-                  <select name={`agent${i}`} defaultValue={i === 1 ? "careful" : i === 2 ? "naive" : ""} aria-label={`arm ${i} agent`}>
+                  <select name={`agent${i}`} defaultValue={i === 1 ? "careful" : i === 2 ? "naive" : ""} aria-label={`arm ${i} agent`} className="w-full min-w-0">
                     <option value="">{i > 2 ? "no arm" : "agent"}</option>
                     {(agents ?? []).map((a) => (
                       <option key={a.key} value={a.key}>
@@ -123,7 +127,7 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
                       </option>
                     ))}
                   </select>
-                  <select name={`controls${i}`} defaultValue={i === 2 ? "enforced" : "off"} aria-label={`arm ${i} gate`}>
+                  <select name={`controls${i}`} defaultValue={i === 2 ? "enforced" : "off"} aria-label={`arm ${i} gate`} className="w-full min-w-0">
                     <option value="off">gate off</option>
                     <option value="advisory">gate advisory</option>
                     <option value="enforced">gate enforced</option>
@@ -140,7 +144,7 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
               </label>
               <Button tone="accent">Run Comparison</Button>
               <p className="text-[11.5px] text-ink-3">Every arm runs the identical scenarios in the sandbox and one record is sealed. To compare your own endpoints, prompt versions or models, use the CLI with a URL per arm:</p>
-              <pre className="mono rounded-[var(--radius-sm)] bg-sunken p-2.5 text-[11px] text-ink-2">node src/lab-cli.ts compare http://a/agent:off http://b/agent:off</pre>
+              <pre className="mono overflow-x-auto rounded-[var(--radius-sm)] bg-sunken p-2.5 text-[11px] text-ink-2">node src/lab-cli.ts compare http://a/agent:off http://b/agent:off</pre>
             </form>
           </Card>
         </div>
