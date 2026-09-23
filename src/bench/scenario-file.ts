@@ -58,7 +58,11 @@ const SCENARIO_KEYS = [
   // Taxonomy tags, scope gating, and variant provenance. Optional, but allowed
   // so a customer file can carry them and a generated variant round-trips.
   "taxonomy", "scopeDimension", "variantOf", "operators", "variantSeed",
+  // Compiler provenance: which control and case produced this scenario.
+  "compiledFrom",
 ] as const;
+
+const COMPILED_FROM_KEYS = ["policyId", "controlId", "controlType", "case", "asOf"] as const;
 
 const AUTH_KEYS = [
   "policyVersion", "principal", "task", "limitPerPayment", "limitPerDay",
@@ -441,6 +445,22 @@ function checkAnswerable(c: Checker, s: Scenario) {
 // ---------------------------------------------------------------- entry points
 
 /** Validates one parsed JSON value as a scenario. Returns problems, never throws. */
+function parseCompiledFrom(c: Checker, raw: unknown): Scenario["compiledFrom"] | undefined {
+  if (raw === undefined) return undefined;
+  if (!isObj(raw)) {
+    c.err("compiledFrom", "must be an object { policyId, controlId, controlType, case, asOf }");
+    return undefined;
+  }
+  c.strictKeys(raw, COMPILED_FROM_KEYS, "compiledFrom");
+  const out: Record<string, string> = {};
+  for (const key of COMPILED_FROM_KEYS) {
+    const v = c.str(raw, key, "compiledFrom");
+    if (v !== undefined) out[key] = v;
+  }
+  if (out.asOf !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(out.asOf)) c.err("compiledFrom.asOf", `must be an ISO date, got ${JSON.stringify(out.asOf)}`);
+  return Object.keys(out).length === COMPILED_FROM_KEYS.length ? (out as unknown as Scenario["compiledFrom"]) : undefined;
+}
+
 export function parseScenario(raw: unknown, file: string): { scenario?: Scenario; problems: Problem[] } {
   const c = new Checker(file);
   if (!isObj(raw)) {
@@ -477,6 +497,7 @@ export function parseScenario(raw: unknown, file: string): { scenario?: Scenario
   const variantOf = c.str(raw, "variantOf", "", false);
   const variantSeed = c.str(raw, "variantSeed", "", false);
   const scopeDimension = c.str(raw, "scopeDimension", "", false);
+  const compiledFrom = parseCompiledFrom(c, raw.compiledFrom);
 
   if (id !== undefined && !/^[a-z0-9][a-z0-9-]*$/.test(id)) {
     c.err("id", `must be lowercase letters, digits and hyphens, got ${JSON.stringify(id)}`);
@@ -497,6 +518,7 @@ export function parseScenario(raw: unknown, file: string): { scenario?: Scenario
     ...(variantOf ? { variantOf } : {}),
     ...(variantSeed ? { variantSeed } : {}),
     ...(scopeDimension ? { scopeDimension: scopeDimension as Scenario["scopeDimension"] } : {}),
+    ...(compiledFrom ? { compiledFrom } : {}),
   };
   checkAnswerable(c, scenario);
 

@@ -35,7 +35,12 @@
     "bundle": "node src/bench/failure-bundle.ts",
     "gate": "node src/bench/ci-gate.ts --scenarios scenarios",
     "cadence": "node src/bench/family-cadence.ts",
-    "e2e": "node src/e2e.ts"
+    "e2e": "node src/e2e.ts",
+    "selftest:policy": "node src/policy/selftest.ts",
+    "selftest:compare": "node src/sandbox/compare-selftest.ts",
+    "selftest:shadow": "node src/shadow-selftest.ts",
+    "selftest:gate": "node src/bench/gate-selftest.ts",
+    "policy:compile": "node src/policy-cli.ts compile"
   },
   "license": "UNLICENSED"
 }

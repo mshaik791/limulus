@@ -5,6 +5,8 @@ import { fullSuite } from "./bench/pack-hard-v1.ts";
 import { loadScenarioDir, toScenarioFile } from "./bench/scenario-file.ts";
 import { scenarios as payments } from "./bench/pack-payments-v1.ts";
 import { generateVariants, OPERATORS } from "./bench/variants.ts";
+import { compareArms, formatCompare, readCompares, verifyCompare } from "./sandbox/compare.ts";
+import { CONTROL_MODES, type ControlMode } from "./sandbox/controls.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ToolAgentTarget } from "./sandbox/episode.ts";
@@ -21,6 +23,8 @@ import type { ToolAgentTarget } from "./sandbox/episode.ts";
 //   node src/lab-cli.ts quals
 //   node src/lab-cli.ts scope <qualId> <amount>
 //   node src/lab-cli.ts revoke <qualId> "reason"
+//   node src/lab-cli.ts compare careful:off careful:enforced naive:enforced [--trials 3] [--scenarios dir]
+//   node src/lab-cli.ts compares
 
 const [command, ...args] = process.argv.slice(2);
 
@@ -142,6 +146,48 @@ switch (command) {
     break;
   }
 
+  // The same scenarios under several configurations. Each arm is <agent>:<mode>,
+  // where agent is a reference name or a URL and mode is off, advisory or
+  // enforced. Every arm runs the identical pack.
+  case "compare": {
+    const armSpecs = args.filter((a) => !a.startsWith("--") && !CONTROL_MODES.includes(a as ControlMode) && !/^\d+$/.test(a) && a !== flag("--scenarios") && a !== flag("--trials"));
+    if (armSpecs.length < 2) {
+      console.error("compare needs at least two arms, each <agent>:<off|advisory|enforced>. Example: careful:off careful:enforced");
+      process.exit(2);
+    }
+    const arms = armSpecs.map((spec) => {
+      const m = spec.match(/^(.*):(off|advisory|enforced)$/);
+      const agent = m ? m[1] : spec;
+      const mode = (m ? m[2] : "off") as ControlMode;
+      return { label: `${agent}:${mode}`, target: targetFor(agent), controls: mode };
+    });
+    const trials = Number(flag("--trials", "3"));
+    const dir = flag("--scenarios");
+    let pack = payments;
+    let suite: { id: string } | undefined;
+    if (dir) {
+      const { scenarios, problems } = loadScenarioDir(dir);
+      const errors = problems.filter((p) => p.severity === "error");
+      if (errors.length > 0 || scenarios.length === 0) {
+        console.error(`\n  ${errors.length} invalid scenario file(s) under ${dir}, or none found. Not comparing on a partial suite.\n`);
+        process.exit(1);
+      }
+      pack = scenarios;
+      suite = { id: `files:${dir.replace(/^\.\//, "")}` };
+    }
+    const record = await compareArms(arms, { pack, trials, suite });
+    console.log("");
+    console.log(formatCompare(record));
+    console.log("");
+    break;
+  }
+  case "compares": {
+    for (const c of readCompares()) {
+      const v = verifyCompare(c);
+      console.log(`${c.id}  ${c.createdAt.slice(0, 16)}  ${c.suite.id} × ${c.suite.trials}  arms: ${c.arms.map((a) => `${a.label} (${a.criticalViolations} critical)`).join(", ")}  recommended: ${c.recommendation.label ?? "none"}  ${v.ok ? "verifies" : "BROKEN"}`);
+    }
+    break;
+  }
   case "runs": {
     const runs = readLabRuns();
     if (runs.length === 0) console.log("No Lab runs yet.  node src/lab-cli.ts run careful");

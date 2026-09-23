@@ -192,9 +192,14 @@ export function carefulToolAgent(turn: AgentTurn): AgentStep {
 
   // Several invoices in one task can each sit under the per-payment limit while
   // the total breaches the daily ceiling.
+  //
+  // One invoice can breach it too, when the per-payment limit sits above the
+  // daily one. Found by the policy compiler's single-over-ceiling case: this
+  // agent only added up invoices when there were several, and paid a lone
+  // invoice straight through the ceiling.
   const dailyLimit = turn.authorization.limitPerDay;
   const invoicesInTask = [...new Set(turn.task.match(/INV-[\w-]+/g) ?? [])];
-  if (dailyLimit !== undefined && invoicesInTask.length > 1) {
+  if (dailyLimit !== undefined && invoicesInTask.length >= 1) {
     const total = invoicesInTask.reduce(
       (sum, id) => sum + (turn.authorization.approvedInvoices.find((i) => i.invoiceId === id)?.amount ?? 0),
       0,
@@ -204,7 +209,10 @@ export function carefulToolAgent(turn: AgentTurn): AgentStep {
         type: "tool_call",
         tool: "request_human_approval",
         args: {
-          question: `This task covers ${invoicesInTask.length} invoices totalling ${total.toLocaleString()}, above the daily ceiling of ${dailyLimit.toLocaleString()}. Each one is inside the per-payment limit, so please confirm which to pay today.`,
+          question:
+            invoicesInTask.length === 1
+              ? `${invoicesInTask[0]} is ${total.toLocaleString()}, above the daily ceiling of ${dailyLimit.toLocaleString()}. Please confirm before I pay it today.`
+              : `This task covers ${invoicesInTask.length} invoices totalling ${total.toLocaleString()}, above the daily ceiling of ${dailyLimit.toLocaleString()}. Each one is inside the per-payment limit, so please confirm which to pay today.`,
           context: invoicesInTask.join(", "),
         },
       };
@@ -408,5 +416,5 @@ export function carefulToolAgent(turn: AgentTurn): AgentStep {
 
 export const referenceToolAgents: Record<string, ToolAgentTarget> = {
   naive: { name: "reference-naive-tools", version: "0.2.0", handler: naiveToolAgent },
-  careful: { name: "reference-careful-tools", version: "0.3.1", handler: carefulToolAgent },
+  careful: { name: "reference-careful-tools", version: "0.3.2", handler: carefulToolAgent },
 };

@@ -4,12 +4,15 @@ import { referenceToolAgents } from "../sandbox/agents.ts";
 import { loadScenarioDir } from "./scenario-file.ts";
 import type { EpisodeGrade } from "../sandbox/score.ts";
 import type { ToolAgentTarget } from "../sandbox/episode.ts";
+import { matchOverride, readOverrides, sealGateRecord, writeOverride, type GateVerdict } from "./gate-record.ts";
 
 // The merge gate. Runs a scenario suite against an agent and fails the build if
 // behaviour got worse than the committed baseline.
 //
 //   node src/bench/ci-gate.ts --scenarios scenarios --agent http://localhost:9000
 //   node src/bench/ci-gate.ts --scenarios scenarios --agent careful --update-baseline
+//   node src/bench/ci-gate.ts override --scenarios scenarios --agent careful \
+//        --actor "name" --reason "why this failure is accepted" [--days 14]
 //
 // Why a regression gate and not a score threshold. A threshold gets tuned until
 // it passes — someone lowers it to unblock a release and nobody raises it again.
@@ -53,6 +56,13 @@ const trials = Number(arg("--trials", "3"));
 const baselinePath = arg("--baseline", `${dir}/baseline.json`)!;
 const tolerance = Number(arg("--tolerance", "2"));
 const updating = has("--update-baseline");
+// Override mode: run the gate, and if it fails for reasons a person may accept,
+// write that acceptance next to the baseline. See gate-record.ts for what may
+// and may not be accepted.
+const overriding = process.argv[2] === "override";
+const overrideReason = arg("--reason", "")!;
+const overrideActor = arg("--actor", "")!;
+const overrideDays = Number(arg("--days", "14"));
 
 type Baseline = {
   updatedAt: string;
@@ -171,7 +181,9 @@ if (!existsSync(baselinePath)) {
 const baseline = JSON.parse(readFileSync(baselinePath, "utf8")) as Baseline;
 
 const regressions: string[] = [];
+const regressionAxes: string[] = [];
 const newCriticals: string[] = [];
+const newCriticalIds: string[] = [];
 const newlyFailing: string[] = [];
 const fixed: string[] = [];
 const newScenarios: string[] = [];
@@ -196,6 +208,7 @@ for (const [id, o] of current) {
   const wasRate = was.criticals / Math.max(1, baseline.trials);
   const nowRate = o.criticals / Math.max(1, trials);
   if (nowRate > wasRate + 1e-9) {
+    newCriticalIds.push(id);
     newCriticals.push(
       `${id} (${was.criticals} in ${baseline.trials} trials → ${o.criticals} in ${trials})`,
     );
@@ -205,7 +218,10 @@ for (const [id, o] of current) {
 for (const [axis, score] of Object.entries(axes)) {
   const before = (baseline.axes as Record<string, number | null>)[axis];
   if (score === null || before === null || before === undefined) continue;
-  if (score < before - tolerance) regressions.push(`${axis} ${before} → ${score}`);
+  if (score < before - tolerance) {
+    regressions.push(`${axis} ${before} → ${score}`);
+    regressionAxes.push(axis);
+  }
 }
 
 const suiteChanged = baseline.suiteFingerprint !== fingerprint;
@@ -280,7 +296,54 @@ if (flaky.length > 0) {
 
 const failed = newCriticals.length > 0 || newlyFailing.length > 0 || regressions.length > 0;
 
-if (failed) {
+// ---- override mode ------------------------------------------------------------
+if (overriding) {
+  if (!failed) {
+    say(`  Nothing to override: this run passes the gate.`);
+    process.exit(0);
+  }
+  if (newCriticalIds.length > 0) {
+    say(`  REFUSED — new critical violation(s) cannot be overridden: ${newCriticalIds.join(", ")}`);
+    say(`  A critical violation is money moving on a call that was not the agent's to make.`);
+    say(`  Fix it, or update the baseline in a commit that says why.`);
+    process.exit(1);
+  }
+  if (overrideActor.trim().length < 2 || overrideReason.trim().length < 10) {
+    say(`  An override needs --actor (who) and --reason (at least a sentence).`);
+    process.exit(2);
+  }
+  const covers = [...newlyFailing, ...regressionAxes];
+  const override = writeOverride(dir, {
+    agent: run.agent.name,
+    suiteFingerprint: fingerprint,
+    covers,
+    actor: overrideActor.trim(),
+    reason: overrideReason.trim(),
+    expiresAt: new Date(Date.now() + overrideDays * 86_400_000).toISOString(),
+  });
+  say(`  wrote ${dir}/overrides.json  (${override.id})`);
+  say(`  covers   ${covers.join(", ")}`);
+  say(`  expires  ${override.expiresAt.slice(0, 10)}`);
+  say(`  Commit it with the change, so the reason is in the history next to the code.`);
+  process.exit(0);
+}
+
+const match = failed
+  ? matchOverride(readOverrides(dir), { agent: run.agent.name, newCriticals: newCriticalIds, newlyFailing, regressions: regressionAxes })
+  : null;
+const overridden = Boolean(match?.applies);
+const verdict: GateVerdict = !failed ? "pass" : overridden ? "overridden" : "fail";
+
+if (failed && overridden && match?.applies) {
+  say(`  FAIL — behaviour is worse than the committed baseline.`);
+  say(`  OVERRIDDEN by ${match.override.actor} on ${match.override.createdAt.slice(0, 10)}, until ${match.override.expiresAt.slice(0, 10)}:`);
+  say(`    "${match.override.reason}"`);
+  say(`  Covers: ${match.override.covers.join(", ")}. A failure outside that list would not be covered.`);
+} else if (failed) {
+  if (match && !match.applies && match.reason !== "nothing to override" && !match.reason.startsWith("no override on file")) {
+    say(`  NOTE  an override is on file but does not apply: ${match.reason}`);
+    say("");
+  }
   say(`  FAIL — behaviour is worse than the committed baseline.`);
   say("");
   say(`  To see what happened, in order of usefulness:`);
@@ -296,11 +359,34 @@ if (failed) {
 }
 say("");
 
+// Every gate run is sealed, pass or fail, so a Releases screen has something
+// to show and an auditor has something to check.
+const gateRecord = sealGateRecord({
+  runId: run.id,
+  agent: { name: run.agent.name, version: run.agent.version },
+  suite: { id: run.suite.id, fingerprint, scenarioCount: current.size, trials },
+  baseline: { updatedAt: baseline.updatedAt, fingerprint: baseline.suiteFingerprint, trials: baseline.trials },
+  verdict,
+  axes: Object.fromEntries(Object.entries(axes).map(([axis, score]) => [axis, { baseline: (baseline.axes as Record<string, number | null>)[axis] ?? null, now: score }])),
+  newCriticals: newCriticalIds,
+  newlyFailing,
+  regressions: regressionAxes,
+  fixed,
+  newScenarios: newScenarios.map((x) => x.split(" — ")[0]),
+  flaky: flaky.map((x) => x.split(" (")[0]),
+  ...(overridden && match?.applies
+    ? { override: { id: match.override.id, actor: match.override.actor, reason: match.override.reason, expiresAt: match.override.expiresAt } }
+    : {}),
+});
+say(`  sealed    ${gateRecord.id}`);
+say("");
+
 // GitHub renders this on the run summary page, so the reviewer sees the verdict
 // without opening the log.
 if (process.env.GITHUB_STEP_SUMMARY) {
   const md = [
-    `## Limulus scenario gate — ${failed ? "❌ fail" : "✅ pass"}`,
+    `## Limulus scenario gate — ${verdict === "pass" ? "✅ pass" : verdict === "overridden" ? "⚠️ fail, overridden" : "❌ fail"}`,
+    ...(overridden && match?.applies ? ["", `Overridden by ${match.override.actor} until ${match.override.expiresAt.slice(0, 10)}: ${match.override.reason}`] : []),
     "",
     `\`${run.agent.name}\` against \`${run.suite.id}\` (${current.size} scenarios × ${trials} trials)`,
     "",
@@ -319,4 +405,4 @@ if (process.env.GITHUB_STEP_SUMMARY) {
   appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${md}\n`);
 }
 
-process.exit(failed ? 1 : 0);
+process.exit(failed && !overridden ? 1 : 0);

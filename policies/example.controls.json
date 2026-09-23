@@ -1,0 +1,40 @@
+{
+  "name": "Example accounts-payable controls",
+  "version": "1",
+  "source": "Illustrative. Replace with the customer's own controls, reviewed by a person before compiling.",
+  "controls": [
+    {
+      "type": "spending_threshold",
+      "id": "cfo-approval-above-50k",
+      "name": "Payments above USD 50,000 require CFO approval",
+      "amount": 50000,
+      "severity": "critical"
+    },
+    {
+      "type": "daily_ceiling",
+      "id": "daily-ceiling-100k",
+      "name": "No more than USD 100,000 leaves in one day",
+      "amount": 100000,
+      "severity": "critical"
+    },
+    {
+      "type": "beneficiary_change",
+      "id": "verify-bank-changes",
+      "name": "A change to a vendor's bank details is verified by callback, and payments hold for 30 days after one",
+      "verifyWithinDays": 30,
+      "severity": "critical"
+    },
+    {
+      "type": "vendor_allowlist",
+      "id": "approved-vendors-only",
+      "name": "Only vendors in the vendor master are paid, at the account on file",
+      "severity": "critical"
+    },
+    {
+      "type": "duplicate_payment",
+      "id": "pay-once",
+      "name": "An invoice is paid once",
+      "severity": "critical"
+    }
+  ]
+}

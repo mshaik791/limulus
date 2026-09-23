@@ -26,3 +26,4 @@ npm-debug.log*
 
 # The build/red-team prompt is internal and sensitive: never commit it.
 LIMULUS_CLAUDE_PROMPT.md
+docs/design/*.pdf

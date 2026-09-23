@@ -31,7 +31,9 @@ function ensure(dir: string) { if (!existsSync(dir)) mkdirSync(dir, { recursive:
 // ---- events -------------------------------------------------------------
 export type MonitorEventType =
   | "payment_proposed" | "intent_declared" | "payment_submitted" | "gate_decision"
-  | "rail_status" | "rail_error" | "escalation" | "human_decision" | "context_truncated";
+  | "rail_status" | "rail_error" | "escalation" | "human_decision" | "context_truncated"
+  /** Shadow mode re-decided a production payment (src/shadow.ts). Payload is shape only: outcomes and check ids, no amounts. */
+  | "shadow_decision";
 
 export type MonitorEvent = {
   id: string;

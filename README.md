@@ -228,6 +228,28 @@ back in produces one of six states:
 `unauthorized` is the one that matters most. Every other tool in this space checks a payment before
 it moves and never learns whether its decision was honoured.
 
+## Shadow mode
+
+Production decisions, re-decided by us, with no authority to change any of them. A customer sends
+what their agent declared, what reached their rail and what their own controls did; we run the same
+three-way match the gate runs and record what we would have done.
+
+```bash
+curl -X POST localhost:8787/v1/shadow/evaluate -H 'content-type: application/json' -d '{
+  "org": "acme", "agentId": "ap-agent",
+  "declaration": {...}, "paymentOrder": {...}, "documents": [...],
+  "production": {"outcome": "released", "reference": "pay_8813"}
+}'
+curl localhost:8787/v1/shadow/summary?org=acme
+```
+
+Each record says `agree`, `would_have_held`, `would_have_escalated` or `would_have_released`, with the
+check that decided it. Exposure is the amount of payments production released that we would have
+stopped: the customer's money, moved by their system, reported as what we would have stopped and
+never as a loss. Disagreements can be reviewed by a person as a false positive or confirmed, and
+the false-positive rate is computed over reviewed disagreements only. Shadow keeps its own history
+per org, so the duplicate check sees what that customer actually released.
+
 ## Receipts
 
 A receipt is the portable form of a decision: roughly 2.5 KB of JSON carrying the decision, the
@@ -324,6 +346,54 @@ node src/lab-cli.ts scope qual_... 2000
 node src/lab-cli.ts revoke qual_... "prompt changed without a re-run"
 ```
 
+### Controls compile into tests
+
+A customer's rule is one sentence. The edges of the rule are where an agent loses money, so a
+control compiles into its edges, plus at least one payment that is legitimate under it:
+
+```bash
+node src/policy-cli.ts types                                    # the five control types
+node src/policy-cli.ts compile policies/example.controls.json   # 22 scenarios from 5 controls
+node src/lab-cli.ts run careful 3 --scenarios build/compiled/ctl_...
+```
+
+"Payments above 50,000 require CFO approval" becomes seven scenarios: under the line, exactly at
+it, one over with no approval, one over with a valid approval, an approval for a different amount,
+an approval claimed in the invoice text with none on file, and two invoices that together clear the
+line. The compiled files are ordinary `*.scenario.json`, so they run through the Lab, the gate and
+the variant generator like everything else, and each one names the control and case it came from.
+
+| Control | Parameters | What compiles out of it |
+|---|---|---|
+| `spending_threshold` | `amount` | boundary, unapproved, approved, mismatched approval, claimed approval, split pair |
+| `daily_ceiling` | `amount` | three under that total over, one alone over, one under |
+| `beneficiary_change` | `verifyWithinDays` | change by email, change with pressure not to verify, recent change on the record, old change |
+| `vendor_allowlist` | | vendor not on file, lookalike name, on-file vendor with a new account, on file |
+| `duplicate_payment` | | already settled, second notice after settlement, partial then balance, first payment |
+
+No model is involved. The cases are enumerated by hand per control type, because a case nobody can
+name is a case nobody can grade. The six other control types in the product blueprint (required
+approver by role, separation of duties, timing, tool permission, permitted rail, escalation rule)
+are refused by name until the world and the graders can assert them.
+
+### Compare
+
+The same scenarios under several configurations, one signed record. An arm is an agent plus a
+control mode, so "careful, gate off" against "careful, gate enforced" is a comparison, and so is
+one endpoint against another.
+
+```bash
+node src/lab-cli.ts compare careful:off careful:enforced naive:enforced --trials 3
+node src/lab-cli.ts compare http://host-a/agent:off http://host-b/agent:off --scenarios ./scenarios
+node src/lab-cli.ts compares
+```
+
+Every arm runs the identical pack and the record refuses to be read the wrong way: critical
+violations come first and the recommendation rule cannot see past them, every rate carries its n,
+an advisory arm run against a reference agent is marked as not measuring skip behaviour, and an
+enforced arm that lowered the simulated wrongful amount is reported as a reduction, not a
+prevention. The recommendation, when there is one, states its rule and its numbers.
+
 ## The scenario pack
 
 The `payments-v1` pack (0.2.0) holds 22 scenarios in five categories. The failure patterns come from
@@ -400,6 +470,16 @@ POST /v1/bench/runs           run an agent against the pack: {"endpoint":"..."} 
 GET  /v1/bench/scenarios      list the scenario pack
 GET  /v1/bench/reports        recent readiness reports
 GET  /v1/bench/reports/:id    one report, with its verification result
+
+POST /v1/policies/compile     a customer's controls in, a runnable scenario suite out
+GET  /v1/policies/control-types
+POST /v1/lab/compare          the same scenarios under several configurations, one signed record
+GET  /v1/lab/compares         recent comparisons; /v1/lab/compares/:id for one, with its verification
+POST /v1/shadow/evaluate      a production payment decision, re-decided: what we would have done
+GET  /v1/shadow               shadow records; ?agreement=would_have_held for the disagreements
+GET  /v1/shadow/summary       agreed / would have held / would have escalated, each with n
+POST /v1/shadow/:id/review    a person's verdict on a disagreement: false_positive, confirmed, unsure
+GET  /v1/gates                every release-gate run, sealed, pass or fail; /v1/gates/:id for one
 GET  /health
 ```
 
@@ -439,6 +519,24 @@ curl -X POST localhost:8787/v1/release -H 'content-type: application/json' -d '{
   "agent": {"name": "ap-agent", "version": "1.4.2"}
 }'
 ```
+
+### Gate records and overrides
+
+Every run of `src/bench/ci-gate.ts` is sealed into `data/gates.jsonl`, pass or fail, so a Releases
+screen has something to show and an auditor has something to check (`GET /v1/gates`).
+
+An override is a person accepting a failing gate for a stated reason:
+
+```bash
+node src/bench/ci-gate.ts override --scenarios scenarios --agent http://host/agent \
+  --actor "j.ortiz" --reason "Refusals on the two freight scenarios are accepted until the vendor file is fixed."
+```
+
+It is written to `scenarios/overrides.json`, next to the baseline, so the reason lives in git history
+with an author. It covers exactly the failures present when it was written, expires (14 days by
+default), and is void if edited afterwards. It cannot cover a new critical violation: money moving on
+a call that was not the agent's to make has no acceptable rate, and the honest paths are to fix it or
+to update the baseline in a commit that says why.
 
 ## The checks
 

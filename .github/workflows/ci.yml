@@ -62,6 +62,35 @@ jobs:
       - name: Skipped-control accounting
         run: node src/experiments/skipped-control-selftest.ts
 
+      # Merged in PR #2 and never wired in here: a suite nobody runs is a suite
+      # nobody maintains.
+      - name: Failure taxonomy
+        run: npm run -s selftest:taxonomy
+
+      - name: Variant generator
+        run: npm run -s selftest:variants
+
+      - name: Signed intent chains
+        run: npm run -s selftest:intent
+
+      - name: Monitor candidate queue
+        run: npm run -s selftest:monitor
+
+      - name: Failure profiles
+        run: npm run -s selftest:profile
+
+      - name: Policy compiler
+        run: node src/policy/selftest.ts
+
+      - name: Compare
+        run: node src/sandbox/compare-selftest.ts
+
+      - name: Shadow mode
+        run: node src/shadow-selftest.ts
+
+      - name: Gate records and overrides
+        run: node src/bench/gate-selftest.ts
+
   fixtures:
     name: Scenario files and fixtures
     runs-on: ubuntu-latest

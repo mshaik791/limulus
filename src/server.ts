@@ -21,6 +21,14 @@ import { gatePayment } from "./rails/gate.ts";
 import { rail } from "./rails/increase.ts";
 import { reconcile } from "./rails/reconcile.ts";
 import { readLabRuns, readTraces, runSuite, verifyLabRun } from "./sandbox/lab.ts";
+import { compareArms, readCompares, verifyCompare } from "./sandbox/compare.ts";
+import { CONTROL_MODES, type ControlMode } from "./sandbox/controls.ts";
+import { openPool } from "./bench/pools.ts";
+import { compilePolicy } from "./policy/compile.ts";
+import { evaluateShadow, readShadow, reviewShadow, shadowSummary, verifyShadowChain, verifyShadowRecord, type ShadowInput } from "./shadow.ts";
+import { readGateRecords, verifyGateRecord } from "./bench/gate-record.ts";
+import { CONTROL_TYPES, parsePolicyProfile } from "./policy/controls.ts";
+import { parseScenario } from "./bench/scenario-file.ts";
 import { referenceToolAgents } from "./sandbox/agents.ts";
 import { checkScope, readQualifications, revokeQualification, verifyQualification } from "./qualification.ts";
 import { addEndpoint, emit, listEndpoints, readDeliveries, removeEndpoint } from "./webhooks.ts";
@@ -332,6 +340,128 @@ const server = createServer(async (req, res) => {
         qualifyFor: body.qualifyFor,
       });
       return json(res, 200, { run, qualification });
+    }
+
+    // ---- Compare: several configurations, one pack, one signed record --------
+    if (path === "/v1/lab/compare" && req.method === "POST") {
+      const body = (await readBody(req)) as {
+        arms?: { label?: string; agent?: string; endpoint?: string; version?: string; controls?: string }[];
+        trials?: number;
+        /** Scenario objects in the file format. Defaults to the open pool. */
+        scenarios?: unknown[];
+        suite?: { id: string; version?: string };
+      };
+      if (!Array.isArray(body.arms) || body.arms.length < 2) {
+        return json(res, 400, { error: "Send at least two arms: [{agent|endpoint, controls: off|advisory|enforced, label?}]" });
+      }
+      const arms = [];
+      for (const a of body.arms) {
+        const target = a.endpoint
+          ? { name: a.agent ?? new URL(a.endpoint).host, version: a.version ?? "external", endpoint: a.endpoint }
+          : referenceToolAgents[a.agent ?? ""];
+        if (!target) return json(res, 400, { error: `Unknown agent ${JSON.stringify(a.agent)}`, agents: Object.keys(referenceToolAgents) });
+        const controls = (a.controls ?? "off") as ControlMode;
+        if (!CONTROL_MODES.includes(controls)) return json(res, 400, { error: `controls must be one of ${CONTROL_MODES.join(", ")}` });
+        arms.push({ label: a.label, target, controls });
+      }
+      let pack;
+      if (body.scenarios) {
+        const parsed = body.scenarios.map((raw, i) => parseScenario(raw, `scenarios[${i}]`));
+        const errors = parsed.flatMap((p) => p.problems.filter((x) => x.severity === "error"));
+        if (errors.length) return json(res, 400, { error: "Invalid scenarios", problems: errors });
+        pack = parsed.map((p) => p.scenario!);
+      } else {
+        pack = await openPool();
+      }
+      try {
+        const record = await compareArms(arms, { pack, trials: body.trials ?? 3, suite: body.suite });
+        return json(res, 200, record);
+      } catch (e) {
+        return json(res, 400, { error: (e as Error).message });
+      }
+    }
+
+    if (path === "/v1/lab/compares") {
+      const all = readCompares();
+      return json(res, 200, { count: all.length, compares: all.slice(-25).map(({ arms, ...rest }) => ({ ...rest, arms: arms.map(({ scenarios, ...a }) => a) })) });
+    }
+
+    if (path.startsWith("/v1/lab/compares/")) {
+      const id = path.split("/")[4];
+      const record = readCompares().find((c) => c.id === id);
+      if (!record) return json(res, 404, { error: "No such comparison" });
+      return json(res, 200, { ...record, verification: verifyCompare(record) });
+    }
+
+    // ---- Policies: controls in, scenarios out --------------------------------
+    if (path === "/v1/policies/control-types") {
+      return json(res, 200, { types: CONTROL_TYPES });
+    }
+
+    if (path === "/v1/policies/compile" && req.method === "POST") {
+      const body = (await readBody(req)) as { profile?: unknown; asOf?: string };
+      const { profile, problems } = parsePolicyProfile(body.profile ?? body);
+      if (!profile) return json(res, 400, { error: "Invalid controls", problems });
+      try {
+        const result = compilePolicy(profile, { asOf: body.asOf });
+        return json(res, 200, result);
+      } catch (e) {
+        return json(res, 400, { error: (e as Error).message });
+      }
+    }
+
+    // ---- Shadow mode: production decisions, re-decided, no authority --------
+    if (path === "/v1/shadow/evaluate" && req.method === "POST") {
+      const body = (await readBody(req)) as Partial<ShadowInput>;
+      if (!body.declaration || !body.paymentOrder || !body.production?.outcome) {
+        return json(res, 400, { error: "Send declaration, paymentOrder and production: { outcome: released|held|escalated, reference?, at? }. authorization and documents are optional." });
+      }
+      if (!["released", "held", "escalated"].includes(body.production.outcome)) {
+        return json(res, 400, { error: "production.outcome must be released, held or escalated" });
+      }
+      return json(res, 200, evaluateShadow(body as ShadowInput));
+    }
+    if (path === "/v1/shadow/summary") {
+      return json(res, 200, shadowSummary(url.searchParams.get("org") ?? "default"));
+    }
+    if (path === "/v1/shadow/verify") return json(res, 200, verifyShadowChain());
+    if (path === "/v1/shadow" && req.method === "GET") {
+      const org = url.searchParams.get("org");
+      const agreement = url.searchParams.get("agreement");
+      const all = readShadow().filter((r) => (!org || r.org === org) && (!agreement || r.agreement === agreement));
+      return json(res, 200, { count: all.length, records: all.slice(-50).map(({ checks, ...r }) => r) });
+    }
+    if (path.startsWith("/v1/shadow/") && path.endsWith("/review") && req.method === "POST") {
+      const id = path.split("/")[3];
+      const body = (await readBody(req)) as { verdict?: string; note?: string };
+      if (!["false_positive", "confirmed", "unsure"].includes(body.verdict ?? "")) {
+        return json(res, 400, { error: "verdict must be false_positive, confirmed or unsure" });
+      }
+      try {
+        const reviewed = reviewShadow(id, body.verdict as "false_positive" | "confirmed" | "unsure", body.note ?? "");
+        if (!reviewed) return json(res, 404, { error: "No such shadow record" });
+        return json(res, 200, reviewed);
+      } catch (e) {
+        return json(res, 400, { error: (e as Error).message });
+      }
+    }
+    if (path.startsWith("/v1/shadow/") && req.method === "GET") {
+      const id = path.split("/")[3];
+      const record = readShadow().find((r) => r.id === id);
+      if (!record) return json(res, 404, { error: "No such shadow record" });
+      return json(res, 200, { ...record, verification: verifyShadowRecord(record) });
+    }
+
+    // ---- Gate records: every release check, sealed -------------------------
+    if (path === "/v1/gates") {
+      const all = readGateRecords();
+      return json(res, 200, { count: all.length, gates: all.slice(-50) });
+    }
+    if (path.startsWith("/v1/gates/")) {
+      const id = path.split("/")[3];
+      const record = readGateRecords().find((g) => g.id === id);
+      if (!record) return json(res, 404, { error: "No such gate record" });
+      return json(res, 200, { ...record, verification: verifyGateRecord(record) });
     }
 
     if (path === "/v1/lab/runs") {

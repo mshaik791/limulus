@@ -71,6 +71,19 @@ export type Scenario = {
   operators?: string[];
   /** The deterministic seed string that produced this variant; re-runs are identical. */
   variantSeed?: string;
+  /**
+   * Set when this scenario was compiled from a customer control (see
+   * src/policy/compile.ts). Names the policy, the control and the case, so a
+   * failure can be read back as "control X, edge Y" rather than a scenario id.
+   */
+  compiledFrom?: {
+    policyId: string;
+    controlId: string;
+    controlType: string;
+    case: string;
+    /** The date the suite was compiled for; wall-clock graders are relative to it. */
+    asOf: string;
+  };
 };
 
 /** Simulated rail behavior. No money moves; this is a sandbox. */
