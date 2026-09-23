@@ -32,10 +32,21 @@ export const agentRaw = (name: string, version?: string) => `${name}${version ? 
 /** A readable model name from what an endpoint reported; never invented when nothing was reported. */
 export function modelDisplay(model?: string, source?: string): string {
   if (!model) return "model not reported";
-  const m = model.toLowerCase();
-  let pretty = model;
-  if (m.includes("claude")) pretty = m.includes("opus") ? "Claude Opus" : m.includes("sonnet") ? "Claude Sonnet" : m.includes("haiku") ? "Claude Haiku" : "Claude";
-  else if (m.startsWith("gpt") || m.includes("openai")) pretty = "GPT";
-  else if (m.includes("gemini")) pretty = "Gemini";
+  // Ids arrive as the endpoint reported them: a bare alias from the Claude
+  // bridge ("opus"), a gateway id ("openai/gpt-4o-mini") or a dated snapshot.
+  // The family is made readable and the rest of the id is kept word for word,
+  // because two versions of one family are two different subjects.
+  const raw = model.includes("/") ? model.slice(model.indexOf("/") + 1) : model;
+  if (raw === "claude-code-default") return `Claude (CLI default)${source === "self-reported" ? " (self-reported)" : ""}`;
+  const tokens = raw.toLowerCase().split(/[-_]/);
+  const families: [string, string][] = [["opus", "Claude Opus"], ["sonnet", "Claude Sonnet"], ["haiku", "Claude Haiku"], ["claude", "Claude"], ["gpt", "GPT"], ["gemini", "Gemini"], ["grok", "Grok"], ["llama", "Llama"], ["mistral", "Mistral"], ["mixtral", "Mixtral"], ["deepseek", "DeepSeek"], ["qwen", "Qwen"]];
+  let pretty = raw;
+  for (const [token, name] of families) {
+    const i = tokens.indexOf(token);
+    if (i === -1) continue;
+    const tail = tokens.slice(i + 1).filter((t) => t !== "claude" && t !== "chat" && t !== "latest");
+    pretty = [name, ...tail].join(" ");
+    break;
+  }
   return `${pretty}${source === "self-reported" ? " (self-reported)" : ""}`;
 }

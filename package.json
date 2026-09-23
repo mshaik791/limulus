@@ -40,7 +40,8 @@
     "selftest:compare": "node src/sandbox/compare-selftest.ts",
     "selftest:shadow": "node src/shadow-selftest.ts",
     "selftest:gate": "node src/bench/gate-selftest.ts",
-    "policy:compile": "node src/policy-cli.ts compile"
+    "policy:compile": "node src/policy-cli.ts compile",
+    "model-agent": "node --env-file=.env.local src/experiments/model-agent.ts"
   },
   "license": "UNLICENSED"
 }

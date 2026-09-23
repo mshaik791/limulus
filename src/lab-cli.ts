@@ -24,6 +24,7 @@ import type { ToolAgentTarget } from "./sandbox/episode.ts";
 //   node src/lab-cli.ts scope <qualId> <amount>
 //   node src/lab-cli.ts revoke <qualId> "reason"
 //   node src/lab-cli.ts compare careful:off careful:enforced naive:enforced [--trials 3] [--scenarios dir]
+//   node src/lab-cli.ts compare "Claude Sonnet=http://localhost:9100/agent?model=anthropic/claude-sonnet-4.5:off" ...
 //   node src/lab-cli.ts compares
 
 const [command, ...args] = process.argv.slice(2);
@@ -155,11 +156,15 @@ switch (command) {
       console.error("compare needs at least two arms, each <agent>:<off|advisory|enforced>. Example: careful:off careful:enforced");
       process.exit(2);
     }
+    // An arm is <agent>:<mode>, optionally "<label>=<agent>:<mode>" so a URL
+    // arm can carry a readable name. The label is what every screen shows.
     const arms = armSpecs.map((spec) => {
-      const m = spec.match(/^(.*):(off|advisory|enforced)$/);
-      const agent = m ? m[1] : spec;
+      const labelled = spec.match(/^([^=]+)=(.+)$/);
+      const rest = labelled ? labelled[2] : spec;
+      const m = rest.match(/^(.*):(off|advisory|enforced)$/);
+      const agent = m ? m[1] : rest;
       const mode = (m ? m[2] : "off") as ControlMode;
-      return { label: `${agent}:${mode}`, target: targetFor(agent), controls: mode };
+      return { label: labelled ? labelled[1].trim() : `${agent}:${mode}`, target: targetFor(agent), controls: mode };
     });
     const trials = Number(flag("--trials", "3"));
     const dir = flag("--scenarios");

@@ -388,6 +388,31 @@ node src/lab-cli.ts compare http://host-a/agent:off http://host-b/agent:off --sc
 node src/lab-cli.ts compares
 ```
 
+An arm can carry a label, `"<label>=<agent>:<mode>"`, which is what every screen shows. That is
+how models are compared: one endpoint per model, the same prompt, tools, policy, gate and trials.
+
+```bash
+# Anthropic, OpenAI, Google and others through one OpenAI-compatible endpoint (Vercel AI Gateway
+# by default; any compatible server with --base-url). Credential from AI_GATEWAY_API_KEY, or the
+# VERCEL_OIDC_TOKEN that `vercel env pull` writes to .env.local. Never printed.
+npm run model-agent -- --models anthropic/claude-sonnet-4.5,openai/gpt-4.1,google/gemini-2.5-pro
+node src/lab-cli.ts compare \
+  "Claude Sonnet=http://localhost:9100/agent?model=anthropic/claude-sonnet-4.5:off" \
+  "GPT-4.1=http://localhost:9100/agent?model=openai/gpt-4.1:off" \
+  "Gemini 2.5 Pro=http://localhost:9100/agent?model=google/gemini-2.5-pro:off" --trials 3
+
+# Claude models through the local Claude CLI, one bridge per model, no API key
+node src/experiments/claude-bridge.ts --port 8901 --model opus --temperature 0
+node src/experiments/claude-bridge.ts --port 8902 --model sonnet --temperature 0
+node src/lab-cli.ts compare "Claude Opus=http://localhost:8901/agent:off" "Claude Sonnet=http://localhost:8902/agent:off"
+```
+
+Both endpoints share one prompt (`src/experiments/agent-prompt.ts`) that names no scenario family
+and no expected answer, return 502 rather than an invented step when a model's reply is unusable,
+and report the model they invoked on every step. The Lab records that as self-reported, and a
+comparison whose arms report two or more distinct models is what the console's Model Arena shows
+under Models.
+
 Every arm runs the identical pack and the record refuses to be read the wrong way: critical
 violations come first and the recommendation rule cannot see past them, every rate carries its n,
 an advisory arm run against a reference agent is marked as not measuring skip behaviour, and an
@@ -607,6 +632,9 @@ src/experiments/run.ts         three-arm test: does the agent need us at all?
 src/experiments/neutral-server.ts  an ordinary payment tool, for the control arms
 src/experiments/log.ts         findings, sealed and chained like decisions are
 src/experiments/log-cli.ts     seal a result, read them back, check the chain
+src/experiments/agent-prompt.ts  the one prompt every model-backed subject sees
+src/experiments/claude-bridge.ts a Claude model behind the Lab endpoint, via the Claude CLI
+src/experiments/model-agent.ts   any chat model behind the Lab endpoint, via an OpenAI-compatible API
 public/index.html              interactive demo
 data/                          signing key, decision chain, reports (git-ignored)
 ```

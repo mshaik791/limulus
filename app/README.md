@@ -51,7 +51,7 @@ Unknown is never zero. A radar axis is measured, "insufficient evidence" or "not
 
 The environment drives the copy. The engine reports which rail it is wired to; with the simulated rail, decisions read "would release" and "would hold" and the Production page is a sandbox decision stream. A release the rail then contradicted is a miss, never an ordinary success, and appears under Incidents.
 
-Model Arena keeps models and configurations apart. A comparison whose arms report at least two distinct models is a model comparison; the reference agents and gate modes are configurations. A recommendation is shown only when the evidence is eligible; below that it is provisional or insufficient.
+Model Arena keeps models and configurations apart. A comparison whose arms report at least two distinct models is a model comparison; the reference agents and gate modes are configurations. A recommendation is shown only when the evidence is eligible; below that it is provisional or insufficient. Models arrive as the endpoint reported them (`opus`, `anthropic/claude-sonnet-4.5`, `openai/gpt-4.1`) and are shown by family and version, marked self-reported. To put models in the arena, start `npm run model-agent` (any provider through the gateway) or the Claude bridge, and run `lab compare` with a labelled URL per arm; see the engine README.
 
 ## Rules it keeps
 

@@ -54,7 +54,8 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
           <EmptyState
             title="No model comparison yet."
             body="A model comparison holds the agent, prompts, tools, policy, gate and trial count constant and changes only the model behind the endpoint. Each endpoint reports its model per step, or the bridge is started with one, so the record carries the identity. Nothing here is hardcoded: models appear when runs report them."
-            code="node src/lab-cli.ts compare http://opus/agent:off http://sonnet/agent:off --trials 30"
+            code={`npm run model-agent -- --models anthropic/claude-sonnet-4.5,openai/gpt-4.1,google/gemini-2.5-pro
+node src/lab-cli.ts compare "Claude Sonnet=http://localhost:9100/agent?model=anthropic/claude-sonnet-4.5:off" "GPT-4.1=http://localhost:9100/agent?model=openai/gpt-4.1:off" "Gemini 2.5 Pro=http://localhost:9100/agent?model=google/gemini-2.5-pro:off" --trials 30`}
           />
         ) : (
           <EmptyState title="No configuration comparison yet." body="Put two configurations on identical scenarios and get one signed record that says which held up and why." />
@@ -119,8 +120,8 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
                 <input type="number" name="trials" min={1} max={30} defaultValue={3} />
               </label>
               <Button tone="accent">Run Comparison</Button>
-              <p className="text-[11.5px] text-ink-3">This form compares configurations of the reference agents. For models, prompt versions or your own endpoints, use the CLI with a URL per arm; each arm lands in the Models tab when its endpoint reports a model.</p>
-              <pre className="mono overflow-x-auto rounded-[var(--radius-sm)] bg-sunken p-2.5 text-[11px] text-ink-2">node src/lab-cli.ts compare http://a/agent:off http://b/agent:off</pre>
+              <p className="text-[11.5px] text-ink-3">This form compares configurations of the reference agents. For models, prompt versions or your own endpoints, use the CLI with a URL per arm and a label; each arm lands in the Models tab when its endpoint reports a model.</p>
+              <pre className="mono overflow-x-auto rounded-[var(--radius-sm)] bg-sunken p-2.5 text-[11px] text-ink-2">{`node src/lab-cli.ts compare "GPT-4.1=http://a/agent:off" "Gemini=http://b/agent:off"`}</pre>
             </form>
           </Card>
         </div>

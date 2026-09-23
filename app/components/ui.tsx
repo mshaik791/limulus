@@ -200,7 +200,12 @@ export function EmptyState({ title, body, cta, ctaHref, code }: { title: string;
     <div className="rounded-[var(--radius)] border border-dashed border-line-2 px-6 py-10 text-center">
       <div className="text-[15px] font-medium">{title}</div>
       {body && <p className="mx-auto mt-1.5 max-w-[46ch] text-[13px] text-ink-3">{body}</p>}
-      {code && <code className="mono mt-3 inline-block rounded-[var(--radius-sm)] bg-sunken px-2 py-1 text-[12px] text-ink-2">{code}</code>}
+      {code &&
+        (code.includes("\n") ? (
+          <pre className="mono mt-3 overflow-x-auto rounded-[var(--radius-sm)] bg-sunken px-3 py-2 text-left text-[11.5px] leading-relaxed text-ink-2">{code}</pre>
+        ) : (
+          <code className="mono mt-3 inline-block rounded-[var(--radius-sm)] bg-sunken px-2 py-1 text-[12px] text-ink-2">{code}</code>
+        ))}
       {cta && ctaHref && (
         <div className="mt-4">
           <LinkButton href={ctaHref} tone="accent">
