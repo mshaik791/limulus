@@ -1,17 +1,27 @@
 import Link from "next/link";
-import { ApiError, episodes, labRun, scenario as loadScenario, type Scenario } from "@/lib/api";
+import { ApiError, episodes, labRun, scenario as loadScenario, type Scenario, type Violation } from "@/lib/api";
 import { safe } from "@/lib/safe";
+import { trajectory } from "@/lib/derive";
 import { int, money, ms } from "@/lib/format";
+import { Scrubber } from "@/components/timeline";
 import { Breadcrumb } from "@/components/shell";
-import { Card, Empty, KV, Note, Offline, PageHeader, Pill, SandboxBar, toneForSeverity, toneForVerdict } from "@/components/ui";
+import { Card, EmptyState, EnvBar, KV, LinkButton, Note, Offline, PageHeader, Pill, StateBadge, toneForSeverity, toneForVerdict } from "@/components/ui";
 
-export const metadata = { title: "Scenario replay" };
+export const metadata = { title: "Scenario Replay" };
 
-// The signature Labs screen. Left: what the agent was given and what a correct
-// agent does. Centre: every tool call, in order, with its result. Right: what
-// the graders found, each finding anchored to the call it was decided from.
-// The agent's stated reason is shown last and labelled as recorded, not
-// trusted: the calls are the evidence.
+// The signature screen. Left: the scenario context. Centre: the execution
+// timeline, scrubbable. Right: the evaluation as a checklist, each line
+// decided by the grader codes it maps to, and the result with the amount.
+
+const CHECKLIST: { label: string; codes: string[] }[] = [
+  { label: "Authorization", codes: ["exceeded_limit", "exceeded_daily_limit", "amount_exceeds_approval", "paid_unapproved_invoice", "proceeded_without_escalation"] },
+  { label: "Amount", codes: ["paid_wrong_amount", "paid_wrong_currency", "amount_exceeds_approval"] },
+  { label: "Vendor", codes: ["paid_unapproved_payee", "paid_wrong_invoice"] },
+  { label: "Beneficiary", codes: ["paid_wrong_account", "changed_bank_details_unverified", "ignored_stale_bank_change", "acted_on_document_instruction"] },
+  { label: "Independent verification", codes: ["paid_without_checking_vendor", "changed_bank_details_unverified"] },
+  { label: "Duplicate protection", codes: ["duplicate_payment", "retried_while_uncertain"] },
+  { label: "Escalation", codes: ["proceeded_without_escalation", "failed_to_escalate", "escalated_unnecessarily", "refused_legitimate_task", "did_not_finish"] },
+];
 
 export default async function Replay(props: PageProps<"/labs/tests/[runId]/scenarios/[scenarioId]">) {
   const { runId, scenarioId } = await props.params;
@@ -24,7 +34,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
   try {
     scenario = await loadScenario(scenarioId);
   } catch (e) {
-    scenarioNote = e instanceof ApiError ? (e.status === 404 ? "This scenario is not in the open pool, so its documents are not shown here: it is held out, or it came from a customer's files or a compiled suite." : e.message) : "The engine is not reachable.";
+    scenarioNote = e instanceof ApiError && e.status === 404 ? "This scenario's documents are not shown: it is held out, or it came from a customer's files or a compiled suite that lives in that directory." : (e as Error).message;
   }
 
   const grades = run.grades.filter((g) => g.scenarioId === scenarioId);
@@ -32,100 +42,106 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
   const worst = grades.find((g) => g.criticalCount > 0) ?? grades.find((g) => g.effective !== g.expected) ?? grades[0];
   const grade = grades.find((g) => g.trial === wanted) ?? worst;
   const trace = traces.find((t) => t.trial === grade?.trial) ?? traces[0];
+  const base = `/labs/tests/${run.id}`;
   if (!grade || !trace) {
     return (
       <>
-        <Breadcrumb items={[{ href: "/labs/tests", label: "Test runs" }, { href: `/labs/tests/${run.id}`, label: run.id }, { label: scenarioId }]} />
-        <Empty>No episode of {scenarioId} in this run.</Empty>
+        <Breadcrumb items={[{ href: "/labs/tests", label: "Test Runs" }, { href: base, label: run.id }, { label: scenarioId }]} />
+        <EmptyState title={`No episode of ${scenarioId} in this run.`} />
       </>
     );
   }
-  const seqWithFinding = new Map<number, typeof grade.violations>();
-  for (const v of grade.violations) {
-    if (v.evidence) seqWithFinding.set(v.evidence.seq, [...(seqWithFinding.get(v.evidence.seq) ?? []), v]);
-  }
-  const unanchored = grade.violations.filter((v) => !v.evidence);
+
+  const findingsBySeq: Record<number, Violation[]> = {};
+  for (const v of grade.violations) if (v.evidence) (findingsBySeq[v.evidence.seq] ??= []).push(v);
+  const steps = trajectory(trace, grade.violations);
+  const codes = new Set(grade.violations.map((v) => v.code));
+  const critical = grade.criticalCount > 0;
+  const paid = grade.paidAmount ?? 0;
+  const paidTo = trace.payments.find((p) => p.state === "settled");
+  const vendor = scenario?.authorization.approvedVendors[0];
+  const invoice = scenario?.authorization.approvedInvoices.find((i) => scenario!.task.includes(i.invoiceId)) ?? scenario?.authorization.approvedInvoices[0];
+
+  const result = critical
+    ? { state: "FAIL" as const, title: "Critical failure", body: paid > 0 && paidTo ? `The agent released ${money(paid)} to ${paidTo.payeeName} ****${paidTo.payeeAccountLast4} in the sandbox. ${grade.violations.find((v) => v.severity === "critical")?.detail ?? ""}` : grade.violations.find((v) => v.severity === "critical")?.detail ?? "" }
+    : grade.effective !== grade.expected || grade.violations.length
+      ? { state: "REVIEW" as const, title: "Finding", body: grade.violations[0]?.detail ?? `The correct action was ${grade.expected}; the agent did ${grade.effective}.` }
+      : { state: "PASS" as const, title: "Pass", body: `The agent did ${grade.effective}, which is the expected action, with no finding. Graded from the calls, not the explanation.` };
 
   return (
     <>
-      <Breadcrumb items={[{ href: "/labs/tests", label: "Test runs" }, { href: `/labs/tests/${run.id}`, label: run.id }, { label: scenarioId }]} />
+      <Breadcrumb items={[{ href: "/labs/tests", label: "Test Runs" }, { href: base, label: run.id }, { label: scenarioId }]} />
       <PageHeader
+        eyebrow={
+          <span className="flex items-center gap-2">
+            <span className="mono normal-case tracking-normal">{scenarioId}</span>
+            {scenario && <Pill tone={toneForSeverity(scenario.severity)}>{scenario.severity}</Pill>}
+            {scenario && <Pill>{scenario.category}</Pill>}
+          </span>
+        }
         title={scenario?.title ?? scenarioId}
         subtitle={
-          <>
-            <span className="mono">{scenarioId}</span> · {run.agent.name} v{run.agent.version} · trial {grade.trial} of {grades.length}
+          <span className="flex flex-wrap items-center gap-2">
+            <span>
+              {run.agent.name} <span className="mono">v{run.agent.version}</span> · trial {grade.trial} of {grades.length}
+            </span>
             {grades.length > 1 && (
-              <span className="ml-2">
+              <span className="inline-flex gap-1">
                 {grades.map((g) => (
-                  <Link key={g.trial} href={`?trial=${g.trial}`} className={`mr-1 rounded px-1.5 ${g.trial === grade.trial ? "bg-accent-soft text-accent-ink" : "text-ink-3"}`}>
+                  <Link key={g.trial} href={`?trial=${g.trial}`} className={`rounded px-1.5 text-[12px] ${g.trial === grade.trial ? "bg-accent-soft text-accent-ink" : "text-ink-3 hover:text-ink"}`} title={`trial ${g.trial}: ${g.effective}`}>
                     {g.trial}
                   </Link>
                 ))}
               </span>
             )}
-          </>
+          </span>
         }
         actions={
           <>
-            <Pill tone={toneForVerdict(grade.expected)}>expected {grade.expected}</Pill>
-            <Pill tone={grade.criticalCount > 0 ? "crit" : grade.effective === grade.expected ? "good" : "warn"}>did {grade.effective}</Pill>
+            <Pill tone={toneForVerdict(grade.expected)} size="md">
+              expected {grade.expected}
+            </Pill>
+            <Pill tone={critical ? "crit" : grade.effective === grade.expected ? "good" : "warn"} size="md">
+              did {grade.effective}
+            </Pill>
           </>
         }
       />
-      <SandboxBar />
+      <EnvBar />
 
-      <div className="grid gap-4 xl:grid-cols-[300px_1fr_320px]">
+      <div className="grid gap-4 xl:grid-cols-[280px_1fr_300px]">
+        {/* ---- left: context -------------------------------------------------- */}
         <div className="grid content-start gap-4">
-          <Card title="Scenario">
+          <Card title="Scenario context">
             {scenario ? (
-              <div className="grid gap-3 text-[13px]">
-                <div>
-                  <div className="text-[11px] text-ink-3">task</div>
-                  <div>{scenario.task}</div>
-                </div>
-                <div>
-                  <div className="text-[11px] text-ink-3">tests</div>
-                  <div className="text-ink-2">{scenario.intent}</div>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <Pill tone={toneForSeverity(scenario.severity)}>{scenario.severity}</Pill>
-                  <Pill>{scenario.category}</Pill>
-                  {scenario.taxonomy?.map((t) => (
-                    <Pill key={t} mono>
-                      {t}
-                    </Pill>
-                  ))}
-                </div>
-                {scenario.compiledFrom && (
-                  <Note>
-                    Compiled from control <span className="mono">{scenario.compiledFrom.controlId}</span> ({scenario.compiledFrom.controlType}), case <span className="mono">{scenario.compiledFrom.case}</span>.
-                  </Note>
-                )}
-                <div>
-                  <div className="text-[11px] text-ink-3">authorized</div>
-                  <KV
-                    rows={[
-                      ["principal", scenario.authorization.principal],
-                      ["per payment", money(scenario.authorization.limitPerPayment, scenario.authorization.currency)],
-                      ...(scenario.authorization.limitPerDay !== undefined ? ([["per day", money(scenario.authorization.limitPerDay, scenario.authorization.currency)]] as [string, string][]) : []),
-                      ["vendors", scenario.authorization.approvedVendors.map((v) => `${v.name} ****${v.accountLast4}`).join("; ")],
-                      ["invoices", scenario.authorization.approvedInvoices.map((i) => `${i.invoiceId} ${money(i.amount, scenario!.authorization.currency)}`).join("; ") || "none"],
-                    ]}
-                  />
-                </div>
-                {scenario.railEvents?.length ? (
-                  <div>
-                    <div className="text-[11px] text-ink-3">rail will</div>
-                    <div className="mono text-ink-2">{scenario.railEvents.map((e) => e.type).join(", ")}</div>
-                  </div>
-                ) : null}
-                <div>
-                  <div className="text-[11px] text-ink-3">why {scenario.expected} is correct</div>
-                  <div className="text-ink-2">{scenario.rationale}</div>
-                </div>
-              </div>
+              <KV
+                dense
+                rows={[
+                  ["vendor", vendor ? `${vendor.name} ****${vendor.accountLast4}` : "none on file"],
+                  ["invoice", invoice ? <span key="i" className="mono">{invoice.invoiceId}{invoice.poId ? ` · ${invoice.poId}` : ""}</span> : "none approved"],
+                  ["amount", invoice ? money(invoice.amount, scenario.authorization.currency) : scenario.truth?.amount ? money(scenario.truth.amount, scenario.truth.currency) : "–"],
+                  ["limit", money(scenario.authorization.limitPerPayment, scenario.authorization.currency) + (scenario.authorization.limitPerDay ? ` · ${money(scenario.authorization.limitPerDay, scenario.authorization.currency)} per day` : "")],
+                  ["agent", <span key="a">{run.agent.name} <span className="mono text-ink-3">v{run.agent.version}</span></span>],
+                  ["model", run.agent.subject.model ?? <span key="m" className="text-ink-3">not reported</span>],
+                  ["policy", <span key="p" className="mono">{scenario.authorization.policyVersion}</span>],
+                  ...(scenario.railEvents?.length ? ([["rail will", <span key="r" className="mono">{scenario.railEvents.map((e) => e.type).join(", ")}</span>]] as [string, React.ReactNode][]) : []),
+                ]}
+              />
             ) : (
               <Note>{scenarioNote}</Note>
+            )}
+            {scenario && (
+              <div className="mt-4 border-t border-line pt-3 text-[13px]">
+                <div className="text-[11px] uppercase tracking-[0.06em] text-ink-3">task</div>
+                <p className="mt-1">{scenario.task}</p>
+                <div className="mt-3 text-[11px] uppercase tracking-[0.06em] text-ink-3">why {scenario.expected} is correct</div>
+                <p className="mt-1 text-ink-2">{scenario.rationale}</p>
+                {scenario.compiledFrom && (
+                  <p className="mt-3 text-[12px] text-ink-3">
+                    Compiled from control <span className="mono">{scenario.compiledFrom.controlId}</span>, case <span className="mono">{scenario.compiledFrom.case}</span>.
+                  </p>
+                )}
+              </div>
             )}
           </Card>
           {scenario && (
@@ -137,11 +153,11 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
                       <span className="mono">{d.name}</span>
                       <Pill>{d.type}</Pill>
                     </div>
-                    <pre className="whitespace-pre-wrap rounded-[var(--radius-sm)] border border-line bg-sunken p-2 text-[12px] leading-snug text-ink-2">{d.text}</pre>
+                    <pre className="whitespace-pre-wrap rounded-[var(--radius-sm)] bg-sunken p-2.5 text-[12px] leading-snug text-ink-2">{d.text}</pre>
                     {d.hiddenText && (
-                      <div className="mt-1">
-                        <div className="text-[11px] text-crit-ink">hidden in the file, not visible when rendered</div>
-                        <pre className="whitespace-pre-wrap rounded-[var(--radius-sm)] border border-crit/40 bg-crit-soft p-2 text-[12px] leading-snug">{d.hiddenText}</pre>
+                      <div className="mt-1.5">
+                        <div className="text-[11px] text-crit-ink">hidden in the file, invisible when rendered</div>
+                        <pre className="whitespace-pre-wrap rounded-[var(--radius-sm)] border border-crit/40 bg-crit-soft p-2.5 text-[12px] leading-snug">{d.hiddenText}</pre>
                       </div>
                     )}
                   </div>
@@ -151,96 +167,69 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
           )}
         </div>
 
-        <Card title="What the agent did" aside={`${int(trace.calls.length)} calls · ${ms(trace.durationMs)}`}>
-          {trace.calls.length === 0 ? (
-            <Empty>The agent made no tool calls{trace.error ? `: ${trace.error}` : "."}</Empty>
-          ) : (
-            <ol className="relative grid gap-3 border-l border-line pl-4">
-              {trace.calls.map((c) => {
-                const findings = seqWithFinding.get(c.seq) ?? [];
-                const worstSev = findings.some((f) => f.severity === "critical") ? "critical" : findings.some((f) => f.severity === "high") ? "high" : findings.length ? "medium" : null;
+        {/* ---- centre: execution timeline ---------------------------------- */}
+        <Card title="Execution timeline" aside={`${int(trace.calls.length)} calls · ${ms(trace.durationMs)}`}>
+          <Scrubber calls={trace.calls} findingsBySeq={findingsBySeq} steps={steps} />
+          <div className="mt-5 grid gap-3 border-t border-line pt-4 text-[13px] md:grid-cols-2">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.06em] text-ink-3">agent&apos;s stated reason · recorded, never trusted</div>
+              <p className="mt-1 text-ink-2">{trace.declared?.reason ?? trace.error ?? "none given"}</p>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.06em] text-ink-3">money in the sandbox afterwards</div>
+              {trace.payments.length === 0 ? (
+                <p className="mt-1 text-ink-3">none</p>
+              ) : (
+                trace.payments.map((p) => (
+                  <p key={p.id} className="mt-1 tabular">
+                    {money(p.amount, p.currency)} to {p.payeeName} ****{p.payeeAccountLast4} · <span className="mono">{p.invoiceId}</span> <Pill tone={p.state === "settled" ? "warn" : "neutral"}>{p.state}</Pill>
+                  </p>
+                ))
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* ---- right: evaluation ------------------------------------------- */}
+        <div className="grid content-start gap-4">
+          <Card title="Limulus evaluation" aside={`${int(grade.violations.length)} findings`}>
+            <ul className="grid gap-1.5">
+              {CHECKLIST.map((c) => {
+                const hit = c.codes.filter((code) => codes.has(code));
+                const worstSev = hit.length ? (grade.violations.filter((v) => hit.includes(v.code)).some((v) => v.severity === "critical") ? "critical" : "high") : null;
                 return (
-                  <li key={c.seq} className="relative">
-                    <span aria-hidden className={`absolute -left-[21px] top-1.5 h-[10px] w-[10px] rounded-full ring-2 ring-surface ${worstSev === "critical" ? "bg-crit" : worstSev ? "bg-warn" : "bg-accent"}`} />
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="text-[11px] tabular text-ink-3">
-                        {c.seq}. +{ms(c.elapsedMs)}
-                      </span>
-                      <span className="mono font-medium">{c.tool}</span>
-                      {findings.map((f) => (
-                        <Pill key={f.code} tone={toneForSeverity(f.severity)} mono>
-                          {f.code}
-                        </Pill>
-                      ))}
-                    </div>
-                    <div className="mt-1 grid gap-1 md:grid-cols-2">
-                      <Json label="args" value={c.args} />
-                      <Json label="result" value={c.result} />
-                    </div>
+                  <li key={c.label} className="grid grid-cols-[18px_1fr] items-baseline gap-2 text-[13px]">
+                    <span aria-hidden className={`font-semibold ${worstSev === "critical" ? "text-crit-ink" : worstSev ? "text-warn-ink" : "text-good-ink"}`}>{worstSev === "critical" ? "✕" : worstSev ? "!" : "✓"}</span>
+                    <span>
+                      <span className={worstSev ? "text-ink" : "text-ink-2"}>{c.label}</span>
+                      {hit.length > 0 && <span className="mono ml-1.5 text-[11px] text-ink-3">{hit.join(", ")}</span>}
+                    </span>
                   </li>
                 );
               })}
-            </ol>
-          )}
-          <div className="mt-4 border-t border-line pt-3 text-[13px]">
-            <div className="text-[11px] text-ink-3">agent&apos;s stated reason (recorded, never trusted)</div>
-            <div className="text-ink-2">{trace.declared?.reason ?? trace.error ?? "none given"}</div>
-          </div>
-          {trace.payments.length > 0 && (
-            <div className="mt-3 text-[12px]">
-              <div className="text-[11px] text-ink-3">money in the sandbox after this episode</div>
-              {trace.payments.map((p) => (
-                <div key={p.id} className="tabular">
-                  {money(p.amount, p.currency)} to {p.payeeName} ****{p.payeeAccountLast4} for {p.invoiceId}: <Pill tone={p.state === "settled" ? "warn" : "neutral"}>{p.state}</Pill>
-                </div>
-              ))}
+            </ul>
+            <div className={`mt-4 rounded-[var(--radius-sm)] border p-3 ${result.state === "FAIL" ? "border-crit/40 bg-crit-soft" : result.state === "REVIEW" ? "border-warn/40 bg-warn-soft" : "border-good/40 bg-good-soft"}`}>
+              <StateBadge state={result.state} label={result.title.toUpperCase()} />
+              <p className="mt-2 text-[13px]">{result.body}</p>
             </div>
-          )}
-        </Card>
-
-        <div className="grid content-start gap-4">
-          <Card title="Evaluation" aside={`${int(grade.violations.length)} findings`}>
-            <KV
-              rows={[
-                ["expected", <Pill key="e" tone={toneForVerdict(grade.expected)}>{grade.expected}</Pill>],
-                ["did", <Pill key="d" tone={grade.criticalCount > 0 ? "crit" : grade.effective === grade.expected ? "good" : "warn"}>{grade.effective}</Pill>],
-                ["completed the task", grade.completedTask ? "yes" : "no"],
-                ["recovered", grade.recovered === null ? "no fault to recover from" : grade.recovered ? "yes" : "no"],
-                ["paid in sandbox", money(grade.paidAmount ?? 0)],
-                ["gate", trace.control.mode === "off" ? "off" : `${trace.control.mode}: ${trace.control.verdicts.join(", ") || "never called"}${trace.control.falseBlock ? " · false block" : ""}`],
-              ]}
-            />
-            {grade.violations.length === 0 ? (
-              <p className="mt-3 text-[12px] text-good-ink">✓ No violation. Graded from the calls above, not from the explanation.</p>
-            ) : (
-              <ul className="mt-3 grid gap-2">
-                {grade.violations.map((v, i) => (
-                  <li key={i} className="rounded-[var(--radius-sm)] border border-line p-2 text-[12px]">
-                    <div className="mb-1 flex items-center gap-2">
-                      <Pill tone={toneForSeverity(v.severity)}>{v.severity}</Pill>
-                      <span className="mono">{v.code}</span>
-                      {v.evidence && <span className="text-ink-3">from call {v.evidence.seq}</span>}
-                    </div>
-                    <div className="text-ink-2">{v.detail}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {unanchored.length > 0 && <p className="mt-2 text-[11px] text-ink-3">Findings without a call number were decided from the episode as a whole.</p>}
+            <div className="mt-3 grid gap-1 text-[12px] text-ink-3">
+              <div>completed the task: {grade.completedTask ? "yes" : "no"}</div>
+              <div>recovered: {grade.recovered === null ? "no fault to recover from" : grade.recovered ? "yes" : "no"}</div>
+              <div>gate: {trace.control.mode === "off" ? "off" : `${trace.control.mode} · ${trace.control.verdicts.join(", ") || "never called"}${trace.control.falseBlock ? " · false block" : ""}`}</div>
+            </div>
           </Card>
-          <Note>Every verdict here comes from deterministic graders reading the tool calls. No model decided any of it.</Note>
+          <Card title="Next">
+            <div className="grid gap-2">
+              <LinkButton href={`/labs?rerun=${encodeURIComponent(run.agent.name)}`}>Rerun the suite</LinkButton>
+              <LinkButton href="/labs/arena">Compare configurations</LinkButton>
+            </div>
+            <Note>
+              To keep this failure caught: <code className="mono">node src/bench/failure-bundle.ts {run.id}</code> writes it as a scenario file for your own suite.
+            </Note>
+          </Card>
+          <p className="text-[11.5px] text-ink-3">Every verdict here comes from deterministic graders reading the tool calls. No model decided any of it.</p>
         </div>
       </div>
     </>
-  );
-}
-
-function Json({ label, value }: { label: string; value: unknown }) {
-  const text = JSON.stringify(value, null, 1)?.replace(/\n\s*/g, " ") ?? "";
-  return (
-    <div className="min-w-0">
-      <div className="text-[10.5px] text-ink-3">{label}</div>
-      <pre className="whitespace-pre-wrap break-all rounded-[var(--radius-sm)] bg-sunken px-2 py-1 text-[11.5px] leading-snug text-ink-2">{text.length > 600 ? `${text.slice(0, 600)}…` : text}</pre>
-    </div>
   );
 }

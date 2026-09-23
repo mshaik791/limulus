@@ -1,10 +1,5 @@
-import Link from "next/link";
-import { Empty } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 
 export default function NotFound() {
-  return (
-    <Empty>
-      No such record. <Link href="/labs" className="text-accent-ink">Back to Labs</Link>
-    </Empty>
-  );
+  return <EmptyState title="No such record." body="The id in the address does not match anything the engine has sealed." cta="Back to Labs" ctaHref="/labs" />;
 }

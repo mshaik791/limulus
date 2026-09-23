@@ -2,9 +2,9 @@ import Link from "next/link";
 import { labRuns } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { int, money, ms, when } from "@/lib/format";
-import { Card, Empty, Offline, PageHeader, Pill, SandboxBar } from "@/components/ui";
+import { Card, EmptyState, EnvBar, Offline, PageHeader, Pill, Rate } from "@/components/ui";
 
-export const metadata = { title: "Test runs" };
+export const metadata = { title: "Test Runs" };
 
 export default async function TestRuns() {
   const runs = await safe(labRuns());
@@ -13,53 +13,40 @@ export default async function TestRuns() {
 
   return (
     <>
-      <PageHeader title="Test runs" subtitle="Every Lab run on record, newest first. Each row is a signed record; open one for its grades and traces." />
-      <SandboxBar />
-      <Card>
-        {rows.length === 0 ? (
-          <Empty>
-            No runs yet. <code className="mono">node src/lab-cli.ts run careful 3</code>
-          </Empty>
-        ) : (
+      <PageHeader title="Test Runs" subtitle="Every Lab run on record, newest first. Each row is a signed record." />
+      <EnvBar />
+      {rows.length === 0 ? (
+        <EmptyState title="No test runs yet." body="Connect an agent and run your first suite." cta="Run First Test" ctaHref="/labs" />
+      ) : (
+        <Card padded={false}>
           <div className="overflow-x-auto">
             <table className="w-full whitespace-nowrap">
               <thead>
                 <tr>
-                  <th>when</th>
+                  <th className="pl-5">when</th>
                   <th>agent</th>
                   <th>suite</th>
                   <th>gate</th>
-                  <th>level</th>
+                  <th>rung</th>
                   <th className="text-right">safety</th>
                   <th className="text-right">capability</th>
                   <th className="text-right">recovery</th>
                   <th className="text-right">reliability</th>
                   <th className="text-right">critical</th>
                   <th className="text-right">simulated wrongful</th>
-                  <th className="text-right">took</th>
+                  <th className="pr-5 text-right">took</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => {
                   const crit = r.axes.criticalViolations.length;
-                  const cell = (d: { score: number; sampleSize: number } | null) =>
-                    d && d.sampleSize > 0 ? (
-                      <>
-                        {d.score} <span className="text-ink-3">n={int(d.sampleSize)}</span>
-                      </>
-                    ) : (
-                      <span className="text-ink-3">–</span>
-                    );
                   return (
-                    <tr key={r.id}>
-                      <td className="text-ink-3">
-                        <Link href={`/labs/tests/${r.id}`} className="text-ink">
-                          {when(r.createdAt)}
-                        </Link>
+                    <tr key={r.id} className="row-link">
+                      <td className="pl-5">
+                        <Link href={`/labs/tests/${r.id}`}>{when(r.createdAt)}</Link>
                       </td>
                       <td>
                         {r.agent.name} <span className="mono text-ink-3">v{r.agent.version}</span>
-                        {r.agent.subject.source !== "unknown" && r.agent.subject.model && <span className="ml-1 text-[11px] text-ink-3">· {r.agent.subject.model}</span>}
                       </td>
                       <td>
                         <span className="mono">{r.suite.id}</span> <span className="text-ink-3">{int(r.suite.scenarioCount)}×{r.suite.trials}</span>
@@ -68,24 +55,30 @@ export default async function TestRuns() {
                       <td>
                         <Pill tone={r.controls.mode === "enforced" ? "good" : r.controls.mode === "advisory" ? "warn" : "neutral"}>{r.controls.mode}</Pill>
                       </td>
-                      <td>
-                        <Pill tone="accent">{r.axes.level}</Pill>
+                      <td className="text-[12px] text-ink-2">{r.axes.level}</td>
+                      <td className="text-right">
+                        <Rate score={r.axes.safety.score} n={r.axes.safety.sampleSize} />
                       </td>
-                      <td className="text-right tabular">{cell(r.axes.safety)}</td>
-                      <td className="text-right tabular">{cell(r.axes.capability)}</td>
-                      <td className="text-right tabular">{cell(r.axes.recovery)}</td>
-                      <td className="text-right tabular">{cell(r.axes.reliability)}</td>
+                      <td className="text-right">
+                        <Rate score={r.axes.capability.score} n={r.axes.capability.sampleSize} />
+                      </td>
+                      <td className="text-right">
+                        <Rate score={r.axes.recovery.score} n={r.axes.recovery.sampleSize} />
+                      </td>
+                      <td className="text-right">
+                        <Rate score={r.axes.reliability?.score ?? null} n={r.axes.reliability?.sampleSize ?? 0} />
+                      </td>
                       <td className={`text-right tabular ${crit ? "text-crit-ink" : ""}`}>{int(crit)}</td>
                       <td className="text-right tabular">{money(r.controls.simulatedWrongfulAmount)}</td>
-                      <td className="text-right tabular text-ink-3">{ms(r.durationMs)}</td>
+                      <td className="pr-5 text-right tabular text-ink-3">{ms(r.durationMs)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
     </>
   );
 }

@@ -15,22 +15,27 @@ npm run dev                             # http://localhost:3000
 
 ## Screens
 
-| Route | What it shows |
-|---|---|
-| `/labs` | Overview: agents tested, critical violations and simulated wrongful amount in the latest run per agent, latest gate, qualifications in force, what needs attention |
-| `/labs/tests` | Every Lab run, newest first, four axes with n |
-| `/labs/tests/:runId` | One run: the ladder, axes, controls wiring, violations by code, one row per scenario with a dot per trial |
-| `/labs/tests/:runId/scenarios/:scenarioId` | Scenario replay: what the agent was given, every tool call in order, each finding anchored to the call it came from |
-| `/labs/arena` | Comparisons on record, and a form to run one on the open pool |
-| `/labs/arena/:id` | One comparison: arms, axes by arm, where they differ, the recommendation and its rule |
-| `/labs/releases` | Every release-gate run, sealed |
-| `/labs/releases/:id` | Baseline against now, what changed, the override if one applied |
-| `/labs/policies` | Control types, and a compiler that shows what a controls file produces |
-| `/labs/qualifications` | Every qualification with its binding, state and signature check |
-| `/production` | Shadow mode: production outcomes beside what the three-way match would have done |
-| `/production/:id` | One shadow decision: the three records, the checks, both verdicts, a person's review |
-| `/evidence` | The signed decision chain |
-| `/evidence/:id` | One decision and its receipt, verified |
+Labs, before deployment:
+
+| Route | Nav | What it shows |
+|---|---|---|
+| `/labs` | Overview | Can this version be deployed? Readiness rung and state, the latest run, the critical failure with its trajectory, coverage by failure family, every agent, the latest comparison, shadow mode |
+| `/labs/tests` | Test Runs | Every Lab run, newest first, four axes with n |
+| `/labs/tests/:runId` | | One run as a debugger: Overview, Failures, Scenarios, Trace, Artifacts |
+| `/labs/tests/:runId/scenarios/:scenarioId` | | Scenario replay: context, a scrubbable execution timeline, the evaluation checklist and the result with its amount |
+| `/labs/arena` | Model Arena | Comparisons on record and a form to run one; `/labs/arena/:id` for one |
+| `/labs/releases` | Release Gates | Every gate run, previous against candidate; `/labs/releases/:id` for one, with the override rules |
+| `/labs/policies` | Policies | Controls as guardrail cards with what each compiles into and its last result, plus the compiler |
+| `/labs/qualifications` | Assurance Checks | The ten deterministic checks with usage, and the signed qualifications they have earned |
+
+Core, in production:
+
+| Route | Nav | What it shows |
+|---|---|---|
+| `/production` | Shadow Mode | Production outcomes beside what the three-way match would have done; `/production/:id` for one, with review |
+| `/decisions` | Production | The gate's real decisions and what the rail did afterwards |
+| `/incidents` | Incidents | Monitor candidates: production failures turned into regression scenarios, approved by a person |
+| `/evidence` | Evidence | The signed decision chain; `/evidence/:id` for the packet and its receipt, verified |
 
 ## Rules it keeps
 

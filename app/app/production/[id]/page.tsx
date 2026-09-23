@@ -2,65 +2,76 @@ import { shadowRecord } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { money, when } from "@/lib/format";
 import { Breadcrumb } from "@/components/shell";
-import { Button, Card, Hash, KV, Note, Offline, PageHeader, Pill, toneForVerdict } from "@/components/ui";
+import { Button, Card, ExecutionPath, Hash, KV, Note, Offline, PageHeader, Pill, StateBadge, toneForVerdict } from "@/components/ui";
 import { reviewAction } from "../actions";
 
 export const metadata = { title: "Shadow decision" };
-
-// The "proof before money moves" screen, in shadow. What was authorized, what
-// the agent declared, what reached the rail, which checks fired, and the two
-// verdicts side by side: production's, and ours.
 
 export default async function ShadowDetail(props: PageProps<"/production/[id]">) {
   const { id } = await props.params;
   const r = await safe(shadowRecord(id));
   if (!r) return <Offline />;
   const checks = r.checks ?? [];
+  const failed = checks.filter((c) => c.status === "fail" || c.status === "review");
 
   return (
     <>
-      <Breadcrumb items={[{ href: "/production", label: "Shadow" }, { label: r.id }]} />
+      <Breadcrumb items={[{ href: "/production", label: "Shadow Mode" }, { label: r.id }]} />
       <PageHeader
+        eyebrow={`Shadow decision · ${when(r.createdAt)}`}
         title={`${money(r.payment.amount, r.payment.currency)} to ${r.payment.payeeName}`}
         subtitle={
           <>
-            <span className="mono">{r.payment.invoiceId}</span> · {r.payment.rail} · ****{r.payment.payeeAccountLast4} · agent <span className="mono">{r.agentId}</span> · {when(r.createdAt)}
+            <span className="mono">{r.payment.invoiceId}</span> · {r.payment.rail} · ****{r.payment.payeeAccountLast4} · agent <span className="mono">{r.agentId}</span> · org <span className="mono">{r.org}</span>
           </>
         }
         actions={r.verification ? <Pill tone={r.verification.ok ? "good" : "crit"}>{r.verification.ok ? "signature verifies" : "signature broken"}</Pill> : undefined}
       />
 
-      <div className="mb-4 grid gap-3 md:grid-cols-3">
-        <div className="rounded-[var(--radius)] border border-line bg-surface px-4 py-3">
-          <div className="text-[12px] text-ink-3">production did</div>
-          <div className="mt-1">
-            <Pill tone={toneForVerdict(r.production.outcome)}>{r.production.outcome}</Pill>
+      <div className="mb-6">
+        <ExecutionPath
+          steps={[
+            { label: "Agent", sub: r.agentId },
+            { label: "Evidence", sub: `${r.documentHashes.length} document(s)` },
+            { label: "Policy", sub: r.authorizationPolicyId.slice(0, 12) },
+            { label: "Decision", sub: r.wouldHave, tone: toneForVerdict(r.wouldHave) },
+            { label: "Payment", sub: r.production.outcome, tone: toneForVerdict(r.production.outcome) },
+          ]}
+        />
+      </div>
+
+      <div className="mb-6 grid gap-4 md:grid-cols-3">
+        <Card>
+          <div className="eyebrow">Production did</div>
+          <div className="mt-2">
+            <StateBadge state={r.production.outcome === "released" ? "RELEASE" : r.production.outcome === "held" ? "HOLD" : "ESCALATE"} size="lg" />
           </div>
-          {r.production.reference && <div className="mt-1 mono text-[12px] text-ink-3">{r.production.reference}</div>}
-        </div>
-        <div className="rounded-[var(--radius)] border border-line bg-surface px-4 py-3">
-          <div className="text-[12px] text-ink-3">we would have</div>
-          <div className="mt-1">
-            <Pill tone={toneForVerdict(r.wouldHave)}>{r.wouldHave}</Pill>
+          {r.production.reference && <div className="mono mt-2 text-[12px] text-ink-3">{r.production.reference}</div>}
+        </Card>
+        <Card>
+          <div className="eyebrow">Limulus would have</div>
+          <div className="mt-2">
+            <StateBadge state={r.wouldHave === "released" ? "RELEASE" : r.wouldHave === "held" ? "HOLD" : "ESCALATE"} size="lg" />
           </div>
-        </div>
-        <div className="rounded-[var(--radius)] border border-line bg-surface px-4 py-3">
-          <div className="text-[12px] text-ink-3">so</div>
-          <div className="mt-1">
-            <Pill tone={toneForVerdict(r.agreement)}>{r.agreement.replaceAll("_", " ")}</Pill>
+          <div className="mt-2 text-[12px] text-ink-3">{failed.length ? `${failed.length} check(s) fired` : "every check passed"}</div>
+        </Card>
+        <Card emphasis={r.agreement === "would_have_held" ? "crit" : r.agreement === "agree" ? "good" : "warn"}>
+          <div className="eyebrow">So</div>
+          <div className="mt-2">
+            <StateBadge state={r.agreement === "agree" ? "PASS" : r.agreement === "would_have_held" ? "BLOCKED" : "REVIEW"} label={r.agreement.replaceAll("_", " ").toUpperCase()} size="lg" />
           </div>
-          {r.exposure !== null && <div className="mt-1 text-[12px] text-ink-3">{money(r.exposure, r.payment.currency)} the customer&apos;s system released that we would have stopped</div>}
-        </div>
+          {r.exposure !== null && <div className="mt-2 text-[12px] text-ink-2">{money(r.exposure, r.payment.currency)} the customer&apos;s system released that the match would have stopped</div>}
+        </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <Card title="Three-way match" aside={`${checks.length} checks`}>
           {checks.length === 0 ? (
-            <Note>The list view omits checks; this record&apos;s checks were not returned.</Note>
+            <Note>This record&apos;s checks were not returned.</Note>
           ) : (
-            <ul className="grid gap-1.5">
+            <ul className="grid gap-2">
               {checks.map((c) => (
-                <li key={c.id} className="grid grid-cols-[max-content_1fr] items-start gap-2 text-[13px]">
+                <li key={c.id} className="grid grid-cols-[max-content_1fr] items-start gap-3 text-[13px]">
                   <Pill tone={c.status === "pass" ? "good" : c.status === "fail" ? "crit" : c.status === "review" ? "warn" : "neutral"}>{c.status}</Pill>
                   <div>
                     <div>{c.name}</div>
@@ -70,9 +81,9 @@ export default async function ShadowDetail(props: PageProps<"/production/[id]">)
               ))}
             </ul>
           )}
-          <div className="mt-3 border-t border-line pt-3">
-            <div className="text-[11px] text-ink-3">reasons</div>
-            <ul className="text-[13px]">
+          <div className="mt-4 border-t border-line pt-3">
+            <div className="eyebrow">reasons</div>
+            <ul className="mt-1 text-[13px]">
               {r.reasons.map((x, i) => (
                 <li key={i}>{x}</li>
               ))}
@@ -83,8 +94,8 @@ export default async function ShadowDetail(props: PageProps<"/production/[id]">)
         <div className="grid content-start gap-4">
           <Card title="Record">
             <KV
+              dense
               rows={[
-                ["org", r.org],
                 ["policy", <Hash key="p" value={r.authorizationPolicyId} />],
                 ["documents", r.documentHashes.length ? r.documentHashes.map((d) => d.name).join(", ") : "none supplied"],
                 ["record", <Hash key="h" value={r.hash} />],
@@ -110,7 +121,7 @@ export default async function ShadowDetail(props: PageProps<"/production/[id]">)
                 </select>
                 <textarea name="note" rows={3} placeholder="What the person found, in a sentence." required minLength={3} />
                 <Button tone="accent">Record review</Button>
-                <p className="text-[11px] text-ink-3">The review sits beside the sealed record and does not alter it.</p>
+                <p className="text-[11px] text-ink-3">The review sits beside the sealed record and does not alter it. A confirmed disagreement becomes a candidate in Incidents.</p>
               </form>
             )}
           </Card>

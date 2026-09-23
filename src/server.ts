@@ -394,6 +394,41 @@ const server = createServer(async (req, res) => {
     }
 
     // ---- Policies: controls in, scenarios out --------------------------------
+    // The controls files committed in policies/, parsed, with what each one
+    // compiles into. The console's Policies screen reads this; the CLI writes
+    // the scenario files.
+    if (path === "/v1/policies" && req.method === "GET") {
+      const { readdirSync, readFileSync: rf } = await import("node:fs");
+      const dir = join(here, "..", "policies");
+      const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".controls.json")) : [];
+      const policies = files.map((file) => {
+        let raw: unknown;
+        try {
+          raw = JSON.parse(rf(join(dir, file), "utf8"));
+        } catch (e) {
+          return { file, error: `not valid JSON: ${(e as Error).message}` };
+        }
+        const { profile, problems } = parsePolicyProfile(raw);
+        if (!profile) return { file, error: "invalid", problems };
+        const compiled = compilePolicy(profile);
+        return {
+          file,
+          name: profile.name,
+          version: profile.version ?? null,
+          source: profile.source ?? null,
+          policyId: compiled.policyId,
+          asOf: compiled.asOf,
+          controls: profile.controls.map((c) => ({
+            ...c,
+            scenarios: compiled.summary.find((s) => s.controlId === c.id)?.scenarios ?? 0,
+            traps: compiled.summary.find((s) => s.controlId === c.id)?.traps ?? 0,
+            scenarioIds: compiled.scenarios.filter((s) => s.compiledFrom?.controlId === c.id).map((s) => s.id),
+          })),
+        };
+      });
+      return json(res, 200, { count: policies.length, policies });
+    }
+
     if (path === "/v1/policies/control-types") {
       return json(res, 200, { types: CONTROL_TYPES });
     }

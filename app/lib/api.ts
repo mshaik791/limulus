@@ -304,6 +304,51 @@ export type ReceiptVerification = { valid: boolean; checks: { name: string; ok: 
 
 export type ControlTypeInfo = { summary: string; parameters: string[]; cases: number };
 
+export type FailureProfile = {
+  config: { name: string; version: string };
+  runIds: string[];
+  totalEpisodes: number;
+  nodes: { node: string; trials: number; failures: number; rate: number; ci: { low: number; high: number }; wrongfulAmountSimulated: number; worst?: { runId: string; scenarioId: string }; enoughData: boolean }[];
+  findings: string[];
+};
+
+export type Candidate = {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  org: string;
+  sourceEventId: string;
+  taxonomyNode: string;
+  preservedProperty: string;
+  kind: "refuse" | "pay";
+  count: number;
+  scenario: Scenario;
+  createdAt: string;
+  decidedAt?: string;
+};
+
+export type Outcome = {
+  id: string;
+  createdAt: string;
+  decisionId: string;
+  decisionHash: string;
+  decisionOutcome: "released" | "held" | "escalated";
+  status: "verified" | "unauthorized" | "duplicate" | "mismatch" | "returned" | "unsettled";
+  findings: { code?: string; detail?: string; [k: string]: unknown }[];
+  settlements: { decisionId: string; status: string; amount: number; currency: string; payeeAccountLast4?: string; reference?: string; at?: string }[];
+  [k: string]: unknown;
+};
+
+export type PolicyListing = {
+  file: string;
+  error?: string;
+  name?: string;
+  version?: string | null;
+  source?: string | null;
+  policyId?: string;
+  asOf?: string;
+  controls?: { type: string; id: string; name: string; severity?: string; amount?: number; verifyWithinDays?: number; scenarios: number; traps: number; scenarioIds: string[] }[];
+};
+
 // ---- reads --------------------------------------------------------------------
 
 const list = <T>(body: unknown, key: string): T[] => {
@@ -337,6 +382,17 @@ export const record = (id: string) => get<DecisionRecord>(`/v1/records/${id}`);
 export const receipt = (decisionId: string) => get<Receipt>(`/v1/receipts/${decisionId}`);
 export const verifyReceipt = (r: Receipt) => post<ReceiptVerification>("/v1/receipts/verify", r);
 export const chainVerify = () => get<{ ok: boolean; count?: number; problems?: unknown[]; [k: string]: unknown }>("/v1/verify");
+export const profile = async (name: string, version: string): Promise<FailureProfile | null> => {
+  try {
+    return await get<FailureProfile>(`/v1/profiles/${encodeURIComponent(name)}?version=${encodeURIComponent(version)}`);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+};
+export const candidates = async () => list<Candidate>(await get("/v1/monitor/candidates"), "candidates");
+export const outcomes = async () => list<Outcome>(await get("/v1/outcomes"), "outcomes");
+export const policies = async () => list<PolicyListing>(await get("/v1/policies"), "policies");
 export const controlTypes = async () => ((await get<{ types: Record<string, ControlTypeInfo> }>("/v1/policies/control-types")).types ?? {});
 
 // ---- writes (called from server actions only) ---------------------------------
@@ -348,4 +404,6 @@ export const compilePolicy = (profile: unknown, asOf?: string) =>
     "/v1/policies/compile",
     { profile, asOf },
   );
+export const runLab = (body: { agent?: string; endpoint?: string; version?: string; trials: number }) => post<{ run: LabRun }>("/v1/lab/runs", body);
+export const decideCandidate = (id: string, decision: "approve" | "reject", reason?: string) => post<unknown>(`/v1/monitor/candidates/${id}/${decision}`, { reason });
 export const reviewShadow = (id: string, verdict: string, note: string) => post<ShadowRecord>(`/v1/shadow/${id}/review`, { verdict, note });

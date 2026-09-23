@@ -1,41 +1,45 @@
 @import "tailwindcss";
 
 /*
-  One dark look, on purpose. The console is a control surface for money
-  decisions, read for long stretches; the navy ground keeps the few colours that
-  mean something (blue for activity, green for verified, amber for review, red
-  for blocked or critical) as the only bright things on screen.
+  Dark is the primary language. Very dark navy, not black; three surface
+  levels; borders that are barely there. Colour is spent on state and risk and
+  on nothing else: cobalt for activity and selection, emerald for pass and
+  release, amber for review and hold, red for blocked and critical. Violet is
+  reserved for models and simulations and used sparingly.
 
-  Colour carries meaning here or it is not used. A status colour never appears
-  without its word.
+  Nothing glows by default. A glow is a state: blocked, critical, pass, running.
 */
 :root {
   color-scheme: dark;
 
-  --bg: #0b1220;
-  --surface: #111a2e;
-  --raised: #172440;
-  --sunken: #080e1a;
-  --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.16);
+  --bg: #070b14;
+  --surface: #0d1424;
+  --surface-2: #111a2e;
+  --surface-3: #16213a;
+  --sunken: #050810;
+  --line: rgba(148, 163, 199, 0.1);
+  --line-2: rgba(148, 163, 199, 0.18);
 
-  --ink: #e8ecf4;
-  --ink-2: #aab3c5;
-  --ink-3: #7c8699;
+  --ink: #eef1f7;
+  --ink-2: #a9b3c8;
+  --ink-3: #6f7a93;
 
-  --accent: #3987e5;
-  --accent-ink: #8fbcf3;
-  --accent-soft: rgba(57, 135, 229, 0.14);
+  --accent: #3b82f6;
+  --accent-ink: #93b7fb;
+  --accent-soft: rgba(59, 130, 246, 0.14);
 
-  --good: #0ca30c;
-  --good-ink: #5fd36a;
-  --good-soft: rgba(12, 163, 12, 0.14);
-  --warn: #fab219;
-  --warn-ink: #f6c65a;
-  --warn-soft: rgba(250, 178, 25, 0.14);
-  --crit: #d03b3b;
-  --crit-ink: #f07a7a;
-  --crit-soft: rgba(208, 59, 59, 0.16);
+  --good: #10b981;
+  --good-ink: #5fd6a9;
+  --good-soft: rgba(16, 185, 129, 0.12);
+  --warn: #f59e0b;
+  --warn-ink: #f6bf5a;
+  --warn-soft: rgba(245, 158, 11, 0.12);
+  --crit: #ef4444;
+  --crit-ink: #f68686;
+  --crit-soft: rgba(239, 68, 68, 0.13);
+  --model: #8b5cf6;
+  --model-ink: #b79cf9;
+  --model-soft: rgba(139, 92, 246, 0.12);
 
   /* Categorical, for arms in a comparison. Fixed order, validated on this surface. */
   --arm-1: #3987e5;
@@ -43,17 +47,22 @@
   --arm-3: #199e70;
   --arm-4: #c98500;
 
-  --radius: 10px;
-  --radius-sm: 6px;
+  --radius: 12px;
+  --radius-sm: 7px;
+  --glow-crit: 0 0 0 1px rgba(239, 68, 68, 0.35), 0 0 28px rgba(239, 68, 68, 0.12);
+  --glow-good: 0 0 0 1px rgba(16, 185, 129, 0.35), 0 0 28px rgba(16, 185, 129, 0.1);
+  --glow-warn: 0 0 0 1px rgba(245, 158, 11, 0.35), 0 0 28px rgba(245, 158, 11, 0.1);
+  --glow-accent: 0 0 0 1px rgba(59, 130, 246, 0.35), 0 0 28px rgba(59, 130, 246, 0.12);
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
-  --color-raised: var(--raised);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-sunken: var(--sunken);
   --color-line: var(--line);
-  --color-line-strong: var(--line-strong);
+  --color-line-2: var(--line-2);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
@@ -69,13 +78,11 @@
   --color-crit: var(--crit);
   --color-crit-ink: var(--crit-ink);
   --color-crit-soft: var(--crit-soft);
-  --color-arm-1: var(--arm-1);
-  --color-arm-2: var(--arm-2);
-  --color-arm-3: var(--arm-3);
-  --color-arm-4: var(--arm-4);
+  --color-model: var(--model);
+  --color-model-ink: var(--model-ink);
+  --color-model-soft: var(--model-soft);
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
-  --radius-card: var(--radius);
 }
 
 html,
@@ -84,11 +91,10 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 14px;
-  line-height: 1.45;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Numbers that sit in columns line up; a lone figure keeps proportional digits. */
 .tabular {
   font-variant-numeric: tabular-nums;
 }
@@ -96,22 +102,24 @@ body {
   font-family: var(--font-mono);
   font-size: 0.92em;
 }
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 500;
+}
 
 a {
   color: inherit;
-}
-a:hover {
-  color: var(--accent-ink);
 }
 
 ::selection {
   background: var(--accent-soft);
 }
-
-/* Hairline scrollbars, so dense tables do not grow a chrome bar. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-color: var(--line-2) transparent;
 }
 
 table {
@@ -121,20 +129,21 @@ th {
   font-weight: 500;
   color: var(--ink-3);
   text-align: left;
-  font-size: 12px;
-  letter-spacing: 0.01em;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
 }
 td,
 th {
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--line);
-  vertical-align: top;
+  vertical-align: middle;
 }
 tr:last-child td {
   border-bottom: 0;
 }
-tbody tr:hover td {
-  background: rgba(255, 255, 255, 0.025);
+tbody tr.row-link:hover td {
+  background: rgba(148, 163, 199, 0.04);
+  cursor: pointer;
 }
 
 input,
@@ -142,9 +151,9 @@ select,
 textarea {
   background: var(--sunken);
   color: var(--ink);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line-2);
   border-radius: var(--radius-sm);
-  padding: 6px 9px;
+  padding: 7px 10px;
   font: inherit;
 }
 input:focus,
@@ -152,4 +161,17 @@ select:focus,
 textarea:focus {
   outline: 2px solid var(--accent-soft);
   border-color: var(--accent);
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.running {
+  animation: pulse-dot 1.2s ease-in-out infinite;
 }

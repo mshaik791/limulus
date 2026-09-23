@@ -632,9 +632,9 @@ node src/server.ts            # the engine, on :8787
 cd app && npm install && npm run dev   # the console, on :3000
 ```
 
-Labs: overview, test runs, run detail, scenario replay, compare, releases, policies,
-qualifications. Core: shadow mode and the evidence chain. See `app/README.md` for the route map and
-`docs/design/north-star.md` for where it is going.
+Labs: overview, test runs, a run debugger, scenario replay, Model Arena, release gates, policies,
+assurance checks. Core: shadow mode, production decisions, incidents and the evidence chain. See
+`app/README.md` for the route map and `docs/design/north-star.md` for where it is going.
 
 ### The older hand-rolled console
 

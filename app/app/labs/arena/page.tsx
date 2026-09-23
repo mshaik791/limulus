@@ -2,15 +2,15 @@ import Link from "next/link";
 import { compares, referenceAgents } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { int, when } from "@/lib/format";
-import { Button, Card, Empty, Note, Offline, PageHeader, Pill, SandboxBar } from "@/components/ui";
+import { ArmSwatch } from "@/components/charts";
+import { Button, Card, EmptyState, EnvBar, Note, Offline, PageHeader, Pill, Rate } from "@/components/ui";
 import { startCompare } from "./actions";
 
-export const metadata = { title: "Compare" };
+export const metadata = { title: "Model Arena" };
 
-// Compare puts configurations on identical scenarios. The list shows every
-// comparison on record with its recommendation and the critical count of each
-// arm, because a recommendation shown without the criticals beside it is the
-// kind of number that gets screenshotted.
+// Find the configuration that holds up. An arm is an agent plus how the gate
+// is wired, on identical scenarios. Cost and latency are shown only where the
+// engine measured them: it measures duration, not spend.
 
 export default async function Arena(props: PageProps<"/labs/arena">) {
   const search = await props.searchParams;
@@ -21,49 +21,58 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
 
   return (
     <>
-      <PageHeader title="Compare" subtitle="The same scenarios under several configurations. An arm is an agent plus how the gate is wired." />
-      <SandboxBar />
-      {error && <Note>{error === "two-arms" ? "A comparison needs at least two arms." : `The engine refused the comparison: ${error}`}</Note>}
+      <PageHeader title="Model Arena" subtitle="Find the configuration that holds up on the same scenarios, with the numbers beside the recommendation." />
+      <EnvBar />
+      {error && <Note tone="crit">{error === "two-arms" ? "A comparison needs at least two arms." : `The engine refused the comparison: ${error}`}</Note>}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">
-        <Card title="Comparisons on record" aside={`${int(rows.length)}`}>
+      <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+        <div className="grid content-start gap-3">
           {rows.length === 0 ? (
-            <Empty>No comparison yet. Run one on the right, or from the CLI: <code className="mono">node src/lab-cli.ts compare careful:off careful:enforced</code></Empty>
+            <EmptyState title="No comparison yet." body="Put two configurations on identical scenarios and get one signed record that says which held up and why." />
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th>when</th>
-                  <th>suite</th>
-                  <th>arms (critical violations, attempted)</th>
-                  <th>recommended</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((c) => (
-                  <tr key={c.id}>
-                    <td className="whitespace-nowrap">
-                      <Link href={`/labs/arena/${c.id}`}>{when(c.createdAt)}</Link>
-                    </td>
-                    <td className="whitespace-nowrap">
-                      <span className="mono">{c.suite.id}</span> <span className="text-ink-3">{int(c.suite.scenarioCount)}×{c.suite.trials}</span>
-                    </td>
-                    <td>
-                      <div className="flex flex-wrap gap-1.5">
-                        {c.arms.map((a) => (
-                          <Pill key={a.label} tone={a.criticalViolations > 0 ? "crit" : "good"}>
-                            {a.label} · {int(a.criticalViolations)}
-                          </Pill>
-                        ))}
-                      </div>
-                    </td>
-                    <td>{c.recommendation.label ? <Pill tone="accent">{c.recommendation.label}</Pill> : <span className="text-ink-3">none</span>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            rows.map((c) => (
+              <Card key={c.id}>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <Link href={`/labs/arena/${c.id}`} className="text-[15px] font-semibold">
+                    {when(c.createdAt)}
+                  </Link>
+                  <span className="text-[12px] text-ink-3">
+                    <span className="mono">{c.suite.id}</span> · {int(c.suite.scenarioCount)} scenarios × {c.suite.trials} trials
+                  </span>
+                </div>
+                <table className="mt-2 w-full">
+                  <thead>
+                    <tr>
+                      <th>configuration</th>
+                      <th className="text-right">safety</th>
+                      <th className="text-right">capability</th>
+                      <th className="text-right">critical (attempted)</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {c.arms.map((a, i) => (
+                      <tr key={a.label} className={c.recommendation.label === a.label ? "bg-accent-soft/60" : ""}>
+                        <td>
+                          <ArmSwatch index={i} /> <span className="ml-1.5">{a.label}</span>
+                        </td>
+                        <td className="text-right">
+                          <Rate score={a.axes.safety.score} n={a.axes.safety.n} />
+                        </td>
+                        <td className="text-right">
+                          <Rate score={a.axes.capability.score} n={a.axes.capability.n} />
+                        </td>
+                        <td className={`text-right tabular ${a.criticalViolations ? "text-crit-ink" : ""}`}>{int(a.criticalViolations)}</td>
+                        <td className="text-right">{c.recommendation.label === a.label && <Pill tone="accent">recommended</Pill>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-2 text-[12px] text-ink-3">{c.recommendation.reason}</p>
+              </Card>
+            ))
           )}
-        </Card>
+        </div>
 
         <Card title="Run a comparison">
           <form action={startCompare} className="grid gap-3 text-[13px]">
@@ -71,7 +80,7 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
               <div key={i} className="grid grid-cols-[1fr_1fr] gap-2">
                 <select name={`agent${i}`} defaultValue={i === 1 ? "careful" : i === 2 ? "naive" : ""} aria-label={`arm ${i} agent`}>
                   <option value="">{i > 2 ? "no arm" : "agent"}</option>
-                  {(agents ?? [{ key: "careful", name: "reference-careful-tools", version: "" }, { key: "naive", name: "reference-naive-tools", version: "" }]).map((a) => (
+                  {(agents ?? []).map((a) => (
                     <option key={a.key} value={a.key}>
                       {a.name}
                     </option>
@@ -88,10 +97,9 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
               <span className="text-ink-3">trials per scenario</span>
               <input type="number" name="trials" min={1} max={30} defaultValue={3} />
             </label>
-            <Button tone="accent">Run on the open pool</Button>
-            <p className="text-[11px] text-ink-3">
-              Runs every arm on the same open-pool scenarios, in this process, and seals one record. Reference agents only from here; point the CLI at an HTTP endpoint for your own agent.
-            </p>
+            <Button tone="accent">Compare</Button>
+            <p className="text-[11.5px] text-ink-3">Every arm runs the identical open-pool scenarios in the sandbox and one record is sealed. To compare your own endpoints, prompt versions or models, use the CLI with a URL per arm.</p>
+            <pre className="mono rounded-[var(--radius-sm)] bg-sunken p-2.5 text-[11px] text-ink-2">node src/lab-cli.ts compare http://a/agent:off http://b/agent:off</pre>
           </form>
         </Card>
       </div>
