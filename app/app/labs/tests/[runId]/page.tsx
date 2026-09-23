@@ -3,6 +3,7 @@ import { ApiError, episodes, gates, labRun, labRuns, scenario as loadScenario, t
 import { safe } from "@/lib/safe";
 import { agentKey, readiness, scenarioPassRate, trajectory } from "@/lib/derive";
 import { LADDER, int, money, ms, ofN, pct, when } from "@/lib/format";
+import { suiteName } from "@/lib/names";
 import { Breadcrumb } from "@/components/shell";
 import { Card, Delta, EmptyState, EnvBar, Hash, KV, LinkButton, Metric, MetricRow, Note, Offline, PageHeader, Pill, StateBadge, Tabs, toneForSeverity, toneForVerdict } from "@/components/ui";
 
@@ -86,7 +87,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
             <span>{int(run.suite.scenarioCount)} scenarios × {run.suite.trials} trials</span>
             <span className={critical.length ? "text-crit-ink" : ""}>{int(critical.length)} critical episode(s)</span>
             <span>{int(failing.length)} episode(s) with findings</span>
-            <span className="mono text-ink-3">{run.suite.id}</span>
+            <span className="text-ink-3" title={run.suite.id}>{suiteName(run.suite.id).name}</span>
           </span>
         }
         actions={

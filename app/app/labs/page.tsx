@@ -1,25 +1,37 @@
 import Link from "next/link";
-import { ApiError, compares, episodes, gates, labRun, labRuns, profile, referenceAgents, scenario as loadScenario, shadowSummary } from "@/lib/api";
+import { AlertOctagon, Bot, FlaskConical, Gauge, ShieldCheck } from "lucide-react";
+import { ApiError, candidates, compares, episodes, gates, labRun, labRuns, profile, records, referenceAgents, scenario as loadScenario, shadowRecords, shadowSummary, type EpisodeTrace, type Scenario, type Violation } from "@/lib/api";
 import { safe } from "@/lib/safe";
+import { activity } from "@/lib/activity";
 import { agentKey, familyAxes, latestPerAgent, READINESS_RULE, readiness, scenarioPassRate, trajectory } from "@/lib/derive";
 import { ago, int, money, ms, ofN, pct, when } from "@/lib/format";
+import { agentDisplay, modelDisplay, suiteName } from "@/lib/names";
+import { ActivityFeed, ExecutionGraph, MetricCard, RecommendedActions, type GraphEdge, type GraphNode, type Recommendation } from "@/components/blocks";
 import { Radar, Sparkline } from "@/components/charts";
 import { Trajectory } from "@/components/timeline";
-import { Card, Delta, EmptyState, EnvBar, LinkButton, Metric, MetricRow, Note, Offline, PageHeader, Pill, Rate, StateBadge } from "@/components/ui";
+import { Card, Delta, EmptyState, EnvBar, LinkButton, Note, Offline, PageHeader, Rate, StateBadge } from "@/components/ui";
 import { RunTest } from "./run-test";
 
 export const metadata = { title: "Labs" };
 
-// The overview answers one question: can this version be deployed? It leads
-// with the latest run of the most recently tested agent, says what failed and
-// why, shows what it was tested against, and puts the other agents beside it.
-// Every figure is from a sealed record and every rate carries its n. There is
-// no composite 0–100 score, because the engine does not compute one and a
-// number the engine did not compute is not on a screen.
+// Mission control. The page answers "can this version be deployed?" and shows
+// the last thing that went wrong as a path through the money: agent, invoice,
+// policy, vendor, approval, beneficiary, rail. Every node, tile and line is a
+// fact from a sealed record, every rate carries its n, and there is no
+// composite score because the engine does not compute one.
 
 export default async function LabsOverview(props: PageProps<"/labs">) {
   const search = await props.searchParams;
-  const [runs, gt, cmp, agents, shadow] = await Promise.all([safe(labRuns()), safe(gates()), safe(compares()), safe(referenceAgents()), safe(shadowSummary())]);
+  const [runs, gt, cmp, agents, shadow, shadowRows, cands, chain] = await Promise.all([
+    safe(labRuns()),
+    safe(gates()),
+    safe(compares()),
+    safe(referenceAgents()),
+    safe(shadowSummary()),
+    safe(shadowRecords()),
+    safe(candidates()),
+    safe(records()),
+  ]);
   if (!runs) return <Offline />;
   const error = typeof search.error === "string" ? search.error : null;
 
@@ -28,7 +40,6 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
   const latestGateBy = new Map<string, NonNullable<typeof gt>[number]>();
   for (const g of gt ?? []) latestGateBy.set(`${g.agent.name}@${g.agent.version}`, g);
 
-  // Everything the hero needs about the agent under evaluation.
   const full = latest ? await safe(labRun(latest.id)) : null;
   const grades = (full?.grades ?? []).filter((g) => !g.unusable);
   const pass = scenarioPassRate(grades);
@@ -36,26 +47,46 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
   const ready = readiness(latest, gate);
   const prof = latest ? await safe(profile(latest.agent.name, latest.agent.version)) : null;
   const axes = familyAxes(prof?.nodes ?? []);
+  const mine = latest ? runs.filter((r) => agentKey(r) === agentKey(latest)) : [];
+  const prev = mine.at(-2);
 
-  // The critical failure to lead with: the worst episode of the latest run.
+  // The episode to draw: the worst critical one, else the latest clean one.
   const worst = [...grades].filter((g) => g.criticalCount > 0).sort((a, b) => (b.paidAmount ?? 0) - (a.paidAmount ?? 0))[0];
-  let worstTitle = worst?.scenarioId ?? "";
-  let worstTrace = null;
-  if (worst && latest) {
+  const shown = worst ?? grades.at(-1);
+  let scenario: Scenario | null = null;
+  let trace: EpisodeTrace | null = null;
+  if (shown && latest) {
     try {
-      worstTitle = (await loadScenario(worst.scenarioId)).title;
+      scenario = await loadScenario(shown.scenarioId);
     } catch (e) {
       if (!(e instanceof ApiError)) throw e;
     }
-    const traces = await safe(episodes(latest.id, worst.scenarioId));
-    worstTrace = traces?.find((t) => t.trial === worst.trial) ?? null;
+    const traces = await safe(episodes(latest.id, shown.scenarioId));
+    trace = traces?.find((t) => t.trial === shown.trial) ?? null;
   }
+  const graph = shown && trace && latest ? buildGraph(latest.agent, scenario, trace, shown.violations, shown.criticalCount > 0) : null;
 
+  const criticalsLatest = [...latestBy.values()].reduce((n, r) => n + r.axes.criticalViolations.length, 0);
+  const episodesTotal = runs.reduce((n, r) => n + r.suite.episodes, 0);
   const latestCompare = cmp?.at(-1);
+  const feed = activity({ runs, gates: gt ?? [], compares: cmp ?? [], shadow: shadowRows ?? [], candidates: cands ?? [], decisions: chain ?? [] });
+
+  const recs: Recommendation[] = [];
+  if (gate?.verdict === "fail") recs.push({ title: "Review the failed release gate", reason: `${gate.agent.name}: ${[...gate.newCriticals, ...gate.newlyFailing].slice(0, 2).join(", ")}`, cta: "Review", href: `/labs/releases/${gate.id}`, tone: "crit" });
+  if (worst && latest) recs.push({ title: "Replay the critical failure", reason: `${worst.scenarioId}, ${money(worst.paidAmount ?? 0)} simulated exposure`, cta: "Replay", href: `/labs/tests/${latest.id}/scenarios/${worst.scenarioId}?trial=${worst.trial}`, tone: "crit" });
+  const pendingCands = (cands ?? []).filter((c) => c.status === "pending").length;
+  if (pendingCands) recs.push({ title: `Review ${int(pendingCands)} incident candidate(s)`, reason: "Production failures waiting to become regression tests", cta: "Review", href: "/incidents", tone: "warn" });
+  if (shadow) {
+    const awaiting = shadow.reviewed.of - (shadow.reviewed.falsePositives + shadow.reviewed.confirmed + shadow.reviewed.unsure);
+    if (awaiting > 0) recs.push({ title: `Review ${int(awaiting)} shadow disagreement(s)`, reason: "Where the match and production disagree, a person decides which was right", cta: "Review", href: "/production", tone: "warn" });
+  }
+  const thin = axes.filter((a) => a.score === null);
+  if (thin.length) recs.push({ title: `Run the adversarial suite: ${thin.length} families under-tested`, reason: `${thin.map((a) => a.label).slice(0, 3).join(", ")} have too few trials to say anything`, cta: "Run Tests", href: "/labs/tests", tone: "accent" });
+  if (!latestCompare) recs.push({ title: "Compare two configurations", reason: "No comparison on record yet", cta: "Open Arena", href: "/labs/arena", tone: "neutral" });
 
   return (
     <>
-      <PageHeader title="Labs" subtitle="Stress-test financial agents before deployment." actions={<RunTest agents={agents ?? []} />} />
+      <PageHeader title="Labs" subtitle="Stress-test financial agents before deployment." actions={<RunTest agents={agents ?? []} show={["connect"]} />} />
       <EnvBar />
       {error && <Note tone="crit">The engine refused the run: {error}</Note>}
 
@@ -63,260 +94,309 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
         <EmptyState title="No test runs yet." body="Connect an agent and run your first suite. Every episode is graded from its tool calls in a simulated world where no money moves." code="node src/lab-cli.ts run careful 3" />
       ) : (
         <>
-          {/* ---- 1. readiness hero ------------------------------------------------ */}
-          <div className="mb-6 grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-            <Card emphasis={ready.state === "BLOCKED" ? "crit" : ready.state === "READY" ? "good" : undefined}>
-              <div className="flex flex-wrap items-start justify-between gap-6">
-                <div>
-                  <div className="eyebrow">Production readiness</div>
-                  <div className="mt-2 flex flex-wrap items-center gap-4">
-                    <span className="text-[40px] font-semibold leading-none tracking-[-0.02em]">{latest.axes.level}</span>
-                    <StateBadge state={ready.state === "NONE" ? "NONE" : ready.state} size="lg" />
-                  </div>
-                  <div className="mt-2 text-[13px] text-ink-2">
-                    {latest.agent.name} <span className="mono text-ink-3">v{latest.agent.version}</span>
-                    {latest.agent.subject.model && <span className="text-ink-3"> · {latest.agent.subject.model}</span>}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                  <Metric label="Scenarios evaluated" value={int(latest.suite.scenarioCount)} sub={`${int(grades.length)} episodes, ${latest.suite.trials} trials each`} />
-                  <Metric label="Scenario pass rate" value={pct(pass.passed, pass.of)} sub={`${ofN(pass.passed, pass.of)}, every trial correct`} />
-                  <Metric label="Critical violations" value={int(latest.axes.criticalViolations.length)} tone={latest.axes.criticalViolations.length ? "crit" : "good"} sub="attempted; money moved only in the sandbox" />
-                  <Metric label="Last tested" value={ago(latest.createdAt)} sub={when(latest.createdAt)} />
-                </div>
-              </div>
-              <div className="mt-5 border-t border-line pt-4">
-                <ul className="grid gap-1 text-[13px] text-ink-2">
-                  {ready.reasons.map((r) => (
-                    <li key={r}>{r}</li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-[11.5px] text-ink-3">{READINESS_RULE}</p>
-              </div>
-            </Card>
-
-            <Card emphasis={gate?.verdict === "fail" ? "crit" : gate?.verdict === "pass" ? "good" : undefined}>
-              <div className="eyebrow">Release gate</div>
-              {gate ? (
-                <>
-                  <div className="mt-2">
-                    <StateBadge state={gate.verdict === "pass" ? "READY" : gate.verdict === "fail" ? "BLOCKED" : "OVERRIDDEN"} label={gate.verdict === "pass" ? "READY FOR DEPLOYMENT" : gate.verdict === "fail" ? "DEPLOYMENT BLOCKED" : "FAILED, OVERRIDDEN"} size="lg" />
-                  </div>
-                  <div className="mt-3 text-[13px] text-ink-2">
-                    {gate.agent.name} <span className="mono text-ink-3">v{gate.agent.version}</span> · {ago(gate.createdAt)}
-                  </div>
-                  <ul className="mt-2 grid gap-1 text-[13px]">
-                    {gate.newCriticals.length > 0 && <li className="text-crit-ink">{int(gate.newCriticals.length)} new critical violation(s)</li>}
-                    {gate.newlyFailing.length > 0 && <li className="text-warn-ink">{int(gate.newlyFailing.length)} scenario(s) newly failing</li>}
-                    {gate.regressions.length > 0 && <li className="text-warn-ink">{gate.regressions.join(", ")} down by more than the tolerance</li>}
-                    {gate.verdict === "pass" && <li className="text-ink-2">Nothing worse than the committed baseline.</li>}
-                    {gate.override && <li className="text-ink-3">Overridden by {gate.override.actor} until {gate.override.expiresAt.slice(0, 10)}.</li>}
-                    {gate.verdict === "pass" && ready.state === "BLOCKED" && (
-                      <li className="text-ink-3">The gate passes because the committed baseline already records these failures; a regression gate asks only whether things got worse. Readiness still blocks on them.</li>
-                    )}
-                  </ul>
-                  <div className="mt-4 flex gap-2">
-                    <LinkButton href={`/labs/releases/${gate.id}`} tone={gate.verdict === "fail" ? "crit" : "neutral"}>
-                      {gate.verdict === "fail" ? "Review regressions" : "Open gate"}
-                    </LinkButton>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="mt-2">
-                    <StateBadge state="NONE" label="NO GATE RUN" size="lg" />
-                  </div>
-                  <p className="mt-3 text-[13px] text-ink-2">The regression gate has not run for this agent. It compares a run against a committed baseline and fails on a new critical violation, a scenario that stopped passing, or an axis that fell.</p>
-                  <pre className="mono mt-3 rounded-[var(--radius-sm)] bg-sunken p-2.5 text-[11.5px] text-ink-2">node src/bench/ci-gate.ts --scenarios scenarios --agent careful</pre>
-                </>
-              )}
-            </Card>
+          {/* ---- metric row -------------------------------------------------------- */}
+          <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-5">
+            <MetricCard
+              icon={Gauge}
+              label="Production readiness"
+              value={<StateBadge state={ready.state} size="lg" />}
+              sub={<span className="capitalize">{latest.axes.level}</span>}
+              tone={ready.state === "BLOCKED" ? "crit" : ready.state === "READY" ? "good" : "warn"}
+              href={`/labs/tests/${latest.id}`}
+            />
+            <MetricCard icon={Bot} label="Agents tested" value={int(latestBy.size)} sub={`${int(runs.length)} runs on record`} href="/labs/tests" />
+            <MetricCard icon={FlaskConical} label="Scenarios evaluated" value={int(episodesTotal)} sub="episodes graded, all runs" spark={runs.slice(-12).map((r) => r.suite.episodes)} href="/labs/tests" />
+            <MetricCard
+              icon={AlertOctagon}
+              label="Critical violations, latest run"
+              value={int(latest.axes.criticalViolations.length)}
+              tone={latest.axes.criticalViolations.length ? "crit" : "good"}
+              trend={{ value: prev ? latest.axes.criticalViolations.length - prev.axes.criticalViolations.length : null, upIsGood: false, label: "vs previous run" }}
+              sub={`${int(criticalsLatest)} across every agent's latest run`}
+              href={`/labs/tests/${latest.id}?tab=failures`}
+            />
+            <MetricCard
+              icon={ShieldCheck}
+              label="Safety, latest run"
+              value={<Rate score={latest.axes.safety.score} n={latest.axes.safety.sampleSize} />}
+              trend={{ value: prev ? latest.axes.safety.score - prev.axes.safety.score : null, label: "vs previous" }}
+              spark={mine.slice(-12).map((r) => r.axes.safety.score)}
+              href={`/labs/tests/${latest.id}`}
+            />
           </div>
 
-          {/* ---- 2. latest test · critical failure ------------------------------ */}
-          <div className="mb-6 grid gap-4 lg:grid-cols-2">
-            <Card title="Latest test run" aside={<Link href={`/labs/tests/${latest.id}`}>open →</Link>}>
-              <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-[16px] font-semibold">{latest.agent.name}</span>
-                <span className="mono text-ink-3">v{latest.agent.version}</span>
-                <span className="text-[12px] text-ink-3">{latest.agent.subject.model ? `${latest.agent.subject.model} (${latest.agent.subject.source})` : "model not reported"}</span>
-                <span className="text-[12px] text-ink-3">· {int(latest.suite.scenarioCount)} scenarios</span>
-                <Pill tone={latest.controls.mode === "enforced" ? "good" : latest.controls.mode === "advisory" ? "warn" : "neutral"}>gate {latest.controls.mode}</Pill>
-              </div>
-              <div className="mb-4 text-[30px] font-semibold leading-none tracking-[-0.01em]">
-                {pct(pass.passed, pass.of)} <span className="text-[13px] font-normal text-ink-3">passed · {ofN(pass.passed, pass.of)} scenarios</span>
-              </div>
-              <MetricRow label="Safety" hint={latest.axes.safety.detail} score={latest.axes.safety.score} n={latest.axes.safety.sampleSize} />
-              <MetricRow label="Capability" hint={latest.axes.capability.detail} score={latest.axes.capability.score} n={latest.axes.capability.sampleSize} />
-              <MetricRow label="Recovery" hint={latest.axes.recovery.detail} score={latest.axes.recovery.score} n={latest.axes.recovery.sampleSize} />
-              <MetricRow label="Reliability" hint={latest.axes.reliability?.detail} score={latest.axes.reliability?.score ?? null} n={latest.axes.reliability?.sampleSize ?? 0} />
-              <div className="mt-4 flex items-center gap-3">
-                <LinkButton href={`/labs/tests/${latest.id}`}>Open Test Run</LinkButton>
-                <span className="text-[12px] text-ink-3">simulated wrongful amount {money(latest.controls.simulatedWrongfulAmount)}</span>
-              </div>
-            </Card>
-
-            {worst ? (
-              <Card emphasis="crit">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="eyebrow text-crit-ink">Critical failure</div>
-                    <div className="mt-1 text-[18px] font-semibold leading-tight">{worstTitle}</div>
-                  </div>
-                  <StateBadge state="FAIL" />
-                </div>
-                <div className="mt-3 text-[24px] font-semibold tracking-[-0.01em]">
-                  {money(worst.paidAmount ?? 0)} <span className="text-[12px] font-normal text-ink-3">simulated exposure</span>
-                </div>
-                <p className="mt-1 text-[13px] text-ink-2">{worst.violations.find((v) => v.severity === "critical")?.detail}</p>
-                <div className="mt-4 border-t border-line pt-3">
-                  {worstTrace ? <Trajectory steps={trajectory(worstTrace, worst.violations)} decision={{ label: "FAIL", state: "fail" }} /> : <p className="text-[12px] text-ink-3">trace not available</p>}
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <LinkButton href={`/labs/tests/${latest.id}/scenarios/${worst.scenarioId}?trial=${worst.trial}`} tone="crit">
-                    Replay Failure
-                  </LinkButton>
-                  <span className="self-center text-[11.5px] text-ink-3">trial {worst.trial} · {int(worst.toolCalls)} calls · {ms(worst.durationMs)}</span>
+          {/* ---- execution map · live activity --------------------------------------- */}
+          <div className="mb-5 grid gap-4 xl:grid-cols-12">
+            <div className="xl:col-span-8">
+              <Card
+                title="Agent Execution Map"
+                aside={
+                  shown ? (
+                    <Link href={`/labs/tests/${latest.id}/scenarios/${shown.scenarioId}?trial=${shown.trial}`}>
+                      {worst ? "the critical failure in the latest run" : "the latest episode"} · open →
+                    </Link>
+                  ) : undefined
+                }
+                emphasis={worst ? "crit" : undefined}
+                className="h-full"
+              >
+                <p className="mb-3 text-[12.5px] text-ink-3">How authorization, evidence, policy and execution connected in {scenario?.title ?? shown?.scenarioId ?? "this episode"}.</p>
+                {graph ? <ExecutionGraph nodes={graph.nodes} edges={graph.edges} /> : <p className="text-[13px] text-ink-3">No trace available for this episode.</p>}
+                <div className="mt-3 flex flex-wrap gap-4 text-[11.5px] text-ink-3">
+                  <span>
+                    <span className="mr-1.5 inline-block h-[2px] w-4 bg-cyan align-middle" />
+                    normal flow
+                  </span>
+                  <span>
+                    <span className="mr-1.5 inline-block h-[2px] w-4 bg-crit align-middle" />
+                    risky flow
+                  </span>
+                  <span>
+                    <span className="mr-1.5 inline-block h-[10px] w-[10px] rounded-full border border-crit align-middle" />
+                    never reached the rail
+                  </span>
                 </div>
               </Card>
-            ) : (
-              <Card emphasis="good">
-                <div className="eyebrow text-good-ink">No critical failure</div>
-                <div className="mt-1 text-[18px] font-semibold">Every episode in the latest run stayed inside the mandate.</div>
-                <p className="mt-2 text-[13px] text-ink-2">{int(grades.length)} episodes across {int(latest.suite.scenarioCount)} scenarios, no money moved on a call that was not the agent&apos;s to make. Look at the non-critical findings on the run before reading this as done.</p>
-                <div className="mt-4">
-                  <LinkButton href={`/labs/tests/${latest.id}?tab=failures`}>Open findings</LinkButton>
+            </div>
+            <div className="xl:col-span-4">
+              <Card title="Live Activity" aside={`${int(feed.length)} most recent`} className="h-full">
+                <ActivityFeed items={feed} empty="Nothing sealed yet." />
+              </Card>
+            </div>
+          </div>
+
+          {/* ---- replay · radar · actions ------------------------------------------- */}
+          <div className="mb-5 grid gap-4 xl:grid-cols-12">
+            <div className="xl:col-span-5">
+              <Card title="Scenario Replay" aside={shown ? <StateBadge state={worst ? "FAIL" : shown.effective === shown.expected ? "PASS" : "REVIEW"} /> : undefined} emphasis={worst ? "crit" : undefined} className="h-full">
+                {shown && trace ? (
+                  <>
+                    <div className="text-[16px] font-semibold leading-snug">{scenario?.title ?? shown.scenarioId}</div>
+                    <div className="mt-1 text-[24px] font-semibold tabular tracking-[-0.01em]">
+                      {money(shown.paidAmount ?? 0)} <span className="text-[12px] font-normal text-ink-3">{worst ? "simulated exposure" : "paid in the sandbox"}</span>
+                    </div>
+                    <div className="mt-4 grid gap-5 md:grid-cols-2">
+                      <div>
+                        <div className="eyebrow mb-2">Timeline</div>
+                        <Trajectory steps={trajectory(trace, shown.violations)} decision={{ label: worst ? "FAIL" : shown.effective === shown.expected ? "PASS" : "REVIEW", state: worst ? "fail" : shown.effective === shown.expected ? "ok" : "warn" }} />
+                      </div>
+                      <div>
+                        <div className="eyebrow mb-2">Agent trajectory</div>
+                        <ol className="grid gap-2 text-[12px]">
+                          {trace.calls.slice(0, 5).map((c) => (
+                            <li key={c.seq}>
+                              <div className="text-[11px] tabular text-ink-3">+{ms(c.elapsedMs)} · tool call</div>
+                              <div className="mono text-ink-2">
+                                {c.tool}({Object.values(c.args).slice(0, 2).map((v) => JSON.stringify(v)).join(", ")})
+                              </div>
+                            </li>
+                          ))}
+                          <li>
+                            <div className="text-[11px] text-ink-3">agent · stated reason, never trusted</div>
+                            <div className="text-ink-2">{trace.declared?.reason ?? trace.error ?? "none"}</div>
+                          </li>
+                        </ol>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <LinkButton href={`/labs/tests/${latest.id}/scenarios/${shown.scenarioId}?trial=${shown.trial}`} tone={worst ? "crit" : "accent"}>
+                        View Full Trace
+                      </LinkButton>
+                      <LinkButton href={`/labs/tests/${latest.id}?tab=trace`}>Every episode</LinkButton>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-[13px] text-ink-3">No episode to replay.</p>
+                )}
+              </Card>
+            </div>
+            <div className="xl:col-span-4">
+              <Card title="Risk Radar" aside={prof ? `${int(prof.totalEpisodes)} episodes · ${int(prof.runIds.length)} run(s)` : undefined} className="h-full">
+                <Radar axes={axes} size={220} stacked />
+                <div className="mt-3 flex flex-wrap items-center gap-4 text-[11.5px] text-ink-3">
+                  <span>
+                    <span className="mr-1.5 inline-block h-[10px] w-[10px] rounded-[2px] bg-model align-middle" />
+                    {agentDisplay(latest.agent.name)} v{latest.agent.version}
+                  </span>
+                  <span>
+                    <span className="mr-1.5 inline-block h-[10px] w-[10px] rounded-[2px] border border-line-2 align-middle" />
+                    industry benchmark: not available yet
+                  </span>
                 </div>
               </Card>
-            )}
+            </div>
+            <div className="xl:col-span-3">
+              <Card title="Recommended Actions" className="h-full">
+                <RecommendedActions items={recs.slice(0, 4)} />
+              </Card>
+            </div>
           </div>
 
-          {/* ---- 3. coverage ----------------------------------------------------- */}
-          <div className="mb-6">
-            <Card
-              title="Coverage by failure family"
-              aside={prof ? `${latest.agent.name} v${latest.agent.version} · ${int(prof.totalEpisodes)} episodes across ${int(prof.runIds.length)} run(s)` : "no profile"}
-            >
-              <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-                <Radar axes={axes} />
-                <div className="grid content-start gap-3 text-[13px] text-ink-2">
-                  <p>Each axis is one family from the failure taxonomy. The score is the share of episodes exercising that family with no critical violation, across every run of this agent version. An axis with fewer than ten trials is left hollow rather than filled in.</p>
-                  {prof?.findings.slice(0, 3).map((f) => (
-                    <p key={f} className="text-[12.5px] text-ink-3">{f}</p>
-                  ))}
-                  <p className="text-[11.5px] text-ink-3">The radar summarises; the failures on the run are the product.</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* ---- 4. agents ------------------------------------------------------- */}
-          <div className="mb-6">
-            <Card title="Agents" aside={`${int(latestBy.size)} configurations · latest run each`} padded={false}>
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="pl-5">agent</th>
-                    <th>version</th>
-                    <th>model</th>
-                    <th className="text-right">safety</th>
-                    <th className="text-right">critical</th>
-                    <th className="text-right">trend</th>
-                    <th>history</th>
-                    <th className="pr-5">release</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...latestBy.values()].reverse().map((r) => {
-                    const mine = runs.filter((x) => agentKey(x) === agentKey(r));
-                    const series = mine.map((x) => x.axes.safety.score);
-                    const prev = mine.at(-2);
-                    const g = latestGateBy.get(agentKey(r));
-                    const rd = readiness(r, g);
-                    return (
-                      <tr key={r.id} className="row-link">
-                        <td className="pl-5">
-                          <Link href={`/labs/tests/${r.id}`} className="font-medium">
-                            {r.agent.name}
-                          </Link>
-                        </td>
-                        <td className="mono text-ink-2">v{r.agent.version}</td>
-                        <td className="text-[12px] text-ink-2">{r.agent.subject.model ?? <span className="text-ink-3">not reported</span>}</td>
-                        <td className="text-right">
-                          <Rate score={r.axes.safety.score} n={r.axes.safety.sampleSize} />
-                        </td>
-                        <td className={`text-right tabular ${r.axes.criticalViolations.length ? "text-crit-ink" : ""}`}>{int(r.axes.criticalViolations.length)}</td>
-                        <td className="text-right">
-                          <Delta value={prev ? r.axes.safety.score - prev.axes.safety.score : null} />
-                        </td>
-                        <td>
-                          <Sparkline values={series.slice(-12)} labels={mine.slice(-12).map((x) => when(x.createdAt))} />
-                        </td>
-                        <td className="pr-5">
-                          <StateBadge state={rd.state} />
-                        </td>
+          {/* ---- agents · arena · shadow ------------------------------------------- */}
+          <div className="grid gap-4 xl:grid-cols-12">
+            <div className="xl:col-span-7">
+              <Card title="Agents" aside={`${int(latestBy.size)} configurations · latest run each`} padded={false} className="h-full">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="pl-6">agent</th>
+                        <th>model</th>
+                        <th className="text-right">safety</th>
+                        <th className="text-right">critical</th>
+                        <th className="text-right">trend</th>
+                        <th>history</th>
+                        <th className="pr-6">release</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </Card>
-          </div>
-
-          {/* ---- 5 · 6. arena · shadow -------------------------------------------- */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="Model Arena" aside={<Link href="/labs/arena">open →</Link>}>
-              <p className="mb-3 text-[13px] text-ink-2">Which configuration should you deploy?</p>
-              {latestCompare ? (
-                <>
-                  <ul className="grid gap-1.5">
-                    {latestCompare.arms.map((a) => (
-                      <li key={a.label} className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 rounded-[var(--radius-sm)] px-3 py-2 ${latestCompare.recommendation.label === a.label ? "bg-accent-soft" : ""}`}>
-                        <span className="text-[13px]">{a.label}</span>
-                        <Rate score={a.axes.safety.score} n={a.axes.safety.n} />
-                        <span className={`text-[12px] tabular ${a.criticalViolations ? "text-crit-ink" : "text-ink-3"}`}>{int(a.criticalViolations)} critical</span>
-                        <span className="text-[11px] text-ink-3">cost not measured</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-3 text-[13px]">
-                    <span className="text-ink-3">Recommended </span>
-                    {latestCompare.recommendation.label ? <Pill tone="accent">{latestCompare.recommendation.label}</Pill> : <Pill tone="warn">none</Pill>}
-                    <p className="mt-1 text-[12px] text-ink-3">{latestCompare.recommendation.reason}</p>
-                  </div>
-                  <div className="mt-3">
-                    <LinkButton href={`/labs/arena/${latestCompare.id}`}>Open Model Arena</LinkButton>
-                  </div>
-                </>
-              ) : (
-                <EmptyState title="No comparison yet." body="Put two configurations on the same scenarios and get one signed record that says which held up." cta="Open Model Arena" ctaHref="/labs/arena" />
-              )}
-            </Card>
-
-            <Card title="Shadow Mode" aside={<Link href="/production">open →</Link>}>
-              {shadow && shadow.evaluated > 0 ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <Metric label="Decisions observed" value={int(shadow.evaluated)} />
-                  <Metric label="Agreed" value={ofN(shadow.agreed.value, shadow.agreed.of)} tone="good" />
-                  <Metric label="Would have held or escalated" value={ofN(shadow.wouldHaveHeld.value + shadow.wouldHaveEscalated.value, shadow.evaluated)} tone="warn" />
-                  <Metric label="Exposure we would have stopped" value={money(shadow.exposureWeWouldHaveStopped.amount, shadow.exposureWeWouldHaveStopped.currency ?? "USD")} sub="released by the customer's system" />
+                    </thead>
+                    <tbody>
+                      {[...latestBy.values()].reverse().map((r) => {
+                        const series = runs.filter((x) => agentKey(x) === agentKey(r));
+                        const p = series.at(-2);
+                        const rd = readiness(r, latestGateBy.get(agentKey(r)));
+                        return (
+                          <tr key={r.id} className="row-link">
+                            <td className="pl-6">
+                              <Link href={`/labs/tests/${r.id}`} className="font-medium">
+                                {agentDisplay(r.agent.name)}
+                              </Link>
+                              <div className="text-[11.5px] text-ink-3">
+                                v{r.agent.version} · {suiteName(r.suite.id).name}
+                              </div>
+                            </td>
+                            <td className="text-[12.5px] text-ink-2">{modelDisplay(r.agent.subject.model, r.agent.subject.source)}</td>
+                            <td className="text-right">
+                              <Rate score={r.axes.safety.score} n={r.axes.safety.sampleSize} />
+                            </td>
+                            <td className={`text-right tabular ${r.axes.criticalViolations.length ? "text-crit-ink" : ""}`}>{int(r.axes.criticalViolations.length)}</td>
+                            <td className="text-right">
+                              <Delta value={p ? r.axes.safety.score - p.axes.safety.score : null} />
+                            </td>
+                            <td>
+                              <Sparkline values={series.slice(-12).map((x) => x.axes.safety.score)} labels={series.slice(-12).map((x) => when(x.createdAt))} />
+                            </td>
+                            <td className="pr-6">
+                              <StateBadge state={rd.state} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              ) : (
-                <>
-                  <p className="text-[15px] font-medium">Observe real agent decisions without blocking payments.</p>
-                  <p className="mt-1.5 text-[13px] text-ink-2">Send each production decision to the three-way match and see what it would have released, held or escalated, while staying read-only.</p>
-                  <div className="mt-4">
+              </Card>
+            </div>
+            <div className="grid gap-4 xl:col-span-5">
+              <Card title="Model Arena" aside={<Link href="/labs/arena">open →</Link>} emphasis={latestCompare ? "model" : undefined}>
+                {latestCompare ? (
+                  <>
+                    <p className="mb-2 text-[13px] text-ink-2">Which configuration should you deploy?</p>
+                    <ul className="grid gap-1">
+                      {latestCompare.arms.map((a) => (
+                        <li key={a.label} className={`grid grid-cols-[1fr_auto_auto] items-center gap-4 rounded-[var(--radius-sm)] px-2.5 py-1.5 ${latestCompare.recommendation.label === a.label ? "bg-model-soft" : ""}`}>
+                          <span className="truncate text-[13px]">{a.label}</span>
+                          <Rate score={a.axes.safety.score} n={a.axes.safety.n} />
+                          <span className={`text-[12px] tabular ${a.criticalViolations ? "text-crit-ink" : "text-ink-3"}`}>{int(a.criticalViolations)} critical</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-[12px] text-ink-3">
+                      {latestCompare.recommendation.label ? (
+                        <>
+                          Recommended <span className="text-model-ink">{latestCompare.recommendation.label}</span>: {latestCompare.recommendation.reason.split(". ")[0]}.
+                        </>
+                      ) : (
+                        latestCompare.recommendation.reason.split(". ")[0]
+                      )}
+                    </p>
+                  </>
+                ) : (
+                  <EmptyState title="No comparison yet." body="Put two configurations on identical scenarios." cta="Open Model Arena" ctaHref="/labs/arena" />
+                )}
+              </Card>
+              <Card title="Shadow Mode" aside={<Link href="/production">open →</Link>}>
+                {shadow && shadow.evaluated > 0 ? (
+                  <div className="grid grid-cols-3 gap-3 text-[13px]">
+                    <div>
+                      <div className="text-ink-3">observed</div>
+                      <div className="text-[22px] font-semibold tabular">{int(shadow.evaluated)}</div>
+                    </div>
+                    <div>
+                      <div className="text-ink-3">would hold or escalate</div>
+                      <div className="text-[22px] font-semibold tabular text-warn-ink">{ofN(shadow.wouldHaveHeld.value + shadow.wouldHaveEscalated.value, shadow.evaluated)}</div>
+                    </div>
+                    <div>
+                      <div className="text-ink-3">would have stopped</div>
+                      <div className="text-[22px] font-semibold tabular">{money(shadow.exposureWeWouldHaveStopped.amount, shadow.exposureWeWouldHaveStopped.currency ?? "USD")}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[14px] font-medium">Observe real agent decisions without blocking anything.</p>
+                      <p className="mt-1 text-[12.5px] text-ink-3">No transaction is blocked while Shadow Mode is enabled.</p>
+                    </div>
                     <LinkButton href="/production" tone="accent">
-                      Connect Production Agent
+                      Connect
                     </LinkButton>
                   </div>
-                  <p className="mt-2 text-[11.5px] text-ink-3">No transaction is blocked while Shadow Mode is enabled. Nothing here can touch a payment.</p>
-                </>
-              )}
-            </Card>
+                )}
+              </Card>
+            </div>
           </div>
+
+          <p className="mt-5 text-[11.5px] text-ink-3">
+            Readiness: {READINESS_RULE} Scenario pass rate {pct(pass.passed, pass.of)} ({ofN(pass.passed, pass.of)}, every trial correct). Last tested {ago(latest.createdAt)}.
+          </p>
         </>
       )}
     </>
   );
+}
+
+/**
+ * The path a payment took, from the records: the agent, what it was asked to
+ * pay, the policy in force, the vendor, the approval on file, the account the
+ * money went to, and the rail. A node turns red only where a grader anchored
+ * a critical finding or the accounts disagree; the rail is "never reached"
+ * when no payment settled.
+ */
+function buildGraph(agent: { name: string; version: string }, scenario: Scenario | null, trace: EpisodeTrace, violations: Violation[], critical: boolean): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const pay = trace.calls.filter((c) => c.tool === "create_payment").at(-1);
+  const lookup = trace.calls.find((c) => c.tool === "lookup_vendor");
+  const invoiceId = scenario?.task.match(/INV-[\w-]+/)?.[0] ?? String(pay?.args.invoiceId ?? "");
+  const approved = scenario?.authorization.approvedInvoices.find((i) => i.invoiceId === invoiceId);
+  const vendorName = scenario?.authorization.approvedVendors[0]?.name ?? String(pay?.args.payeeName ?? lookup?.args.name ?? "vendor");
+  const onFile = scenario?.authorization.approvedVendors.find((v) => v.name.toLowerCase() === vendorName.toLowerCase())?.accountLast4 ?? String(lookup?.result.accountLast4 ?? "");
+  const paidTo = String(pay?.args.payeeAccountLast4 ?? "");
+  const settled = pay?.result.state === "settled";
+  const codes = new Set(violations.map((v) => v.code));
+  const beneficiaryRisk = codes.has("paid_wrong_account") || codes.has("changed_bank_details_unverified") || codes.has("ignored_stale_bank_change") || codes.has("acted_on_document_instruction") || Boolean(paidTo && onFile && paidTo !== onFile);
+  const docSaysOtherAccount = Boolean(scenario?.documents.some((d) => {
+    const t = `${d.text} ${d.hiddenText ?? ""}`;
+    const m = t.match(/account ending (\d{4})/i);
+    return m && onFile && m[1] !== onFile;
+  }));
+  const authRisk = codes.has("exceeded_limit") || codes.has("exceeded_daily_limit") || codes.has("amount_exceeds_approval") || codes.has("paid_unapproved_invoice");
+  const escalated = trace.calls.some((c) => c.tool === "request_human_approval");
+
+  const nodes: GraphNode[] = [
+    { id: "agent", label: "Financial agent", sub: `${agent.name} v${agent.version}`, tone: "accent", x: 8, y: 50 },
+    { id: "invoice", label: "Invoice", sub: invoiceId || "no invoice named", x: 29, y: 24, tone: docSaysOtherAccount ? "warn" : undefined, badge: docSaysOtherAccount ? "NEW ACCOUNT IN DOCUMENT" : undefined },
+    { id: "policy", label: "Policy", sub: scenario ? `${scenario.authorization.policyVersion} · limit ${money(scenario.authorization.limitPerPayment, scenario.authorization.currency)}` : "policy in force", x: 29, y: 76, tone: authRisk ? "crit" : undefined, badge: authRisk ? "EXCEEDED" : undefined },
+    { id: "vendor", label: "Vendor", sub: vendorName, x: 50, y: 24 },
+    { id: "approval", label: "Approval", sub: approved ? `${approved.invoiceId} by ${approved.approvedBy}` : escalated ? "asked a person" : "none on file", x: 50, y: 76, tone: !approved && !escalated && settled ? "crit" : escalated ? "good" : undefined, badge: !approved && !escalated && settled ? "PAID WITHOUT APPROVAL" : escalated ? "ESCALATED" : undefined },
+    { id: "bank", label: "Beneficiary", sub: paidTo ? `account ****${paidTo}` : onFile ? `on file ****${onFile}` : "not resolved", x: 71, y: 50, tone: beneficiaryRisk ? "crit" : undefined, badge: beneficiaryRisk ? (paidTo && onFile && paidTo !== onFile ? "DOES NOT MATCH RECORD" : "BANK DETAILS CHANGED · RISKY") : undefined },
+    { id: "rail", label: "Payment rail", sub: pay ? `${String(pay.args.currency ?? "USD")} ${Number(pay.args.amount ?? 0).toLocaleString()} · ${String(pay.result.rail ?? "ach")}` : "no payment", x: 92, y: 50, tone: settled ? (critical ? "crit" : "good") : escalated ? "warn" : "neutral", badge: settled ? (critical ? "PAID IN SANDBOX · WRONGFUL" : "SETTLED IN SANDBOX") : escalated ? "HELD FOR A PERSON" : "NOT REACHED" },
+  ];
+  const edges: GraphEdge[] = [
+    { from: "agent", to: "invoice" },
+    { from: "agent", to: "policy" },
+    { from: "invoice", to: "vendor" },
+    { from: "policy", to: "approval" },
+    { from: "vendor", to: "bank", tone: beneficiaryRisk ? "crit" : undefined },
+    { from: "approval", to: "bank", tone: authRisk ? "crit" : undefined },
+    { from: "bank", to: "rail", tone: critical ? "crit" : settled ? "good" : undefined, broken: !settled },
+  ];
+  return { nodes, edges };
 }

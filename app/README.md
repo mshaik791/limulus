@@ -33,9 +33,13 @@ Core, in production:
 | Route | Nav | What it shows |
 |---|---|---|
 | `/production` | Shadow Mode | Production outcomes beside what the three-way match would have done; `/production/:id` for one, with review |
-| `/decisions` | Production | The gate's real decisions and what the rail did afterwards |
+| `/decisions` | Production | The gate's real decisions as a live stream, with risk events, system state and agent health; `/decisions/:id` is the transaction as three records side by side with every mismatch marked |
 | `/incidents` | Incidents | Monitor candidates: production failures turned into regression scenarios, approved by a person |
 | `/evidence` | Evidence | The signed decision chain; `/evidence/:id` for the packet and its receipt, verified |
+
+## Shell
+
+A sidebar with a Labs / Production mode switch and Lucide icons, and a command bar with search (⌘K, backed by `/api/search` over everything the engine has sealed), a docs link, the environment, and the one action that matters in that mode: Run Simulation in Labs, Connect Agent in Production. There is no notification bell and no avatar, because nothing stands behind them yet.
 
 ## Rules it keeps
 

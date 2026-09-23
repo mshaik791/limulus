@@ -1,40 +1,45 @@
 import Link from "next/link";
+import { Activity, ShieldCheck, ShieldX, Target } from "lucide-react";
 import { qualifications, records, shadowRecords } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { day, int, money, ofN, pct, when } from "@/lib/format";
-import { Card, EmptyState, Hash, Metric, Offline, PageHeader, Pill } from "@/components/ui";
+import { agentDisplay, suiteName } from "@/lib/names";
+import { MetricCard } from "@/components/blocks";
+import { Card, EmptyState, Hash, Offline, PageHeader, Pill } from "@/components/ui";
 
 export const metadata = { title: "Assurance Checks" };
 
-// Two things live here and they are kept apart on purpose. The checks are the
-// deterministic rules the three-way match runs on every payment, with how
-// often each has fired. The qualifications are the signed clearances those
-// checks have earned an agent: what it is cleared to pay, until when.
+// The ten deterministic checks every payment is held to, grouped by what they
+// protect, each with how often it ran, how often it held or escalated, and a
+// reliability bar. Below them, the signed qualifications those checks have
+// earned each agent. The two are kept apart on purpose: a check is a rule,
+// a qualification is a clearance.
 
 const CHECKS: { id: string; name: string; category: string; severity: "critical" | "high" | "medium" }[] = [
-  { id: "vendor_approved", name: "Approved vendor", category: "authorization", severity: "critical" },
-  { id: "within_limit", name: "Per-payment limit", category: "authorization", severity: "critical" },
-  { id: "invoice_approved", name: "Human approval", category: "authorization", severity: "critical" },
-  { id: "declaration_matches_order", name: "Payment order vs declaration", category: "execution integrity", severity: "critical" },
-  { id: "payee_account", name: "Payee account", category: "beneficiary", severity: "critical" },
-  { id: "bank_detail_change", name: "Bank detail change", category: "beneficiary", severity: "high" },
-  { id: "duplicate", name: "Duplicate payment", category: "duplicate protection", severity: "critical" },
-  { id: "similar_recent_payment", name: "Similar recent payment", category: "duplicate protection", severity: "medium" },
-  { id: "embedded_instructions", name: "Embedded instructions", category: "injection resistance", severity: "high" },
-  { id: "sources_cited", name: "Source documents", category: "evidence", severity: "medium" },
+  { id: "vendor_approved", name: "Vendor is on the approved list", category: "Authorization", severity: "critical" },
+  { id: "within_limit", name: "Amount within the per-payment limit", category: "Authorization", severity: "critical" },
+  { id: "invoice_approved", name: "Invoice carries a human approval", category: "Authorization", severity: "critical" },
+  { id: "payee_account", name: "Payee account matches the authorized vendor record", category: "Beneficiary", severity: "critical" },
+  { id: "bank_detail_change", name: "No recent, unverified bank detail change", category: "Beneficiary", severity: "high" },
+  { id: "declaration_matches_order", name: "Payment order matches the declared intent", category: "Execution integrity", severity: "critical" },
+  { id: "sources_cited", name: "Source documents cited and hashed", category: "Execution integrity", severity: "medium" },
+  { id: "duplicate", name: "Invoice not already paid", category: "Duplicate protection", severity: "critical" },
+  { id: "similar_recent_payment", name: "No similar payment to the same payee recently", category: "Duplicate protection", severity: "medium" },
+  { id: "embedded_instructions", name: "No instructions hidden in the documents", category: "Policy", severity: "high" },
 ];
 
 export default async function AssuranceChecks() {
   const [quals, chain, shadow] = await Promise.all([safe(qualifications()), safe(records()), safe(shadowRecords())]);
   if (!quals || !chain) return <Offline />;
 
-  // Usage from the last fifty decisions and the shadow records that carry checks.
   const usage = new Map<string, { ran: number; passed: number; failed: number; review: number; skipped: number; last?: string }>();
   const sources = [...chain.map((r) => ({ at: r.createdAt, checks: r.checks })), ...(shadow ?? []).filter((s) => s.checks).map((s) => ({ at: s.createdAt, checks: s.checks! }))];
+  let evaluations = 0;
   for (const s of sources) {
     for (const c of s.checks) {
       const u = usage.get(c.id) ?? { ran: 0, passed: 0, failed: 0, review: 0, skipped: 0 };
       u.ran++;
+      evaluations++;
       if (c.status === "pass") u.passed++;
       else if (c.status === "fail") u.failed++;
       else if (c.status === "review") u.review++;
@@ -43,60 +48,60 @@ export default async function AssuranceChecks() {
       usage.set(c.id, u);
     }
   }
+  const failed = [...usage.values()].reduce((n, u) => n + u.failed + u.review, 0);
+  const exercised = CHECKS.filter((c) => (usage.get(c.id)?.ran ?? 0) - (usage.get(c.id)?.skipped ?? 0) > 0).length;
   const valid = quals.filter((q) => q.state === "valid");
-  const rows = [...quals].reverse().slice(0, 60);
+  const rows = [...quals].reverse().slice(0, 40);
+  const categories = [...new Set(CHECKS.map((c) => c.category))];
 
   return (
     <>
       <PageHeader title="Assurance Checks" subtitle="The deterministic checks every payment is held to, and the signed clearances they have earned each agent." />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Metric label="Checks in the three-way match" value={int(CHECKS.length)} sub="deterministic, no model in the path" />
-        <Metric label="Decisions read" value={int(sources.length)} sub="most recent on the chain, plus shadow" />
-        <Metric label="Qualifications in force" value={int(valid.length)} tone={valid.length ? "good" : "neutral"} sub={`${int(quals.length)} issued in total`} />
-        <Metric label="Revoked or expired" value={int(quals.length - valid.length)} />
+      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <MetricCard icon={ShieldCheck} label="Active checks" value={int(CHECKS.length)} sub="deterministic, no model in the path" />
+        <MetricCard icon={Activity} label="Evaluations" value={int(evaluations)} sub={`across ${int(sources.length)} decisions read`} />
+        <MetricCard icon={ShieldX} label="Held or escalated" value={int(failed)} tone={failed ? "warn" : "good"} sub="a check that fired" />
+        <MetricCard icon={Target} label="Coverage" value={pct(exercised, CHECKS.length)} sub={`${ofN(exercised, CHECKS.length)} checks exercised at least once`} />
       </div>
 
-      <Card title="Checks" padded={false} className="mb-6">
-        <table className="w-full">
-          <thead>
-            <tr>
-              <th className="pl-5">check</th>
-              <th>category</th>
-              <th>severity</th>
-              <th className="text-right">ran</th>
-              <th className="text-right">passed</th>
-              <th className="text-right">held / escalated</th>
-              <th className="pr-5">last fired</th>
-            </tr>
-          </thead>
-          <tbody>
-            {CHECKS.map((c) => {
-              const u = usage.get(c.id);
-              return (
-                <tr key={c.id}>
-                  <td className="pl-5">
-                    <div className="font-medium">{c.name}</div>
-                    <div className="mono text-[11px] text-ink-3">{c.id}</div>
-                  </td>
-                  <td className="text-[12.5px] text-ink-2">{c.category}</td>
-                  <td>
-                    <Pill tone={c.severity === "critical" ? "crit" : c.severity === "high" ? "warn" : "neutral"}>{c.severity}</Pill>
-                  </td>
-                  <td className="text-right tabular">{u ? int(u.ran) : "–"}</td>
-                  <td className="text-right tabular">{u && u.ran - u.skipped > 0 ? `${pct(u.passed, u.ran - u.skipped)} · ${ofN(u.passed, u.ran - u.skipped)}` : "–"}</td>
-                  <td className={`text-right tabular ${u && u.failed + u.review ? "text-warn-ink" : ""}`}>{u ? int(u.failed + u.review) : "–"}</td>
-                  <td className="pr-5 text-[12px] text-ink-3">{u?.last ? when(u.last) : "never"}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </Card>
+      <div className="mb-5 grid gap-4">
+        {categories.map((cat) => (
+          <Card key={cat} title={cat} padded={false}>
+            <ul>
+              {CHECKS.filter((c) => c.category === cat).map((c) => {
+                const u = usage.get(c.id);
+                const n = u ? u.ran - u.skipped : 0;
+                const rate = n ? u!.passed / n : null;
+                return (
+                  <li key={c.id} className="grid items-center gap-4 border-b border-line px-6 py-3.5 last:border-0 md:grid-cols-[1fr_110px_120px_160px_150px]">
+                    <div className="min-w-0">
+                      <div className="text-[14px]">{c.name}</div>
+                      <div className="mono text-[11px] text-ink-3">{c.id}</div>
+                    </div>
+                    <div>
+                      <Pill tone={c.severity === "critical" ? "crit" : c.severity === "high" ? "warn" : "neutral"}>{c.severity}</Pill>
+                    </div>
+                    <div className="text-[12.5px] tabular text-ink-2">{u ? `${int(u.ran)} evaluations` : "not yet run"}</div>
+                    <div>
+                      <div className="flex items-baseline justify-between text-[12px]">
+                        <span className="tabular">{rate === null ? "–" : `${Math.round(rate * 100)}% pass`}</span>
+                        <span className="tabular text-ink-3">{u ? `${int(u.failed + u.review)} held` : ""}</span>
+                      </div>
+                      <div className="mt-1 h-[4px] overflow-hidden rounded-full bg-surface-3">{rate !== null && <div className="h-full rounded-full bg-good" style={{ width: `${Math.max(1, rate * 100)}%` }} />}</div>
+                    </div>
+                    <div className="text-[12px] text-ink-3">{u?.last ? `last fired ${when(u.last)}` : "never fired"}</div>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        ))}
+      </div>
 
-      <Card title="Qualifications" aside="bound to agent, version, prompt and tool hashes, workflow, rail, currency, ceiling, payee scope and suite" padded={false}>
+      <Card title="Qualifications" aside={`${int(valid.length)} in force of ${int(quals.length)} issued · bound to agent, version, prompt and tool hashes, workflow, rail, currency, ceiling, payee scope and suite`} padded={false}>
         {rows.length === 0 ? (
-          <div className="p-5">
+          <div className="p-6">
             <EmptyState title="None issued." body="A qualification is issued from a held-out run and says what an agent is cleared to pay, until when." code="node src/lab-cli.ts qualify careful" />
           </div>
         ) : (
@@ -104,7 +109,7 @@ export default async function AssuranceChecks() {
             <table className="w-full whitespace-nowrap">
               <thead>
                 <tr>
-                  <th className="pl-5">state</th>
+                  <th className="pl-6">state</th>
                   <th>agent</th>
                   <th>rung</th>
                   <th>scope</th>
@@ -112,35 +117,31 @@ export default async function AssuranceChecks() {
                   <th className="text-right">safety</th>
                   <th>issued</th>
                   <th>expires</th>
-                  <th>run</th>
-                  <th className="pr-5">signature</th>
+                  <th className="pr-6">signature</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((q) => (
-                  <tr key={q.id}>
-                    <td className="pl-5">
+                  <tr key={q.id} className="row-link">
+                    <td className="pl-6">
                       <Pill tone={q.state === "valid" ? "good" : q.state === "revoked" ? "crit" : "warn"}>{q.state ?? "?"}</Pill>
-                      {q.revokedReason && <div className="max-w-[220px] whitespace-normal text-[11px] text-ink-3">{q.revokedReason}</div>}
                     </td>
                     <td>
-                      {q.binding.agent.name} <span className="mono text-ink-3">v{q.binding.agent.version}</span>
+                      <Link href={`/labs/tests/${q.runId}`}>{agentDisplay(q.binding.agent.name)}</Link>
+                      <div className="text-[11.5px] text-ink-3">
+                        v{q.binding.agent.version} · {suiteName(q.binding.suite.id).name}
+                      </div>
                     </td>
-                    <td className="text-[12px] text-ink-2">{q.level}</td>
+                    <td className="text-[12.5px] text-ink-2">{q.level}</td>
                     <td className="text-[12px]">
-                      {q.binding.workflow} · {q.binding.rail} · {q.binding.currency} · payees {q.binding.payeeScope}
+                      {q.binding.workflow} · {q.binding.rail} · payees {q.binding.payeeScope}
                       {q.scopeNarrowing?.length ? <div className="text-warn-ink">narrowed: {q.scopeNarrowing.map((n) => `${n.dimension} ${n.from} → ${n.to}`).join("; ")}</div> : null}
                     </td>
                     <td className="text-right tabular">{money(q.binding.amountLimit, q.binding.currency)}</td>
                     <td className="text-right tabular">{q.scores.safety}</td>
                     <td className="text-ink-3">{day(q.issuedAt)}</td>
                     <td className="text-ink-3">{day(q.expiresAt)}</td>
-                    <td>
-                      <Link href={`/labs/tests/${q.runId}`} className="mono text-[12px]">
-                        {q.runId}
-                      </Link>
-                    </td>
-                    <td className="pr-5">{q.verification ? <Pill tone={q.verification.ok ? "good" : "crit"}>{q.verification.ok ? "verifies" : "broken"}</Pill> : <Hash value={q.hash} n={10} />}</td>
+                    <td className="pr-6">{q.verification ? <Pill tone={q.verification.ok ? "good" : "crit"}>{q.verification.ok ? "verifies" : "broken"}</Pill> : <Hash value={q.hash} n={10} />}</td>
                   </tr>
                 ))}
               </tbody>

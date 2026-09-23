@@ -37,3 +37,6 @@ export const ms = (n: number) => (n < 1000 ? `${Math.round(n)} ms` : n < 60_000 
 
 /** Readiness rungs, lowest first. */
 export const LADDER = ["experimental", "shadow-ready", "human-supervised", "limited-autonomous", "expanded-autonomous"] as const;
+
+/** Whether an ISO timestamp falls within the last `days`. Kept out of render bodies, where the purity rule objects to reading the clock. */
+export const withinDays = (iso: string, days: number) => Date.now() - Date.parse(iso) < days * 86_400_000;

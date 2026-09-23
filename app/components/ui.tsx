@@ -36,14 +36,14 @@ export function Card({
   emphasis?: Tone;
 }) {
   return (
-    <section className={`min-w-0 rounded-[var(--radius)] border border-line bg-surface ${emphasis ? glow[emphasis] : ""} ${className}`}>
+    <section className={`min-w-0 rounded-[var(--radius)] border border-line bg-surface shadow-[var(--shadow)] ${emphasis ? glow[emphasis] : ""} ${className}`}>
       {(title || aside) && (
-        <header className="flex items-center justify-between gap-4 px-5 pt-4 pb-1">
-          <h2 className="text-[13px] font-medium text-ink-2">{title}</h2>
+        <header className="flex items-center justify-between gap-4 px-6 pt-5 pb-1">
+          <h2 className="text-[14px] font-medium text-ink">{title}</h2>
           {aside && <div className="text-[12px] text-ink-3">{aside}</div>}
         </header>
       )}
-      <div className={padded ? "px-5 pb-5 pt-3" : ""}>{children}</div>
+      <div className={padded ? "px-6 pb-6 pt-3" : ""}>{children}</div>
     </section>
   );
 }
@@ -53,7 +53,7 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         {eyebrow && <div className="eyebrow mb-1">{eyebrow}</div>}
-        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.01em]">{title}</h1>
+        <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.015em]">{title}</h1>
         {subtitle && <p className="mt-1 text-[14px] text-ink-2">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -66,7 +66,7 @@ export function EnvBar({ children }: { children?: ReactNode }) {
   return (
     <div className="mb-6 flex items-center gap-3 border-y border-line py-2 text-[12px] text-ink-2">
       <span className="rounded-[4px] bg-warn-soft px-1.5 py-[1px] text-[10.5px] font-semibold tracking-[0.08em] text-warn-ink">SANDBOX</span>
-      <span>{children ?? "All amounts and payment activity shown here are simulated. No payment rail was called."}</span>
+      <span>{children ?? "No real payment rail calls. All financial outcomes shown here are simulated."}</span>
     </div>
   );
 }
@@ -154,7 +154,7 @@ export function Metric({ label, value, sub, tone = "neutral", size = "md" }: { l
   return (
     <div>
       <div className="text-[12px] text-ink-3">{label}</div>
-      <div className={`mt-1 font-semibold leading-none tracking-[-0.01em] ${size === "lg" ? "text-[40px]" : "text-[24px]"} ${colour}`}>{value}</div>
+      <div className={`mt-1 font-semibold leading-none tracking-[-0.015em] tabular ${size === "lg" ? "text-[40px]" : "text-[28px]"} ${colour}`}>{value}</div>
       {sub && <div className="mt-1.5 text-[12px] text-ink-3">{sub}</div>}
     </div>
   );

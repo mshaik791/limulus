@@ -1,15 +1,15 @@
 import { candidates } from "@/lib/api";
 import { safe } from "@/lib/safe";
-import { int, when } from "@/lib/format";
-import { Button, Card, EmptyState, Metric, Note, Offline, PageHeader, Pill, toneForVerdict } from "@/components/ui";
+import { ago, int, when } from "@/lib/format";
+import { Button, Card, ExecutionPath, LinkButton, Note, Offline, PageHeader, Pill, StateBadge, toneForVerdict } from "@/components/ui";
 import { decideAction } from "./actions";
 
 export const metadata = { title: "Incidents" };
 
-// Where production failures become regression tests. Each candidate was
-// synthesised from a production event by re-applying the mutation that failed
-// to a synthetic seed: the shape of the failure, never the customer's values.
-// Nothing enters a suite without a person approving it here.
+// Where production signals become regression tests. A candidate is
+// synthesised from a synthetic seed by re-applying the mutation that failed:
+// the shape of the failure, never the customer's values. Nothing enters a
+// suite until a person approves it here.
 
 export default async function Incidents() {
   const list = await safe(candidates());
@@ -20,39 +20,61 @@ export default async function Incidents() {
   return (
     <>
       <PageHeader title="Incidents" subtitle="Production failures and near misses, each turned into a candidate regression scenario. A person decides what enters the suite." />
-      <div className="mb-6 grid grid-cols-3 gap-4">
-        <Metric label="Awaiting review" value={int(pending.length)} tone={pending.length ? "warn" : "neutral"} />
-        <Metric label="Approved into suites" value={int(list.filter((c) => c.status === "approved").length)} tone="good" />
-        <Metric label="Rejected" value={int(list.filter((c) => c.status === "rejected").length)} />
+
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <Card>
+          <div className="text-[12px] text-ink-3">Awaiting review</div>
+          <div className={`mt-1 text-[28px] font-semibold tabular ${pending.length ? "text-warn-ink" : ""}`}>{int(pending.length)}</div>
+        </Card>
+        <Card>
+          <div className="text-[12px] text-ink-3">Approved into suites</div>
+          <div className="mt-1 text-[28px] font-semibold tabular text-good-ink">{int(list.filter((c) => c.status === "approved").length)}</div>
+        </Card>
+        <Card>
+          <div className="text-[12px] text-ink-3">Rejected</div>
+          <div className="mt-1 text-[28px] font-semibold tabular">{int(list.filter((c) => c.status === "rejected").length)}</div>
+        </Card>
       </div>
 
       {pending.length === 0 ? (
-        <EmptyState title="No incidents awaiting review." body="Candidates appear when the Monitor sees a production event that matches a failure shape: a gate block, a rail return, a person overriding a block, a shadow disagreement." />
+        <Card className="mb-5">
+          <div className="text-[16px] font-medium">No incidents awaiting review.</div>
+          <p className="mt-1 text-[13px] text-ink-3">Candidates appear when the Monitor sees a production signal that matches a failure shape: a gate block, a rail return, a person overriding a block, a shadow disagreement.</p>
+          <div className="mt-4">
+            <ExecutionPath steps={[{ label: "Production signal", tone: "accent" }, { label: "Candidate incident", tone: "warn" }, { label: "Human review", tone: "neutral" }, { label: "Regression scenario", tone: "good" }]} />
+          </div>
+          <div className="mt-4">
+            <LinkButton href="/decisions">View Production Activity</LinkButton>
+          </div>
+        </Card>
       ) : (
-        <div className="mb-6 grid gap-3">
+        <div className="mb-5 grid gap-3">
           {pending.map((c) => (
             <Card key={c.id} emphasis="warn">
-              <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+              <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Pill tone="warn">pending</Pill>
+                    <StateBadge state="REVIEW" label={c.scenario.severity.toUpperCase()} />
                     <span className="mono text-[12px] text-ink-3">{c.taxonomyNode}</span>
-                    <span className="text-[12px] text-ink-3">· {int(c.count)} event(s) · org {c.org}</span>
+                    <span className="text-[12px] text-ink-3">· {int(c.count)} signal(s) · org {c.org}</span>
                   </div>
-                  <div className="mt-1.5 text-[16px] font-semibold">{c.scenario.title}</div>
-                  <p className="mt-1 text-[13px] text-ink-2">{c.preservedProperty}. Correct answer: {c.scenario.expected}.</p>
-                  <p className="mt-2 text-[12px] text-ink-3">{c.scenario.intent}</p>
+                  <div className="mt-2 text-[18px] font-semibold leading-snug">{c.scenario.title}</div>
+                  <p className="mt-1 text-[13px] text-ink-2">
+                    {c.preservedProperty}. Correct answer: <span className="text-ink">{c.scenario.expected}</span>.
+                  </p>
+                  <p className="mt-2 text-[12.5px] text-ink-3">{c.scenario.intent}</p>
+                  <p className="mt-2 text-[12px] text-ink-3">Detected {ago(c.createdAt)}</p>
                 </div>
                 <form action={decideAction} className="grid content-start gap-2 text-[13px]">
-                  <input type="hidden" name="id" value={c.id} />
                   <input name="reason" placeholder="reason, for the record" />
-                  <div className="flex gap-2">
+                  <input type="hidden" name="id" value={c.id} />
+                  <div className="flex flex-wrap gap-2">
                     <button name="decision" value="approve" className="rounded-[var(--radius-sm)] border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-white">
-                      Add to regression suite
+                      Create Regression Test
                     </button>
-                    <Button tone="neutral">Reject</Button>
+                    <Button tone="neutral">Dismiss</Button>
                   </div>
-                  <p className="text-[11px] text-ink-3">Approving writes the scenario file into this org&apos;s suite. No customer value is in it.</p>
+                  <p className="text-[11.5px] text-ink-3">Approving writes the scenario file into this org&apos;s suite. No customer value is in it.</p>
                 </form>
               </div>
             </Card>
@@ -61,32 +83,21 @@ export default async function Incidents() {
       )}
 
       {decided.length > 0 && (
-        <Card title="Decided" padded={false}>
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="pl-5">candidate</th>
-                <th>failure shape</th>
-                <th>status</th>
-                <th className="pr-5">decided</th>
-              </tr>
-            </thead>
-            <tbody>
-              {decided.map((c) => (
-                <tr key={c.id}>
-                  <td className="pl-5">
-                    <div className="text-[13px]">{c.scenario.title}</div>
-                    <div className="mono text-[11px] text-ink-3">{c.id}</div>
-                  </td>
-                  <td className="mono text-[12px]">{c.taxonomyNode}</td>
-                  <td>
-                    <Pill tone={toneForVerdict(c.status === "approved" ? "pass" : "rejected")}>{c.status}</Pill>
-                  </td>
-                  <td className="pr-5 text-[12px] text-ink-3">{c.decidedAt ? when(c.decidedAt) : "–"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <Card title="Decided" aside={`${int(decided.length)}`} padded={false}>
+          <ul>
+            {decided.map((c) => (
+              <li key={c.id} className="flex items-center gap-4 border-b border-line px-6 py-3 last:border-0">
+                <Pill tone={toneForVerdict(c.status === "approved" ? "pass" : "rejected")}>{c.status}</Pill>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px]">{c.scenario.title}</div>
+                  <div className="mono text-[11px] text-ink-3">
+                    {c.id} · {c.taxonomyNode}
+                  </div>
+                </div>
+                <div className="text-[12px] text-ink-3">{c.decidedAt ? when(c.decidedAt) : "–"}</div>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
       <div className="mt-4">

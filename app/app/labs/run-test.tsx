@@ -9,16 +9,20 @@ import { Button } from "@/components/ui";
 // Connect Agent shows the contract, because connecting is an endpoint, not a
 // form: the harness POSTs turns to it and never holds a key.
 
-export function RunTest({ agents }: { agents: { key: string; name: string; version: string }[] }) {
+export function RunTest({ agents, show = ["connect", "run"] }: { agents: { key: string; name: string; version: string }[]; show?: ("connect" | "run")[] }) {
   const [open, setOpen] = useState<"run" | "connect" | null>(null);
   return (
     <div className="relative flex items-center gap-2">
-      <button type="button" onClick={() => setOpen(open === "connect" ? null : "connect")} className="rounded-[var(--radius-sm)] border border-line-2 bg-surface-2 px-3 py-1.5 text-[13px] font-medium hover:border-accent/60">
-        Connect Agent
-      </button>
-      <button type="button" onClick={() => setOpen(open === "run" ? null : "run")} className="rounded-[var(--radius-sm)] border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:brightness-110">
-        Run Test
-      </button>
+      {show.includes("connect") && (
+        <button type="button" onClick={() => setOpen(open === "connect" ? null : "connect")} className="rounded-[var(--radius-sm)] border border-line-2 bg-surface-2 px-3 py-1.5 text-[13px] font-medium hover:border-line-hover">
+          Connect Agent
+        </button>
+      )}
+      {show.includes("run") && (
+        <button type="button" onClick={() => setOpen(open === "run" ? null : "run")} className="rounded-[var(--radius-sm)] border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:brightness-110">
+          Run Simulation
+        </button>
+      )}
 
       {open === "run" && (
         <form action={runTestAction} className="absolute right-0 top-[calc(100%+8px)] z-20 w-[360px] rounded-[var(--radius)] border border-line-2 bg-surface p-4 text-[13px] shadow-2xl">
@@ -72,7 +76,7 @@ function Submit() {
           <span className="running inline-block h-1.5 w-1.5 rounded-full bg-white" /> Running scenarios…
         </>
       ) : (
-        "Run Test"
+        "Run Simulation"
       )}
     </Button>
   );

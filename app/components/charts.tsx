@@ -16,7 +16,7 @@ export type RadarAxis = { key: string; label: string; score: number | null; n: n
  * number the engine did not measure. The list beside it carries every value
  * with its n, because a radar alone cannot.
  */
-export function Radar({ axes, size = 300 }: { axes: RadarAxis[]; size?: number }) {
+export function Radar({ axes, size = 300, stacked = false }: { axes: RadarAxis[]; size?: number; stacked?: boolean }) {
   const [hover, setHover] = useState<number | null>(null);
   const id = useId();
   const pad = 80;
@@ -33,8 +33,8 @@ export function Radar({ axes, size = 300 }: { axes: RadarAxis[]; size?: number }
   const poly = axes.map((a, i) => pt(i, measured[i] ? a.score! / 100 : 0));
 
   return (
-    <div className="grid gap-4 md:grid-cols-[auto_1fr]">
-      <svg width={w} height={size} viewBox={`0 0 ${w} ${size}`} role="img" aria-labelledby={id}>
+    <div className={stacked ? "grid justify-items-center gap-3" : "grid gap-4 md:grid-cols-[auto_1fr]"}>
+      <svg width={w} height={size} viewBox={`0 0 ${w} ${size}`} role="img" aria-labelledby={id} className="max-w-full">
         <title id={id}>Coverage by failure family</title>
         {[0.25, 0.5, 0.75, 1].map((g) => (
           <polygon key={g} points={axes.map((_, i) => pt(i, g).join(",")).join(" ")} fill="none" stroke="var(--line-2)" strokeWidth="1" />
@@ -43,7 +43,7 @@ export function Radar({ axes, size = 300 }: { axes: RadarAxis[]; size?: number }
           const [x, y] = pt(i, 1);
           return <line key={i} x1={cx} y1={c} x2={x} y2={y} stroke="var(--line)" strokeWidth="1" />;
         })}
-        <polygon points={poly.map((p) => p.join(",")).join(" ")} fill="var(--accent)" fillOpacity="0.12" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" />
+        <polygon points={poly.map((p) => p.join(",")).join(" ")} fill="var(--model)" fillOpacity="0.14" stroke="var(--model)" strokeWidth="2" strokeLinejoin="round" />
         {axes.map((a, i) => {
           const [x, y] = poly[i];
           const [lx, ly] = pt(i, 1.14);
@@ -51,7 +51,7 @@ export function Radar({ axes, size = 300 }: { axes: RadarAxis[]; size?: number }
           const anchor = lx < cx - 6 ? "end" : lx > cx + 6 ? "start" : "middle";
           return (
             <g key={a.key} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
-              <circle cx={x} cy={y} r={hot ? 6 : 4.5} fill={measured[i] ? "var(--accent)" : "var(--surface)"} stroke={measured[i] ? "var(--surface)" : "var(--ink-3)"} strokeWidth="2" />
+              <circle cx={x} cy={y} r={hot ? 6 : 4.5} fill={measured[i] ? "var(--model)" : "var(--surface)"} stroke={measured[i] ? "var(--surface)" : "var(--ink-3)"} strokeWidth="2" />
               <text x={lx} y={ly} textAnchor={anchor} dominantBaseline="middle" fontSize="10.5" fill={hot ? "var(--ink)" : "var(--ink-3)"}>
                 {a.label}
               </text>
@@ -60,7 +60,7 @@ export function Radar({ axes, size = 300 }: { axes: RadarAxis[]; size?: number }
           );
         })}
       </svg>
-      <ul className="grid content-start gap-1 text-[12.5px]">
+      <ul className={`grid content-start gap-1 text-[12.5px] ${stacked ? "w-full grid-cols-2" : ""}`}>
         {axes.map((a, i) => (
           <li
             key={a.key}
