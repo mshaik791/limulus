@@ -68,8 +68,8 @@ export function Radar({ axes, size = 300 }: { axes: RadarAxis[]; size?: number }
             onMouseLeave={() => setHover(null)}
             className={`grid grid-cols-[1fr_auto] items-baseline gap-3 rounded-[6px] px-2 py-1 ${hover === i ? "bg-surface-3" : ""}`}
           >
-            <span className="text-ink-2">{a.label}</span>
-            <span className="tabular">
+            <span className="whitespace-nowrap text-ink-2">{a.label}</span>
+            <span className="whitespace-nowrap tabular">
               {measured[i] ? (
                 <>
                   <span className="font-semibold">{a.score}</span>
