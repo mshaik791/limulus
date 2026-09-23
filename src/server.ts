@@ -464,6 +464,26 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { ...record, verification: verifyGateRecord(record) });
     }
 
+    // One scenario, in full, from the open pool only. The held-out pool is
+    // never served from anywhere; a customer's own files are theirs to read.
+    if (path.startsWith("/v1/lab/scenarios/")) {
+      const id = decodeURIComponent(path.split("/")[4] ?? "");
+      // The open pool first, then the repository's own scenario files, which
+      // are committed and public. Nothing else: a customer's directory is read
+      // by the CLI in their checkout, not served from here.
+      const { loadScenarioDir } = await import("./bench/scenario-file.ts");
+      const found =
+        (await openPool()).find((s) => s.id === id)
+        ?? loadScenarioDir(join(here, "..", "scenarios")).scenarios.find((s) => s.id === id);
+      if (!found) {
+        return json(res, 404, {
+          error: `Scenario "${id}" is not in the open pool.`,
+          note: "Held-out scenarios are never served. A scenario from a customer's files or a compiled suite lives in that directory.",
+        });
+      }
+      return json(res, 200, found);
+    }
+
     if (path === "/v1/lab/runs") {
       const runs = readLabRuns();
       return json(res, 200, {

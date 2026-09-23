@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+/*
+  One dark look, on purpose. The console is a control surface for money
+  decisions, read for long stretches; the navy ground keeps the few colours that
+  mean something (blue for activity, green for verified, amber for review, red
+  for blocked or critical) as the only bright things on screen.
+
+  Colour carries meaning here or it is not used. A status colour never appears
+  without its word.
+*/
+:root {
+  color-scheme: dark;
+
+  --bg: #0b1220;
+  --surface: #111a2e;
+  --raised: #172440;
+  --sunken: #080e1a;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+
+  --ink: #e8ecf4;
+  --ink-2: #aab3c5;
+  --ink-3: #7c8699;
+
+  --accent: #3987e5;
+  --accent-ink: #8fbcf3;
+  --accent-soft: rgba(57, 135, 229, 0.14);
+
+  --good: #0ca30c;
+  --good-ink: #5fd36a;
+  --good-soft: rgba(12, 163, 12, 0.14);
+  --warn: #fab219;
+  --warn-ink: #f6c65a;
+  --warn-soft: rgba(250, 178, 25, 0.14);
+  --crit: #d03b3b;
+  --crit-ink: #f07a7a;
+  --crit-soft: rgba(208, 59, 59, 0.16);
+
+  /* Categorical, for arms in a comparison. Fixed order, validated on this surface. */
+  --arm-1: #3987e5;
+  --arm-2: #d95926;
+  --arm-3: #199e70;
+  --arm-4: #c98500;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-ink: var(--good-ink);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-ink: var(--warn-ink);
+  --color-warn-soft: var(--warn-soft);
+  --color-crit: var(--crit);
+  --color-crit-ink: var(--crit-ink);
+  --color-crit-soft: var(--crit-soft);
+  --color-arm-1: var(--arm-1);
+  --color-arm-2: var(--arm-2);
+  --color-arm-3: var(--arm-3);
+  --color-arm-4: var(--arm-4);
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --radius-card: var(--radius);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers that sit in columns line up; a lone figure keeps proportional digits. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+a {
+  color: inherit;
+}
+a:hover {
+  color: var(--accent-ink);
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* Hairline scrollbars, so dense tables do not grow a chrome bar. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+table {
+  border-collapse: collapse;
+}
+th {
+  font-weight: 500;
+  color: var(--ink-3);
+  text-align: left;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+td,
+th {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+tr:last-child td {
+  border-bottom: 0;
+}
+tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+input,
+select,
+textarea {
+  background: var(--sunken);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  font: inherit;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}

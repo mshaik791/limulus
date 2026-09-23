@@ -623,8 +623,24 @@ data/                          signing key, decision chain, reports (git-ignored
 
 ## The console
 
-`node src/server.ts`, then open <http://localhost:8787/app.html>. The sidebar separates the two
-halves of the product, which are genuinely different jobs:
+The console is a Next.js app in `app/`, reading the engine over HTTP. It computes no number the
+engine did not: every figure on a screen is in a signed record, every rate carries its n, and every
+action is an API call.
+
+```bash
+node src/server.ts            # the engine, on :8787
+cd app && npm install && npm run dev   # the console, on :3000
+```
+
+Labs: overview, test runs, run detail, scenario replay, compare, releases, policies,
+qualifications. Core: shadow mode and the evidence chain. See `app/README.md` for the route map and
+`docs/design/north-star.md` for where it is going.
+
+### The older hand-rolled console
+
+`node src/server.ts`, then open <http://localhost:8787/app.html>. Kept until the app above covers
+everything it does. The sidebar separates the two halves of the product, which are genuinely
+different jobs:
 
 **Monitor** — what the gate is doing right now.
 
