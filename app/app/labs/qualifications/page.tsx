@@ -1,19 +1,18 @@
 import Link from "next/link";
-import { Activity, ShieldCheck, ShieldX, Target } from "lucide-react";
+import { Activity, ShieldAlert, ShieldCheck, Target } from "lucide-react";
 import { qualifications, records, shadowRecords } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { day, int, money, ofN, pct, when } from "@/lib/format";
-import { agentDisplay, suiteName } from "@/lib/names";
+import { agentDisplay, agentRaw, suiteName } from "@/lib/names";
 import { MetricCard } from "@/components/blocks";
 import { Card, EmptyState, Hash, Offline, PageHeader, Pill } from "@/components/ui";
 
 export const metadata = { title: "Assurance Checks" };
 
-// The ten deterministic checks every payment is held to, grouped by what they
-// protect, each with how often it ran, how often it held or escalated, and a
-// reliability bar. Below them, the signed qualifications those checks have
-// earned each agent. The two are kept apart on purpose: a check is a rule,
-// a qualification is a clearance.
+// Deterministic checks every financial action is evaluated against, grouped
+// by what they protect. Two counts are kept apart: check interventions (a
+// check that fired, counted per check) and unique transactions held or
+// escalated (counted per decision, however many checks fired on it).
 
 const CHECKS: { id: string; name: string; category: string; severity: "critical" | "high" | "medium" }[] = [
   { id: "vendor_approved", name: "Vendor is on the approved list", category: "Authorization", severity: "critical" },
@@ -32,8 +31,12 @@ export default async function AssuranceChecks() {
   const [quals, chain, shadow] = await Promise.all([safe(qualifications()), safe(records()), safe(shadowRecords())]);
   if (!quals || !chain) return <Offline />;
 
+  type Src = { at: string; checks: { id: string; status: string }[]; held: boolean; escalated: boolean };
+  const sources: Src[] = [
+    ...chain.map((r) => ({ at: r.createdAt, checks: r.checks, held: r.outcome === "held", escalated: r.outcome === "escalated" })),
+    ...(shadow ?? []).filter((s) => s.checks).map((s) => ({ at: s.createdAt, checks: s.checks!, held: s.wouldHave === "held", escalated: s.wouldHave === "escalated" })),
+  ];
   const usage = new Map<string, { ran: number; passed: number; failed: number; review: number; skipped: number; last?: string }>();
-  const sources = [...chain.map((r) => ({ at: r.createdAt, checks: r.checks })), ...(shadow ?? []).filter((s) => s.checks).map((s) => ({ at: s.createdAt, checks: s.checks! }))];
   let evaluations = 0;
   for (const s of sources) {
     for (const c of s.checks) {
@@ -48,7 +51,9 @@ export default async function AssuranceChecks() {
       usage.set(c.id, u);
     }
   }
-  const failed = [...usage.values()].reduce((n, u) => n + u.failed + u.review, 0);
+  const interventions = [...usage.values()].reduce((n, u) => n + u.failed + u.review, 0);
+  const heldTx = sources.filter((s) => s.held).length;
+  const escalatedTx = sources.filter((s) => s.escalated).length;
   const exercised = CHECKS.filter((c) => (usage.get(c.id)?.ran ?? 0) - (usage.get(c.id)?.skipped ?? 0) > 0).length;
   const valid = quals.filter((q) => q.state === "valid");
   const rows = [...quals].reverse().slice(0, 40);
@@ -56,12 +61,13 @@ export default async function AssuranceChecks() {
 
   return (
     <>
-      <PageHeader title="Assurance Checks" subtitle="The deterministic checks every payment is held to, and the signed clearances they have earned each agent." />
+      <PageHeader title="Assurance Checks" subtitle="Deterministic checks every financial action is evaluated against." />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-5">
         <MetricCard icon={ShieldCheck} label="Active checks" value={int(CHECKS.length)} sub="deterministic, no model in the path" />
         <MetricCard icon={Activity} label="Evaluations" value={int(evaluations)} sub={`across ${int(sources.length)} decisions read`} />
-        <MetricCard icon={ShieldX} label="Held or escalated" value={int(failed)} tone={failed ? "warn" : "good"} sub="a check that fired" />
+        <MetricCard icon={ShieldAlert} label="Check interventions" value={int(interventions)} tone={interventions ? "warn" : "good"} sub="a check that held or escalated, per check" />
+        <MetricCard icon={ShieldAlert} label="Unique transactions held / escalated" value={`${int(heldTx)} / ${int(escalatedTx)}`} tone={heldTx ? "crit" : "neutral"} sub="per decision, however many checks fired" />
         <MetricCard icon={Target} label="Coverage" value={pct(exercised, CHECKS.length)} sub={`${ofN(exercised, CHECKS.length)} checks exercised at least once`} />
       </div>
 
@@ -74,7 +80,7 @@ export default async function AssuranceChecks() {
                 const n = u ? u.ran - u.skipped : 0;
                 const rate = n ? u!.passed / n : null;
                 return (
-                  <li key={c.id} className="grid items-center gap-4 border-b border-line px-6 py-3.5 last:border-0 md:grid-cols-[1fr_110px_120px_160px_150px]">
+                  <li key={c.id} className="grid items-center gap-4 border-b border-line px-6 py-3.5 last:border-0 md:grid-cols-[1fr_110px_120px_170px_150px]">
                     <div className="min-w-0">
                       <div className="text-[14px]">{c.name}</div>
                       <div className="mono text-[11px] text-ink-3">{c.id}</div>
@@ -85,8 +91,8 @@ export default async function AssuranceChecks() {
                     <div className="text-[12.5px] tabular text-ink-2">{u ? `${int(u.ran)} evaluations` : "not yet run"}</div>
                     <div>
                       <div className="flex items-baseline justify-between text-[12px]">
-                        <span className="tabular">{rate === null ? "–" : `${Math.round(rate * 100)}% pass`}</span>
-                        <span className="tabular text-ink-3">{u ? `${int(u.failed + u.review)} held` : ""}</span>
+                        <span className="tabular">{rate === null ? "not evaluated" : `${Math.round(rate * 100)}% pass`}</span>
+                        <span className="tabular text-ink-3">{u ? `${int(u.failed + u.review)} interventions` : ""}</span>
                       </div>
                       <div className="mt-1 h-[4px] overflow-hidden rounded-full bg-surface-3">{rate !== null && <div className="h-full rounded-full bg-good" style={{ width: `${Math.max(1, rate * 100)}%` }} />}</div>
                     </div>
@@ -99,7 +105,7 @@ export default async function AssuranceChecks() {
         ))}
       </div>
 
-      <Card title="Qualifications" aside={`${int(valid.length)} in force of ${int(quals.length)} issued · bound to agent, version, prompt and tool hashes, workflow, rail, currency, ceiling, payee scope and suite`} padded={false}>
+      <Card title="Qualifications" aside={`${int(valid.length)} in force of ${int(quals.length)} issued · signed clearances bound to agent, version, prompt and tool hashes, workflow, rail, currency, ceiling, payee scope and suite`} padded={false}>
         {rows.length === 0 ? (
           <div className="p-6">
             <EmptyState title="None issued." body="A qualification is issued from a held-out run and says what an agent is cleared to pay, until when." code="node src/lab-cli.ts qualify careful" />
@@ -129,7 +135,7 @@ export default async function AssuranceChecks() {
                     <td>
                       <Link href={`/labs/tests/${q.runId}`}>{agentDisplay(q.binding.agent.name)}</Link>
                       <div className="text-[11.5px] text-ink-3">
-                        v{q.binding.agent.version} · {suiteName(q.binding.suite.id).name}
+                        <span className="mono">{agentRaw(q.binding.agent.name, q.binding.agent.version)}</span> · {suiteName(q.binding.suite.id).name}
                       </div>
                     </td>
                     <td className="text-[12.5px] text-ink-2">{q.level}</td>

@@ -96,7 +96,7 @@ export function Pill({ tone = "neutral", children, mono = false, size = "sm" }: 
 }
 
 /** The decision-state words. Uppercase, tracked, one colour each. */
-export type DecisionState = "READY" | "REVIEW" | "BLOCKED" | "RELEASE" | "HOLD" | "ESCALATE" | "PASS" | "FAIL" | "OVERRIDDEN" | "RUNNING" | "NONE";
+export type DecisionState = "READY" | "REVIEW" | "BLOCKED" | "RELEASE" | "HOLD" | "ESCALATE" | "PASS" | "FAIL" | "OVERRIDDEN" | "RUNNING" | "NONE" | "INCIDENT";
 const stateTone: Record<DecisionState, Tone> = {
   READY: "good",
   RELEASE: "good",
@@ -109,13 +109,18 @@ const stateTone: Record<DecisionState, Tone> = {
   FAIL: "crit",
   RUNNING: "accent",
   NONE: "neutral",
+  INCIDENT: "crit",
 };
+
+/** The decision word for a payment outcome, phrased for the environment: in the sandbox nothing was released, it would have been. */
+export const decisionState = (outcome: "released" | "held" | "escalated", sandbox: boolean): { state: DecisionState; label: string } =>
+  outcome === "released" ? { state: "RELEASE", label: sandbox ? "WOULD RELEASE" : "RELEASE" } : outcome === "held" ? { state: "HOLD", label: sandbox ? "WOULD HOLD" : "HOLD" } : { state: "ESCALATE", label: sandbox ? "WOULD ESCALATE" : "ESCALATE" };
 export function StateBadge({ state, label, size = "md" }: { state: DecisionState; label?: string; size?: "md" | "lg" }) {
   const tone = stateTone[state];
   return (
     <span
       className={`inline-flex items-center gap-2 rounded-[6px] border font-semibold tracking-[0.08em] ${size === "lg" ? "px-3 py-1.5 text-[13px]" : "px-2 py-1 text-[11px]"} ${toneClass[tone]} ${
-        state === "BLOCKED" || state === "FAIL" ? "[box-shadow:var(--glow-crit)]" : state === "READY" || state === "PASS" || state === "RELEASE" ? "[box-shadow:var(--glow-good)]" : ""
+        state === "BLOCKED" || state === "FAIL" || state === "INCIDENT" ? "[box-shadow:var(--glow-crit)]" : state === "READY" || state === "PASS" || state === "RELEASE" ? "[box-shadow:var(--glow-good)]" : ""
       }`}
     >
       <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${state === "RUNNING" ? "running" : ""}`} style={{ background: `var(--${tone === "neutral" ? "ink-3" : tone})` }} />
@@ -178,7 +183,7 @@ export function MetricRow({ label, hint, score, n, tone = "accent" }: { label: s
 
 export function Delta({ value, upIsGood = true, suffix = "" }: { value: number | null; upIsGood?: boolean; suffix?: string }) {
   if (value === null) return <span className="text-ink-3">–</span>;
-  if (value === 0) return <span className="text-ink-3 tabular">→ 0{suffix}</span>;
+  if (value === 0) return <span className="text-ink-3 tabular">±0{suffix}</span>;
   const good = upIsGood ? value > 0 : value < 0;
   return (
     <span className={`tabular ${good ? "text-good-ink" : "text-crit-ink"}`}>

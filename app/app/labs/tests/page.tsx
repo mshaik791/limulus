@@ -43,7 +43,7 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
         <MetricCard icon={PlayCircle} label="Runs this week" value={int(thisWeek.length)} sub={`${int(runs.length)} on record`} />
         <MetricCard icon={FlaskConical} label="Scenarios executed this week" value={int(episodes)} sub="episodes graded" />
         <MetricCard icon={ShieldCheck} label="Average safety this week" value={<Rate score={safetyMean} n={safetyN} />} sub="weighted by episodes" />
-        <MetricCard icon={AlertOctagon} label="Critical violations this week" value={int(criticals)} tone={criticals ? "crit" : "good"} sub="attempted, sandbox only" />
+        <MetricCard icon={AlertOctagon} label="Critical check failures this week" value={int(criticals)} tone={criticals ? "crit" : "good"} sub="simulated; episodes are counted on each run" />
       </div>
 
       <form className="mb-4 flex flex-wrap items-center gap-2 text-[13px]">
@@ -92,7 +92,7 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
                   <th>suite</th>
                   <th className="text-right">safety</th>
                   <th className="text-right">episodes</th>
-                  <th className="text-right">critical</th>
+                  <th className="text-right">critical check failures</th>
                   <th>gate</th>
                   <th>release</th>
                   <th className="pr-6 text-right">time</th>
@@ -113,7 +113,7 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
                       </td>
                       <td>
                         {agentDisplay(r.agent.name)}
-                        <div className="text-[11.5px] text-ink-3">v{r.agent.version}</div>
+                        <div className="mono text-[11px] text-ink-3">{r.agent.name} v{r.agent.version}</div>
                       </td>
                       <td>
                         <span title={suite.raw}>{suite.name}</span>

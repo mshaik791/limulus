@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { outcomes, record } from "@/lib/api";
+import { environment, outcomes, record } from "@/lib/api";
+import { productionMiss } from "@/lib/misses";
+import { agentDisplay } from "@/lib/names";
 import { safe } from "@/lib/safe";
 import { money, when } from "@/lib/format";
 import { Breadcrumb } from "@/components/shell";
-import { Card, ExecutionPath, KV, LinkButton, Offline, PageHeader, Pill, StateBadge, toneForVerdict } from "@/components/ui";
+import { Card, decisionState, ExecutionPath, KV, LinkButton, Note, Offline, PageHeader, Pill, StateBadge, toneForVerdict } from "@/components/ui";
 
 export const metadata = { title: "Transaction" };
 
@@ -13,9 +15,11 @@ export const metadata = { title: "Transaction" };
 
 export default async function TransactionDetail(props: PageProps<"/decisions/[id]">) {
   const { id } = await props.params;
-  const [r, outs] = await Promise.all([safe(record(id)), safe(outcomes())]);
+  const [r, outs, env] = await Promise.all([safe(record(id)), safe(outcomes()), environment()]);
   if (!r) return <Offline />;
   const outcome = (outs ?? []).find((o) => o.decisionId === r.id);
+  const miss = productionMiss(r, outcome);
+  const d = decisionState(r.outcome, env.sandbox);
   const vendor = r.authorization.approvedVendors.find((v) => v.name.toLowerCase() === r.declaration.payeeName.toLowerCase());
   const approved = r.authorization.approvedInvoices.find((i) => i.invoiceId === r.declaration.invoiceId);
   const cur = r.authorization.currency;
@@ -74,25 +78,27 @@ export default async function TransactionDetail(props: PageProps<"/decisions/[id
         title={`${money(r.paymentOrder.amount, r.paymentOrder.currency)} to ${r.paymentOrder.payeeName}`}
         subtitle={
           <>
-            {r.declaration.invoiceId} · {r.paymentOrder.rail} · agent {r.declaration.agentId}
+            {r.declaration.invoiceId} · {r.paymentOrder.rail} · {agentDisplay(r.declaration.agentId)} <span className="mono text-ink-3">{r.declaration.agentId}</span>
           </>
         }
         actions={
           <>
-            <StateBadge state={r.outcome === "released" ? "RELEASE" : r.outcome === "held" ? "HOLD" : "ESCALATE"} size="lg" />
-            {outcome && <Pill tone={toneForVerdict(outcome.status)} size="md">rail: {outcome.status}</Pill>}
+            <StateBadge state={d.state} label={d.label} size="lg" />
+            {outcome && <Pill tone={toneForVerdict(outcome.status)} size="md">observed: {outcome.status}</Pill>}
+            {miss && <StateBadge state="INCIDENT" label={env.sandbox ? "SIMULATED MISS" : "INCIDENT"} size="lg" />}
           </>
         }
       />
 
-      <div className="mb-5">
+      {miss && <Note tone="crit">Production miss: the gate&apos;s decision and the observed outcome disagree ({miss}). This is not an ordinary release; it is listed under Incidents.</Note>}
+      <div className="mb-5 mt-4">
         <ExecutionPath
           steps={[
             { label: "Agent", sub: r.declaration.agentId },
             { label: "Evidence", sub: `${r.documentHashes.length} document(s)` },
             { label: "Policy", sub: r.authorization.policyVersion },
             { label: "Decision", sub: r.outcome, tone: toneForVerdict(r.outcome) },
-            { label: "Payment", sub: r.outcome === "released" ? "sent to the rail" : "not sent", tone: r.outcome === "released" ? "good" : "neutral" },
+            { label: "Payment", sub: r.outcome === "released" ? (env.sandbox ? "would have been sent" : "sent to the rail") : "not sent", tone: r.outcome === "released" ? "good" : "neutral" },
           ]}
         />
       </div>
@@ -151,7 +157,7 @@ export default async function TransactionDetail(props: PageProps<"/decisions/[id
           <Card emphasis={r.outcome === "held" ? "crit" : r.outcome === "escalated" ? "warn" : "good"}>
             <div className="eyebrow">Final decision</div>
             <div className="mt-2">
-              <StateBadge state={r.outcome === "released" ? "RELEASE" : r.outcome === "held" ? "HOLD" : "ESCALATE"} size="lg" />
+              <StateBadge state={d.state} label={d.label} size="lg" />
             </div>
             <ul className="mt-3 grid gap-1 text-[13px]">
               {r.reasons.map((x, i) => (
@@ -160,8 +166,8 @@ export default async function TransactionDetail(props: PageProps<"/decisions/[id
             </ul>
             {outcome && (
               <div className="mt-3 border-t border-line pt-3 text-[12.5px] text-ink-2">
-                Rail afterwards: <Pill tone={toneForVerdict(outcome.status)}>{outcome.status}</Pill>
-                {outcome.status === "unauthorized" && <span className="ml-2 text-crit-ink">settled although the decision did not release it</span>}
+                Observed outcome: <Pill tone={toneForVerdict(outcome.status)}>{outcome.status}</Pill>
+                {miss && <span className="ml-2 text-crit-ink">{miss}</span>}
               </div>
             )}
           </Card>

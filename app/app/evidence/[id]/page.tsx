@@ -1,8 +1,8 @@
-import { receipt, record, verifyReceipt } from "@/lib/api";
+import { environment, receipt, record, verifyReceipt } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { money, when } from "@/lib/format";
 import { Breadcrumb } from "@/components/shell";
-import { Card, ExecutionPath, Hash, KV, Note, Offline, PageHeader, Pill, StateBadge, toneForVerdict } from "@/components/ui";
+import { Card, decisionState, ExecutionPath, Hash, KV, Note, Offline, PageHeader, Pill, StateBadge, toneForVerdict } from "@/components/ui";
 
 export const metadata = { title: "Evidence packet" };
 
@@ -12,7 +12,7 @@ export const metadata = { title: "Evidence packet" };
 
 export default async function EvidenceDetail(props: PageProps<"/evidence/[id]">) {
   const { id } = await props.params;
-  const r = await safe(record(id));
+  const [r, env] = await Promise.all([safe(record(id)), environment()]);
   if (!r) return <Offline />;
   const rc = await safe(receipt(id));
   const verification = rc ? await safe(verifyReceipt(rc)) : null;
@@ -67,7 +67,7 @@ export default async function EvidenceDetail(props: PageProps<"/evidence/[id]">)
         }
         actions={
           <>
-            <StateBadge state={r.outcome === "released" ? "RELEASE" : r.outcome === "held" ? "HOLD" : "ESCALATE"} size="lg" />
+            <StateBadge state={decisionState(r.outcome, env.sandbox).state} label={decisionState(r.outcome, env.sandbox).label} size="lg" />
             {verification && <Pill tone={verification.valid ? "good" : "crit"} size="md">{verification.valid ? "receipt verifies" : "receipt does not verify"}</Pill>}
           </>
         }
@@ -80,7 +80,7 @@ export default async function EvidenceDetail(props: PageProps<"/evidence/[id]">)
             { label: "Evidence", sub: `${r.documentHashes.length} document(s)` },
             { label: "Policy", sub: r.authorization.policyVersion },
             { label: "Decision", sub: r.outcome, tone: toneForVerdict(r.outcome) },
-            { label: "Payment", sub: r.outcome === "released" ? "sent to the rail" : "not sent", tone: r.outcome === "released" ? "good" : "neutral" },
+            { label: "Payment", sub: r.outcome === "released" ? (env.sandbox ? "would have been sent" : "sent to the rail") : "not sent", tone: r.outcome === "released" ? "good" : "neutral" },
           ]}
         />
       </div>

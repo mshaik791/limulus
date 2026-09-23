@@ -393,6 +393,16 @@ export const profile = async (name: string, version: string): Promise<FailurePro
 export const candidates = async () => list<Candidate>(await get("/v1/monitor/candidates"), "candidates");
 export const outcomes = async () => list<Outcome>(await get("/v1/outcomes"), "outcomes");
 export const policies = async () => list<PolicyListing>(await get("/v1/policies"), "policies");
+export type RailStatus = { rail: string; mode: "simulated" | "live" | string; live: boolean; note?: string };
+/** Which rail the engine is wired to. Drives every piece of sandbox-versus-production copy. */
+export async function environment(): Promise<{ sandbox: boolean; rail: string; note?: string }> {
+  try {
+    const r = await get<RailStatus>("/v1/rails/status");
+    return { sandbox: !r.live, rail: r.rail, note: r.note };
+  } catch {
+    return { sandbox: true, rail: "unknown" };
+  }
+}
 export const controlTypes = async () => ((await get<{ types: Record<string, ControlTypeInfo> }>("/v1/policies/control-types")).types ?? {});
 
 // ---- writes (called from server actions only) ---------------------------------

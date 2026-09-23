@@ -2,6 +2,8 @@ import Link from "next/link";
 import { compare } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { int, money, ms, when } from "@/lib/format";
+import { CONFIG, EVIDENCE_LABEL, evidence } from "@/lib/config";
+import { agentDisplay, modelDisplay } from "@/lib/names";
 import { ArmBars, ArmSwatch } from "@/components/charts";
 import { Breadcrumb } from "@/components/shell";
 import { Card, EmptyState, EnvBar, Note, Offline, PageHeader, Pill, Rate, StateBadge, toneForVerdict } from "@/components/ui";
@@ -13,6 +15,7 @@ export default async function CompareDetail(props: PageProps<"/labs/arena/[id]">
   const rec = await safe(compare(id));
   if (!rec) return <Offline />;
   const best = rec.arms.find((a) => a.label === rec.recommendation.label);
+  const ev = evidence(Math.max(...rec.arms.map((a) => a.episodes)));
 
   return (
     <>
@@ -39,7 +42,8 @@ export default async function CompareDetail(props: PageProps<"/labs/arena/[id]">
                   <th>gate</th>
                   <th className="text-right">safety</th>
                   <th className="text-right">capability</th>
-                  <th className="text-right">critical (attempted)</th>
+                  <th className="text-right">critical episodes</th>
+                  <th className="text-right">critical check failures</th>
                   <th className="text-right">false blocks</th>
                   <th className="text-right">simulated wrongful</th>
                   <th className="text-right">avg episode</th>
@@ -53,8 +57,7 @@ export default async function CompareDetail(props: PageProps<"/labs/arena/[id]">
                     <td className="pl-5">
                       <ArmSwatch index={i} /> <span className="ml-1.5 font-medium">{a.label}</span>
                       <div className="text-[11.5px] text-ink-3">
-                        {a.agent.name} v{a.agent.version}
-                        {a.agent.subject.model ? ` · ${a.agent.subject.model}` : ""} · <Link href={`/labs/tests/${a.runId}`} className="mono">{a.runId}</Link>
+                        {agentDisplay(a.agent.name)} · {modelDisplay(a.agent.subject.model, a.agent.subject.source)} · <Link href={`/labs/tests/${a.runId}`} className="mono">{a.runId}</Link>
                       </div>
                     </td>
                     <td>
@@ -66,9 +69,10 @@ export default async function CompareDetail(props: PageProps<"/labs/arena/[id]">
                     <td className="text-right">
                       <Rate score={a.axes.capability.score} n={a.axes.capability.n} />
                     </td>
-                    <td className={`text-right tabular ${a.criticalViolations ? "text-crit-ink" : ""}`}>
-                      {int(a.criticalViolations)} <span className="text-ink-3">in {int(a.episodes)}</span>
+                    <td className={`text-right tabular ${a.criticalEpisodes ? "text-crit-ink" : ""}`}>
+                      {int(a.criticalEpisodes)} <span className="text-ink-3">of {int(a.episodes)}</span>
                     </td>
+                    <td className="text-right tabular text-ink-2">{int(a.criticalViolations)}</td>
                     <td className="text-right tabular">{int(a.falseBlocks)}</td>
                     <td className="text-right tabular">{money(a.simulatedWrongfulAmount)}</td>
                     <td className="text-right tabular text-ink-2">{a.episodes ? ms(a.durationMs / a.episodes) : "–"}</td>
@@ -85,8 +89,17 @@ export default async function CompareDetail(props: PageProps<"/labs/arena/[id]">
         </Card>
 
         <Card emphasis={best ? "accent" : undefined}>
-          <div className="eyebrow">Recommended</div>
-          <div className="mt-2">{best ? <StateBadge state="READY" label={best.label.toUpperCase()} size="lg" /> : <StateBadge state="NONE" label="NO CLEAN ARM" size="lg" />}</div>
+          <div className="eyebrow">Recommendation</div>
+          <div className="mt-2">
+            <StateBadge state={ev === "eligible" ? "READY" : ev === "provisional" ? "REVIEW" : "NONE"} label={EVIDENCE_LABEL[ev]} size="lg" />
+          </div>
+          <p className="mt-2 text-[12px] text-ink-3">
+            {int(Math.max(...rec.arms.map((a) => a.episodes)))} episodes in the largest arm · thresholds {CONFIG.minEpisodesProvisional} / {CONFIG.minEpisodesRecommend} (defaults)
+          </p>
+          <div className="mt-3 text-[13px]">
+            <span className="text-ink-3">Engine&apos;s pick by its rule: </span>
+            {best ? <span className="text-model-ink">{best.label}</span> : <span className="text-warn-ink">no clean arm</span>}
+          </div>
           <p className="mt-3 text-[13px]">{rec.recommendation.reason}</p>
           <p className="mt-2 text-[11.5px] text-ink-3">rule: {rec.recommendation.rule}</p>
           {best && (

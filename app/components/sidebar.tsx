@@ -24,7 +24,7 @@ export const CORE_NAV: Item[] = [
 
 export const isLabsPath = (path: string) => path.startsWith("/labs");
 
-export function Sidebar({ engine }: { engine: { ok: boolean; version: string; keyed: boolean } | null }) {
+export function Sidebar({ engine, sandbox, rail }: { engine: { ok: boolean; version: string; keyed: boolean } | null; sandbox: boolean; rail: string }) {
   const path = usePathname();
   const inLabs = isLabsPath(path);
   const items = inLabs ? LABS_NAV : CORE_NAV;
@@ -69,8 +69,17 @@ export function Sidebar({ engine }: { engine: { ok: boolean; version: string; ke
         <div className="text-[10.5px] uppercase tracking-[0.08em] text-ink-3">Workspace</div>
         <div className="mb-3 text-[13px] text-ink">Local</div>
         <div className="mb-2 flex items-center gap-2">
-          <span className="rounded-[4px] bg-warn-soft px-1.5 py-[1px] text-[10px] font-semibold tracking-[0.08em] text-warn-ink">SANDBOX</span>
-          <span className="text-ink-3">No payment rails connected</span>
+          {sandbox ? (
+            <>
+              <span className="rounded-[4px] bg-warn-soft px-1.5 py-[1px] text-[10px] font-semibold tracking-[0.08em] text-warn-ink">SANDBOX</span>
+              <span className="text-ink-3">No payment rails connected</span>
+            </>
+          ) : (
+            <>
+              <span className="rounded-[4px] bg-good-soft px-1.5 py-[1px] text-[10px] font-semibold tracking-[0.08em] text-good-ink">PRODUCTION</span>
+              <span className="text-ink-3">rail {rail}</span>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2 text-ink-2">
           <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${engine?.ok ? "bg-good" : "bg-crit"}`} />

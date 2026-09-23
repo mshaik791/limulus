@@ -1,38 +1,49 @@
 import Link from "next/link";
-import { gates } from "@/lib/api";
+import { gates, labRun, labRuns, profile } from "@/lib/api";
 import { safe } from "@/lib/safe";
+import { CONFIG } from "@/lib/config";
+import { absoluteQualification, familyAxes, readiness, regressionGate } from "@/lib/derive";
 import { day, int, when } from "@/lib/format";
-import { agentDisplay, suiteName } from "@/lib/names";
-import { Card, Delta, EmptyState, LinkButton, Metric, Offline, PageHeader, StateBadge } from "@/components/ui";
+import { agentDisplay, agentRaw, suiteName } from "@/lib/names";
+import { Card, Delta, EmptyState, LinkButton, Offline, PageHeader, Pill, StateBadge } from "@/components/ui";
 
 export const metadata = { title: "Release Gates" };
 
-// Release readiness. The latest gate is the hero: previous against candidate,
-// the categories that moved, and a decision card. History follows as compact
-// cards. The verdict is regression-based on purpose: "is this worse than what
-// we shipped" has no dial to turn.
+// Two questions with two answers, then one decision. The regression gate asks
+// whether the candidate is worse than the baseline; the absolute qualification
+// asks whether the candidate clears the configured bar on its own. Final
+// release is READY only when both pass, so a candidate at safety 50 is not
+// ready because the baseline was also 50.
 
 export default async function Releases() {
-  const list = await safe(gates());
-  if (!list) return <Offline />;
+  const [list, runs] = await Promise.all([safe(gates()), safe(labRuns())]);
+  if (!list || !runs) return <Offline />;
   const rows = [...list].reverse();
   const g = rows[0];
+  const run = g ? (runs.find((r) => r.id === g.runId) ?? null) : null;
+  const full = run ? await safe(labRun(run.id)) : null;
+  const prof = run ? await safe(profile(run.agent.name, run.agent.version)) : null;
+  const axes = familyAxes(prof?.nodes ?? []);
+  const grades = full?.grades.filter((x) => !x.unusable) ?? null;
+  const absolute = run ? absoluteQualification(run, grades, axes) : null;
+  const regression = regressionGate(g);
+  const final = run ? readiness(run, g, grades, axes) : null;
 
   return (
     <>
-      <PageHeader title="Release Gates" subtitle="Each gate compares a candidate run against the committed baseline and blocks on anything worse." />
+      <PageHeader title="Release Gates" subtitle="A candidate is ready only when it clears the absolute bar and is no worse than what shipped." />
       {!g ? (
         <EmptyState title="No gate has run." body="The gate runs in CI or from the CLI against a committed baseline, and seals a record every time." code="node src/bench/ci-gate.ts --scenarios scenarios --agent careful" />
       ) : (
         <>
           <div className="mb-5 grid gap-4 xl:grid-cols-12">
-            <div className="xl:col-span-8">
-              <Card title="Release readiness" aside={`${suiteName(g.suite.id).name} · ${when(g.createdAt)}`} className="h-full">
+            <div className="grid gap-4 xl:col-span-8">
+              <Card title="Release readiness" aside={`${suiteName(g.suite.id).name} · ${when(g.createdAt)}`}>
                 <div className="grid gap-6 md:grid-cols-[1fr_auto_1fr]">
                   <div>
                     <div className="eyebrow">Baseline</div>
                     <div className="mt-1 text-[15px]">
-                      {agentDisplay(g.agent.name)} <span className="text-ink-3">· baseline written {day(g.baseline.updatedAt)}</span>
+                      {agentDisplay(g.agent.name)} <span className="text-ink-3">· written {day(g.baseline.updatedAt)}</span>
                     </div>
                     <div className="mt-2 text-[44px] font-semibold leading-none tabular tracking-[-0.02em]">{g.axes.safety?.baseline ?? "–"}</div>
                     <div className="text-[12px] text-ink-3">safety at {g.baseline.trials} trials</div>
@@ -46,10 +57,10 @@ export default async function Releases() {
                   <div>
                     <div className="eyebrow">Candidate</div>
                     <div className="mt-1 text-[15px]">
-                      {agentDisplay(g.agent.name)} <span className="text-ink-3">v{g.agent.version}</span>
+                      {agentDisplay(g.agent.name)} <span className="mono text-ink-3">{agentRaw(g.agent.name, g.agent.version)}</span>
                     </div>
-                    <div className={`mt-2 text-[44px] font-semibold leading-none tabular tracking-[-0.02em] ${g.verdict === "fail" ? "text-crit-ink" : g.verdict === "pass" ? "text-good-ink" : "text-warn-ink"}`}>{g.axes.safety?.now ?? "–"}</div>
-                    <div className="text-[12px] text-ink-3">safety at {g.suite.trials} trials</div>
+                    <div className={`mt-2 text-[44px] font-semibold leading-none tabular tracking-[-0.02em] ${final?.state === "BLOCKED" ? "text-crit-ink" : final?.state === "READY" ? "text-good-ink" : "text-warn-ink"}`}>{g.axes.safety?.now ?? "–"}</div>
+                    <div className="text-[12px] text-ink-3">safety at {g.suite.trials} trials · required ≥ {CONFIG.minSafety}</div>
                   </div>
                 </div>
                 <div className="mt-6 grid gap-x-8 gap-y-2 border-t border-line pt-4 md:grid-cols-2">
@@ -63,47 +74,81 @@ export default async function Releases() {
                   ))}
                 </div>
               </Card>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card title="Regression gate" emphasis={regression?.pass ? "good" : "crit"}>
+                  <StateBadge state={regression?.verdict === "pass" ? "PASS" : regression?.verdict === "overridden" ? "OVERRIDDEN" : "FAIL"} size="lg" />
+                  <p className="mt-2 text-[13px] text-ink-2">{regression?.pass ? "No degradation from the baseline." : "Worse than the baseline."}</p>
+                  <ul className="mt-3 grid gap-1.5">
+                    {regression?.criteria.map((x) => (
+                      <li key={x.label} className="grid grid-cols-[max-content_1fr] items-start gap-2 text-[12.5px]">
+                        <Pill tone={x.ok ? "good" : "crit"}>{x.ok ? "ok" : "fail"}</Pill>
+                        <span>
+                          {x.label} <span className="text-ink-3">· {x.detail}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+                <Card title="Absolute qualification" emphasis={absolute?.pass ? "good" : "crit"}>
+                  {absolute ? (
+                    <>
+                      <StateBadge state={absolute.pass ? "PASS" : "FAIL"} size="lg" />
+                      <p className="mt-2 text-[13px] text-ink-2">{absolute.pass ? "Clears the configured bar on its own." : absolute.criteria.filter((x) => !x.ok).map((x) => `${x.label}: ${x.detail}.`).join(" ")}</p>
+                      <ul className="mt-3 grid gap-1.5">
+                        {absolute.criteria.map((x) => (
+                          <li key={x.label} className="grid grid-cols-[max-content_1fr] items-start gap-2 text-[12.5px]">
+                            <Pill tone={x.ok ? "good" : "crit"}>{x.ok ? "ok" : "fail"}</Pill>
+                            <span>
+                              {x.label} <span className="text-ink-3">· {x.detail}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-3 text-[11px] text-ink-3">Criteria are {CONFIG.source}.</p>
+                    </>
+                  ) : (
+                    <p className="text-[13px] text-ink-3">The run this gate scored is no longer in the run list.</p>
+                  )}
+                </Card>
+              </div>
             </div>
+
             <div className="xl:col-span-4">
-              <Card emphasis={g.verdict === "fail" ? "crit" : g.verdict === "pass" ? "good" : "warn"} className="h-full">
-                <div className="eyebrow">Decision</div>
+              <Card emphasis={final?.state === "BLOCKED" ? "crit" : final?.state === "READY" ? "good" : "warn"} className="h-full">
+                <div className="eyebrow">Final decision</div>
                 <div className="mt-2">
-                  <StateBadge state={g.verdict === "pass" ? "READY" : g.verdict === "fail" ? "BLOCKED" : "OVERRIDDEN"} label={g.verdict === "pass" ? "READY FOR DEPLOYMENT" : g.verdict === "fail" ? "DEPLOYMENT BLOCKED" : "FAILED, OVERRIDDEN"} size="lg" />
+                  <StateBadge state={final?.state ?? "NONE"} label={final?.state === "READY" ? "READY FOR DEPLOYMENT" : final?.state === "BLOCKED" ? "DEPLOYMENT BLOCKED" : "REVIEW REQUIRED"} size="lg" />
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <Metric label="New critical" value={int(g.newCriticals.length)} tone={g.newCriticals.length ? "crit" : "neutral"} />
-                  <Metric label="Newly failing" value={int(g.newlyFailing.length)} tone={g.newlyFailing.length ? "warn" : "neutral"} />
+                <div className="mt-3 text-[13px] text-ink-2">
+                  {agentDisplay(g.agent.name)} <span className="mono text-ink-3">{agentRaw(g.agent.name, g.agent.version)}</span>
                 </div>
-                <p className="mt-3 text-[13px] text-ink-2">
-                  {g.verdict === "pass"
-                    ? "Nothing worse than the committed baseline."
-                    : g.newCriticals.length
-                      ? `Reason: ${int(g.newCriticals.length)} new critical violation(s): ${g.newCriticals.slice(0, 2).join(", ")}.`
-                      : g.newlyFailing.length
-                        ? `Reason: ${g.newlyFailing.slice(0, 2).join(", ")} stopped passing.`
-                        : `Reason: ${g.regressions.join(", ")} fell by more than the tolerance.`}
-                  {g.override && ` Overridden by ${g.override.actor} until ${day(g.override.expiresAt)}.`}
-                </p>
+                <ul className="mt-3 grid gap-1 text-[13px]">
+                  {final?.reasons.map((r) => (
+                    <li key={r}>{r}</li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-[11.5px] text-ink-3">Final release = absolute qualification PASS and regression gate PASS.</p>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <LinkButton href={`/labs/tests/${g.runId}?tab=failures`} tone={g.verdict === "fail" ? "crit" : "neutral"}>
+                  <LinkButton href={`/labs/tests/${g.runId}?tab=failures`} tone={final?.state === "BLOCKED" ? "crit" : "neutral"}>
                     Review Failures
                   </LinkButton>
                   <LinkButton href="/labs">Rerun</LinkButton>
                   <LinkButton href={`/labs/releases/${g.id}`}>{g.verdict === "fail" ? "Override Gate" : "Open"}</LinkButton>
                 </div>
-                {g.verdict === "fail" && <p className="mt-2 text-[11.5px] text-ink-3">An override is a signed, expiring record written next to the baseline with an author and a reason. It never covers a new critical violation.</p>}
+                {g.verdict === "fail" && <p className="mt-2 text-[11.5px] text-ink-3">An override is an expiring record written next to the baseline with an author and a reason. It never covers a new critical failure, and it never satisfies the absolute qualification.</p>}
               </Card>
             </div>
           </div>
 
-          <Card title="Release history" aside={`${int(rows.length)} gate run(s)`} padded={false}>
+          <Card title="Release history" aside={`${int(rows.length)} gate run(s) · regression verdicts only; the absolute bar is evaluated above for the latest`} padded={false}>
             <ol>
               {rows.map((r) => (
                 <li key={r.id} className="flex items-center gap-4 border-b border-line px-6 py-3 last:border-0 hover:bg-surface-2">
-                  <StateBadge state={r.verdict === "pass" ? "READY" : r.verdict === "fail" ? "BLOCKED" : "OVERRIDDEN"} />
+                  <StateBadge state={r.verdict === "pass" ? "PASS" : r.verdict === "fail" ? "FAIL" : "OVERRIDDEN"} label={`GATE ${r.verdict.toUpperCase()}`} />
                   <div className="min-w-0 flex-1">
                     <Link href={`/labs/releases/${r.id}`} className="text-[13px] font-medium">
-                      {agentDisplay(r.agent.name)} <span className="font-normal text-ink-3">v{r.agent.version}</span>
+                      {agentDisplay(r.agent.name)} <span className="mono font-normal text-ink-3">{agentRaw(r.agent.name, r.agent.version)}</span>
                     </Link>
                     <div className="truncate text-[12px] text-ink-3" title={r.suite.id}>
                       {when(r.createdAt)} · {suiteName(r.suite.id).name} · {int(r.suite.scenarioCount)} × {r.suite.trials}
@@ -113,7 +158,7 @@ export default async function Releases() {
                   <div className="hidden text-[12px] tabular text-ink-2 md:block">
                     safety {r.axes.safety?.baseline ?? "–"} → {r.axes.safety?.now ?? "–"}
                   </div>
-                  <div className={`w-[90px] text-right text-[12px] tabular ${r.newCriticals.length ? "text-crit-ink" : "text-ink-3"}`}>{int(r.newCriticals.length)} critical</div>
+                  <div className={`w-[130px] text-right text-[12px] tabular ${r.newCriticals.length ? "text-crit-ink" : "text-ink-3"}`}>{int(r.newCriticals.length)} new critical</div>
                 </li>
               ))}
             </ol>

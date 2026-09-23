@@ -16,7 +16,7 @@ import { isLabsPath } from "./sidebar";
 
 type Hit = { kind: string; label: string; sub?: string; href: string };
 
-export function CommandBar({ agents, engineOk }: { agents: { key: string; name: string; version: string }[]; engineOk: boolean }) {
+export function CommandBar({ agents, engineOk, sandbox }: { agents: { key: string; name: string; version: string }[]; engineOk: boolean; sandbox: boolean }) {
   const path = usePathname();
   const labs = isLabsPath(path);
   const [open, setOpen] = useState(false);
@@ -116,8 +116,8 @@ export function CommandBar({ agents, engineOk }: { agents: { key: string; name: 
 
       <div className="ml-auto flex items-center gap-2">
         <span className="rounded-[6px] border border-line px-2 py-1 text-[11px] text-ink-2">
-          <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-warn align-middle" />
-          Sandbox
+          <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle ${sandbox ? "bg-warn" : "bg-good"}`} />
+          {sandbox ? "Sandbox" : "Production rail"}
         </span>
         <Link href="https://github.com/mshaik791/limulus#readme" target="_blank" className="flex items-center gap-1.5 rounded-[6px] px-2 py-1 text-[12.5px] text-ink-2 hover:bg-surface hover:text-ink">
           <BookOpen size={14} strokeWidth={1.75} /> Docs

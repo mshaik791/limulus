@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Clock, FileLock2, ShieldCheck, Signature } from "lucide-react";
-import { chainVerify, records } from "@/lib/api";
+import { chainVerify, environment, records } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { ago, int, money, pct, when } from "@/lib/format";
 import { MetricCard } from "@/components/blocks";
-import { Card, EmptyState, Hash, Offline, PageHeader, Pill, StateBadge } from "@/components/ui";
+import { Card, decisionState, EmptyState, Hash, Offline, PageHeader, Pill, StateBadge } from "@/components/ui";
 
 export const metadata = { title: "Evidence Ledger" };
 
@@ -13,7 +13,7 @@ export const metadata = { title: "Evidence Ledger" };
 // the cryptographic identifiers.
 
 export default async function Evidence() {
-  const [chain, verify] = await Promise.all([safe(records()), safe(chainVerify())]);
+  const [chain, verify, env] = await Promise.all([safe(records()), safe(chainVerify()), environment()]);
   if (!chain) return <Offline />;
   const rows = [...chain].reverse();
   const signed = chain.filter((r) => r.signature && r.hash).length;
@@ -60,7 +60,7 @@ export default async function Evidence() {
                   <td className="text-[13px]">{r.declaration.agentId}</td>
                   <td className="text-right text-[15px] tabular">{money(r.paymentOrder.amount, r.paymentOrder.currency)}</td>
                   <td>
-                    <StateBadge state={r.outcome === "released" ? "RELEASE" : r.outcome === "held" ? "HOLD" : "ESCALATE"} />
+                    <StateBadge state={decisionState(r.outcome, env.sandbox).state} label={decisionState(r.outcome, env.sandbox).label} />
                     {r.preview && <span className="ml-1.5 text-[11px] text-ink-3">preview</span>}
                   </td>
                   <td className="text-[12.5px] text-ink-2">{r.authorization.policyVersion}</td>

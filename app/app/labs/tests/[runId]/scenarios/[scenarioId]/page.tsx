@@ -3,6 +3,7 @@ import { ApiError, episodes, labRun, scenario as loadScenario, type Scenario, ty
 import { safe } from "@/lib/safe";
 import { trajectory } from "@/lib/derive";
 import { int, money, ms } from "@/lib/format";
+import { agentDisplay, agentRaw } from "@/lib/names";
 import { Scrubber } from "@/components/timeline";
 import { Breadcrumb } from "@/components/shell";
 import { Card, EmptyState, EnvBar, KV, LinkButton, Note, Offline, PageHeader, Pill, StateBadge, toneForSeverity, toneForVerdict } from "@/components/ui";
@@ -63,7 +64,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
   const invoice = scenario?.authorization.approvedInvoices.find((i) => scenario!.task.includes(i.invoiceId)) ?? scenario?.authorization.approvedInvoices[0];
 
   const result = critical
-    ? { state: "FAIL" as const, title: "Critical failure", body: paid > 0 && paidTo ? `The agent released ${money(paid)} to ${paidTo.payeeName} ****${paidTo.payeeAccountLast4} in the sandbox. ${grade.violations.find((v) => v.severity === "critical")?.detail ?? ""}` : grade.violations.find((v) => v.severity === "critical")?.detail ?? "" }
+    ? { state: "FAIL" as const, title: "Critical failure", body: paid > 0 && paidTo ? `Simulated execution: the agent would have released ${money(paid)} to ${paidTo.payeeName} ****${paidTo.payeeAccountLast4}. ${grade.violations.find((v) => v.severity === "critical")?.detail ?? ""}` : grade.violations.find((v) => v.severity === "critical")?.detail ?? "" }
     : grade.effective !== grade.expected || grade.violations.length
       ? { state: "REVIEW" as const, title: "Finding", body: grade.violations[0]?.detail ?? `The correct action was ${grade.expected}; the agent did ${grade.effective}.` }
       : { state: "PASS" as const, title: "Pass", body: `The agent did ${grade.effective}, which is the expected action, with no finding. Graded from the calls, not the explanation.` };
@@ -83,7 +84,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <span>
-              {run.agent.name} <span className="mono">v{run.agent.version}</span> · trial {grade.trial} of {grades.length}
+              {agentDisplay(run.agent.name)} <span className="mono text-ink-3">{agentRaw(run.agent.name, run.agent.version)}</span> · trial {grade.trial} of {grades.length}
             </span>
             {grades.length > 1 && (
               <span className="inline-flex gap-1">
@@ -121,7 +122,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
                   ["invoice", invoice ? <span key="i" className="mono">{invoice.invoiceId}{invoice.poId ? ` · ${invoice.poId}` : ""}</span> : "none approved"],
                   ["amount", invoice ? money(invoice.amount, scenario.authorization.currency) : scenario.truth?.amount ? money(scenario.truth.amount, scenario.truth.currency) : "–"],
                   ["limit", money(scenario.authorization.limitPerPayment, scenario.authorization.currency) + (scenario.authorization.limitPerDay ? ` · ${money(scenario.authorization.limitPerDay, scenario.authorization.currency)} per day` : "")],
-                  ["agent", <span key="a">{run.agent.name} <span className="mono text-ink-3">v{run.agent.version}</span></span>],
+                  ["agent", <span key="a">{agentDisplay(run.agent.name)} <span className="mono text-ink-3">{agentRaw(run.agent.name, run.agent.version)}</span></span>],
                   ["model", run.agent.subject.model ?? <span key="m" className="text-ink-3">not reported</span>],
                   ["policy", <span key="p" className="mono">{scenario.authorization.policyVersion}</span>],
                   ...(scenario.railEvents?.length ? ([["rail will", <span key="r" className="mono">{scenario.railEvents.map((e) => e.type).join(", ")}</span>]] as [string, React.ReactNode][]) : []),
@@ -176,13 +177,13 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
               <p className="mt-1 text-ink-2">{trace.declared?.reason ?? trace.error ?? "none given"}</p>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-[0.06em] text-ink-3">money in the sandbox afterwards</div>
+              <div className="text-[11px] uppercase tracking-[0.06em] text-ink-3">simulated payments afterwards · nothing moved</div>
               {trace.payments.length === 0 ? (
                 <p className="mt-1 text-ink-3">none</p>
               ) : (
                 trace.payments.map((p) => (
                   <p key={p.id} className="mt-1 tabular">
-                    {money(p.amount, p.currency)} to {p.payeeName} ****{p.payeeAccountLast4} · <span className="mono">{p.invoiceId}</span> <Pill tone={p.state === "settled" ? "warn" : "neutral"}>{p.state}</Pill>
+                    {money(p.amount, p.currency)} to {p.payeeName} ****{p.payeeAccountLast4} · <span className="mono">{p.invoiceId}</span> <Pill tone={p.state === "settled" ? "warn" : "neutral"}>{p.state === "settled" ? "would have executed" : p.state}</Pill>
                   </p>
                 ))
               )}

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { health, referenceAgents } from "@/lib/api";
+import { environment, health, referenceAgents } from "@/lib/api";
 import { Sidebar } from "./sidebar";
 import { CommandBar } from "./command-bar";
 
@@ -9,13 +9,13 @@ import { CommandBar } from "./command-bar";
 // and production can never be confused.
 
 export async function Shell({ children }: { children: ReactNode }) {
-  const [h, agents] = await Promise.all([health(), referenceAgents().catch(() => [])]);
+  const [h, agents, env] = await Promise.all([health(), referenceAgents().catch(() => []), environment()]);
   return (
     <div className="flex min-h-screen">
-      <Sidebar engine={h ? { ok: h.ok, version: h.version, keyed: h.authRequired } : null} />
+      <Sidebar engine={h ? { ok: h.ok, version: h.version, keyed: h.authRequired } : null} sandbox={env.sandbox} rail={env.rail} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <CommandBar agents={agents} engineOk={Boolean(h?.ok)} />
-        <main className="mx-auto w-full max-w-[1650px] min-w-0 flex-1 px-8 py-7">{children}</main>
+        <CommandBar agents={agents} engineOk={Boolean(h?.ok)} sandbox={env.sandbox} />
+        <main className="mx-auto w-full max-w-[1600px] min-w-0 flex-1 px-8 py-7">{children}</main>
       </div>
     </div>
   );

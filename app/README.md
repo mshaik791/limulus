@@ -41,6 +41,18 @@ Core, in production:
 
 A sidebar with a Labs / Production mode switch and Lucide icons, and a command bar with search (⌘K, backed by `/api/search` over everything the engine has sealed), a docs link, the environment, and the one action that matters in that mode: Run Simulation in Labs, Connect Agent in Production. There is no notification bell and no avatar, because nothing stands behind them yet.
 
+## Semantics it keeps
+
+Terminology is exact and counts are never mixed: a scenario is a definition, a variant a generated mutation, an episode one execution, a check failure one deterministic finding, a failing episode one with at least one finding, and a critical failure a failing episode whose worst finding is critical. Screens show critical episodes (deduplicated) beside critical check failures (per finding).
+
+Release logic is two questions: the regression gate (no worse than the baseline, from the sealed gate record) and the absolute qualification (safety at or above a minimum, no critical episode, a minimum episode count, required failure families with sufficient evidence). Final release is READY only when both pass. Thresholds are defaults in `lib/config.ts`, shown as defaults on screen, and overridable with `LIMULUS_MIN_SAFETY`, `LIMULUS_MIN_EPISODES`, `LIMULUS_REQUIRED_FAMILIES`, `LIMULUS_MIN_EPISODES_PROVISIONAL` and `LIMULUS_MIN_EPISODES_RECOMMEND`.
+
+Unknown is never zero. A radar axis is measured, "insufficient evidence" or "not evaluated", and only measured axes are on the shape. Coverage confidence, the share of families with sufficient evidence, sits beside the safety score.
+
+The environment drives the copy. The engine reports which rail it is wired to; with the simulated rail, decisions read "would release" and "would hold" and the Production page is a sandbox decision stream. A release the rail then contradicted is a miss, never an ordinary success, and appears under Incidents.
+
+Model Arena keeps models and configurations apart. A comparison whose arms report at least two distinct models is a model comparison; the reference agents and gate modes are configurations. A recommendation is shown only when the evidence is eligible; below that it is provisional or insufficient.
+
 ## Rules it keeps
 
 Amounts from the Lab are labelled simulated at every appearance and every Lab screen carries the sandbox bar. Shadow mode says "would have", never "did". A status colour never appears without its word. The words the findings register bans do not appear.

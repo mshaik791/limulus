@@ -1,7 +1,7 @@
 import type { ActivityItem } from "@/components/blocks";
 import type { Candidate, CompareRecord, DecisionRecord, GateRecord, LabRunSummary, ShadowRecord } from "./api";
 import { int, money } from "./format";
-import { suiteName } from "./names";
+import { agentDisplay, suiteName } from "./names";
 
 // The live activity feed: every kind of sealed record, merged by time. Each
 // line is a fact from the record it links to.
@@ -14,8 +14,8 @@ export function activity(input: { runs?: LabRunSummary[]; gates?: GateRecord[]; 
       at: r.createdAt,
       kind: "run",
       tone: crit ? "crit" : "good",
-      title: `${r.agent.name} v${r.agent.version} ${crit ? `failed ${int(crit)} critical` : "passed"} · ${suiteName(r.suite.id).name}`,
-      sub: `${int(r.suite.scenarioCount)} scenarios × ${r.suite.trials} · safety ${r.axes.safety.score} (n=${int(r.axes.safety.sampleSize)})`,
+      title: `${agentDisplay(r.agent.name)} ${crit ? `· ${int(crit)} critical check failure(s)` : "· no critical failure"} · ${suiteName(r.suite.id).name}`,
+      sub: `v${r.agent.version} · ${int(r.suite.scenarioCount)} scenarios × ${r.suite.trials} trials · safety ${r.axes.safety.score} (n=${int(r.axes.safety.sampleSize)})`,
       href: `/labs/tests/${r.id}`,
     });
   }
@@ -24,7 +24,7 @@ export function activity(input: { runs?: LabRunSummary[]; gates?: GateRecord[]; 
       at: g.createdAt,
       kind: "gate",
       tone: g.verdict === "pass" ? "good" : g.verdict === "fail" ? "crit" : "warn",
-      title: `Release gate ${g.verdict} · ${g.agent.name} v${g.agent.version}`,
+      title: `Regression gate ${g.verdict} · ${agentDisplay(g.agent.name)}`,
       sub: g.verdict === "fail" ? `${int(g.newCriticals.length)} new critical, ${int(g.newlyFailing.length)} newly failing` : g.override ? `overridden by ${g.override.actor}` : "nothing worse than baseline",
       href: `/labs/releases/${g.id}`,
     });
@@ -50,7 +50,7 @@ export function activity(input: { runs?: LabRunSummary[]; gates?: GateRecord[]; 
       at: d.createdAt,
       kind: "decision",
       tone: d.outcome === "released" ? "good" : d.outcome === "held" ? "crit" : "warn",
-      title: `${money(d.paymentOrder.amount, d.paymentOrder.currency)} to ${d.paymentOrder.payeeName} · ${d.outcome}`,
+      title: `${money(d.paymentOrder.amount, d.paymentOrder.currency)} to ${d.paymentOrder.payeeName} · would ${d.outcome === "released" ? "release" : d.outcome === "held" ? "hold" : "escalate"}`,
       sub: d.outcome === "released" ? "all checks passed" : d.reasons[0],
       href: `/decisions/${d.id}`,
     });

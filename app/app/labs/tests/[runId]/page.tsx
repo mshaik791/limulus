@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ApiError, episodes, gates, labRun, labRuns, scenario as loadScenario, type EpisodeGrade } from "@/lib/api";
+import { ApiError, episodes, gates, labRun, labRuns, profile, scenario as loadScenario, type EpisodeGrade } from "@/lib/api";
 import { safe } from "@/lib/safe";
-import { agentKey, readiness, scenarioPassRate, trajectory } from "@/lib/derive";
+import { agentKey, counts, coverageConfidence, familyAxes, readiness, scenarioPassRate, trajectory } from "@/lib/derive";
 import { LADDER, int, money, ms, ofN, pct, when } from "@/lib/format";
-import { suiteName } from "@/lib/names";
+import { agentDisplay, agentRaw, suiteName } from "@/lib/names";
+import { Radar } from "@/components/charts";
 import { Breadcrumb } from "@/components/shell";
 import { Card, Delta, EmptyState, EnvBar, Hash, KV, LinkButton, Metric, MetricRow, Note, Offline, PageHeader, Pill, StateBadge, Tabs, toneForSeverity, toneForVerdict } from "@/components/ui";
 
@@ -25,13 +26,15 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
 
   const grades = run.grades.filter((g) => !g.unusable);
   const pass = scenarioPassRate(grades);
-  const failing = grades.filter((g) => g.criticalCount > 0 || g.effective !== g.expected || g.violations.length > 0);
-  const critical = grades.filter((g) => g.criticalCount > 0);
-  const mine = all.filter((r) => agentKey(r) === agentKey(run));
+    const mine = all.filter((r) => agentKey(r) === agentKey(run));
   const idx = mine.findIndex((r) => r.id === run.id);
   const previous = idx > 0 ? mine[idx - 1] : undefined;
   const gate = (gt ?? []).filter((g) => `${g.agent.name}@${g.agent.version}` === agentKey(run)).at(-1);
-  const ready = readiness(run, gate);
+  const prof = await safe(profile(run.agent.name, run.agent.version));
+  const axes = familyAxes(prof?.nodes ?? []);
+  const coverage = coverageConfidence(axes);
+  const c = counts(grades);
+  const ready = readiness(run, gate, grades, axes);
 
   // Failures grouped per scenario, worst first, with the variant count.
   const byScenario = new Map<string, EpisodeGrade[]>();
@@ -78,15 +81,16 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
         eyebrow={`Test run · ${when(run.createdAt)}`}
         title={
           <>
-            {run.agent.name} <span className="mono text-[18px] text-ink-3">v{run.agent.version}</span>
+            {agentDisplay(run.agent.name)} <span className="mono text-[14px] font-normal text-ink-3">{agentRaw(run.agent.name, run.agent.version)}</span>
           </>
         }
         subtitle={
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="text-[20px] font-semibold text-ink">{pct(pass.passed, pass.of)} <span className="text-[12px] font-normal text-ink-3">pass</span></span>
             <span>{int(run.suite.scenarioCount)} scenarios × {run.suite.trials} trials</span>
-            <span className={critical.length ? "text-crit-ink" : ""}>{int(critical.length)} critical episode(s)</span>
-            <span>{int(failing.length)} episode(s) with findings</span>
+            <span className={c.criticalEpisodes ? "text-crit-ink" : ""}>{int(c.criticalEpisodes)} episode(s) with critical failure</span>
+            <span className="text-ink-3">{int(c.criticalCheckFailures)} critical check failure(s)</span>
+            <span>{int(c.failingEpisodes)} failing episode(s) of {int(c.episodes)}</span>
             <span className="text-ink-3" title={run.suite.id}>{suiteName(run.suite.id).name}</span>
           </span>
         }
@@ -127,6 +131,19 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
               <MetricRow label="Reliability" hint={run.axes.reliability?.detail} score={run.axes.reliability?.score ?? null} n={run.axes.reliability?.sampleSize ?? 0} />
               <p className="mt-3 text-[12.5px] text-ink-3">{run.axes.levelReason}</p>
               {run.axes.unusableEpisodes > 0 && <p className="mt-2 text-[12px] text-warn-ink">{int(run.axes.unusableEpisodes)} episode(s) were unusable: the subject never answered. They are in no denominator.</p>}
+              <div className="mt-4 border-t border-line pt-3">
+                <ul className="grid gap-1 text-[12.5px]">
+                  {ready.absolute?.criteria.map((x) => (
+                    <li key={x.label} className="grid grid-cols-[max-content_1fr] items-start gap-2">
+                      <Pill tone={x.ok ? "good" : "crit"}>{x.ok ? "ok" : "fail"}</Pill>
+                      <span>
+                        {x.label} <span className="text-ink-3">· {x.detail}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[11px] text-ink-3">Absolute qualification, evaluated on this run alone. The regression gate is on Release Gates.</p>
+              </div>
             </Card>
             <Card title="Against the previous run" aside={previous ? when(previous.createdAt) : "none"}>
               {previous ? (
@@ -154,11 +171,14 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
             </Card>
           </div>
 
+          <Card title="Coverage by failure family" aside={`safety ${run.axes.safety.score} (n=${int(run.axes.safety.sampleSize)}) · coverage confidence ${coverage.pct}% · ${ofN(coverage.measured, coverage.of)} families with sufficient evidence`}>
+            <Radar axes={axes} size={220} />
+          </Card>
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <Card title="Violations by code" aside={`${int(grades.reduce((n, g) => n + g.violations.length, 0))} findings in ${int(grades.length)} episodes`} padded={false}>
+            <Card title="Check failures by code" aside={`${int(c.checkFailures)} check failure(s) across ${int(c.failingEpisodes)} failing episode(s) of ${int(c.episodes)}`} padded={false}>
               {codes.length === 0 ? (
                 <div className="p-5">
-                  <EmptyState title="No violations in any episode." />
+                  <EmptyState title="No check failure in any episode." />
                 </div>
               ) : (
                 <table className="w-full">
@@ -185,7 +205,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
                 </table>
               )}
             </Card>
-            <Card title="Critical failures" aside={`${int(failureRows.filter((r) => r.crit > 0).length)}`}>
+            <Card title="Critical failures" aside={`${int(failureRows.filter((r) => r.crit > 0).length)} scenario(s) · ${int(c.criticalEpisodes)} episode(s)`}>
               {failureRows.filter((r) => r.crit > 0).length === 0 ? (
                 <p className="text-[13px] text-ink-3">None. See Failures for non-critical findings.</p>
               ) : (
@@ -254,7 +274,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
                 <th>expected</th>
                 <th>trials</th>
                 <th className="text-right">critical</th>
-                <th className="pr-5 text-right">simulated paid</th>
+                <th className="pr-5 text-right">simulated payment total</th>
               </tr>
             </thead>
             <tbody>

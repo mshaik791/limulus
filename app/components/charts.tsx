@@ -7,7 +7,7 @@ import { int } from "@/lib/format";
 // sparkline, grouped bars for arms. Text never wears a data colour; the colour
 // sits in the mark beside it.
 
-export type RadarAxis = { key: string; label: string; score: number | null; n: number; hint: string };
+export type RadarAxis = { key: string; label: string; score: number | null; n: number; hint: string; status: "measured" | "insufficient" | "not-evaluated" };
 
 /**
  * Coverage over the failure families, 0–100, where 100 means no critical
@@ -29,8 +29,11 @@ export function Radar({ axes, size = 300, stacked = false }: { axes: RadarAxis[]
     const a = -Math.PI / 2 + (i / k) * Math.PI * 2;
     return [cx + Math.cos(a) * r * v, c + Math.sin(a) * r * v] as const;
   };
-  const measured = axes.map((a) => a.score !== null && a.n > 0);
-  const poly = axes.map((a, i) => pt(i, measured[i] ? a.score! / 100 : 0));
+  const measured = axes.map((a) => a.status === "measured" && a.score !== null);
+  // The polygon passes only through measured axes. An axis without evidence
+  // is not a point on the shape, because zero is a score and "unknown" is not.
+  const measuredPts = axes.map((a, i) => (measured[i] ? pt(i, a.score! / 100) : null));
+  const shape = measuredPts.filter((p): p is readonly [number, number] => p !== null);
 
   return (
     <div className={stacked ? "grid justify-items-center gap-3" : "grid gap-4 md:grid-cols-[auto_1fr]"}>
@@ -43,15 +46,16 @@ export function Radar({ axes, size = 300, stacked = false }: { axes: RadarAxis[]
           const [x, y] = pt(i, 1);
           return <line key={i} x1={cx} y1={c} x2={x} y2={y} stroke="var(--line)" strokeWidth="1" />;
         })}
-        <polygon points={poly.map((p) => p.join(",")).join(" ")} fill="var(--model)" fillOpacity="0.14" stroke="var(--model)" strokeWidth="2" strokeLinejoin="round" />
+        {shape.length >= 3 && <polygon points={shape.map((p) => p.join(",")).join(" ")} fill="var(--model)" fillOpacity="0.14" stroke="var(--model)" strokeWidth="2" strokeLinejoin="round" />}
+        {shape.length > 0 && shape.length < 3 && <polyline points={shape.map((p) => p.join(",")).join(" ")} fill="none" stroke="var(--model)" strokeWidth="2" strokeLinecap="round" />}
         {axes.map((a, i) => {
-          const [x, y] = poly[i];
+          const [x, y] = measuredPts[i] ?? pt(i, 1);
           const [lx, ly] = pt(i, 1.14);
           const hot = hover === i;
           const anchor = lx < cx - 6 ? "end" : lx > cx + 6 ? "start" : "middle";
           return (
             <g key={a.key} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
-              <circle cx={x} cy={y} r={hot ? 6 : 4.5} fill={measured[i] ? "var(--model)" : "var(--surface)"} stroke={measured[i] ? "var(--surface)" : "var(--ink-3)"} strokeWidth="2" />
+              <circle cx={x} cy={y} r={hot ? 6 : 4.5} fill={measured[i] ? "var(--model)" : "var(--surface)"} stroke={measured[i] ? "var(--surface)" : a.status === "insufficient" ? "var(--warn)" : "var(--ink-3)"} strokeWidth="2" strokeDasharray={measured[i] ? undefined : "2 2"} />
               <text x={lx} y={ly} textAnchor={anchor} dominantBaseline="middle" fontSize="10.5" fill={hot ? "var(--ink)" : "var(--ink-3)"}>
                 {a.label}
               </text>
@@ -60,7 +64,7 @@ export function Radar({ axes, size = 300, stacked = false }: { axes: RadarAxis[]
           );
         })}
       </svg>
-      <ul className={`grid content-start gap-1 text-[12.5px] ${stacked ? "w-full grid-cols-2" : ""}`}>
+      <ul className={`grid content-start gap-1 text-[12.5px] ${stacked ? "w-full" : ""}`}>
         {axes.map((a, i) => (
           <li
             key={a.key}
@@ -76,7 +80,7 @@ export function Radar({ axes, size = 300, stacked = false }: { axes: RadarAxis[]
                   <span className="ml-1 text-[11px] text-ink-3">n={int(a.n)}</span>
                 </>
               ) : (
-                <span className="text-ink-3">{a.n > 0 ? `${int(a.n)} trials, too few` : "not exercised"}</span>
+                <span className={`whitespace-nowrap ${a.status === "insufficient" ? "text-warn-ink" : "text-ink-3"}`}>{a.status === "insufficient" ? `Insufficient evidence · n=${int(a.n)}` : "Not evaluated"}</span>
               )}
             </span>
             {hover === i && <span className="col-span-2 text-[11.5px] text-ink-3">{a.hint}</span>}

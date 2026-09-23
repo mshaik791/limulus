@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { gate } from "@/lib/api";
+import { gate, labRun, labRuns, profile } from "@/lib/api";
+import { absoluteQualification, familyAxes, readiness } from "@/lib/derive";
+import { CONFIG } from "@/lib/config";
+import { agentDisplay, agentRaw } from "@/lib/names";
 import { safe } from "@/lib/safe";
 import { day, int, when } from "@/lib/format";
 import { Breadcrumb } from "@/components/shell";
@@ -9,8 +12,15 @@ export const metadata = { title: "Release Gate" };
 
 export default async function GateDetail(props: PageProps<"/labs/releases/[id]">) {
   const { id } = await props.params;
-  const g = await safe(gate(id));
-  if (!g) return <Offline />;
+  const [g, runs] = await Promise.all([safe(gate(id)), safe(labRuns())]);
+  if (!g || !runs) return <Offline />;
+  const run = runs.find((r) => r.id === g.runId) ?? null;
+  const full = run ? await safe(labRun(run.id)) : null;
+  const prof = run ? await safe(profile(run.agent.name, run.agent.version)) : null;
+  const axes = familyAxes(prof?.nodes ?? []);
+  const grades = full?.grades.filter((x) => !x.unusable) ?? null;
+  const absolute = run ? absoluteQualification(run, grades, axes) : null;
+  const final = run ? readiness(run, g, grades, axes) : null;
 
   const lists: { title: string; items: string[]; tone: "crit" | "warn" | "good" | "neutral"; note?: string }[] = [
     { title: "New critical violations", items: g.newCriticals, tone: "crit", note: "Money moving on a call that was not the agent's to make. One is enough; there is no acceptable rate and no override covers it." },
@@ -29,13 +39,14 @@ export default async function GateDetail(props: PageProps<"/labs/releases/[id]">
         eyebrow={`Release gate · ${when(g.createdAt)}`}
         title={
           <>
-            {g.agent.name} <span className="mono text-[18px] text-ink-3">v{g.agent.version}</span>
+            {agentDisplay(g.agent.name)} <span className="mono text-[14px] font-normal text-ink-3">{agentRaw(g.agent.name, g.agent.version)}</span>
           </>
         }
         subtitle={`${g.suite.id} · ${int(g.suite.scenarioCount)} scenarios × ${g.suite.trials} trials · baseline written ${day(g.baseline.updatedAt)}`}
         actions={
           <>
-            <StateBadge state={g.verdict === "pass" ? "READY" : g.verdict === "fail" ? "BLOCKED" : "OVERRIDDEN"} label={g.verdict === "pass" ? "READY" : g.verdict === "fail" ? "DEPLOYMENT BLOCKED" : "FAILED, OVERRIDDEN"} size="lg" />
+            <StateBadge state={g.verdict === "pass" ? "PASS" : g.verdict === "fail" ? "FAIL" : "OVERRIDDEN"} label={`REGRESSION GATE ${g.verdict.toUpperCase()}`} size="lg" />
+            {final && <StateBadge state={final.state} label={final.state === "READY" ? "READY FOR DEPLOYMENT" : final.state === "BLOCKED" ? "DEPLOYMENT BLOCKED" : "REVIEW REQUIRED"} size="lg" />}
             {g.verification && <Pill tone={g.verification.ok ? "good" : "crit"}>{g.verification.ok ? "signature verifies" : "signature broken"}</Pill>}
           </>
         }
@@ -109,6 +120,25 @@ export default async function GateDetail(props: PageProps<"/labs/releases/[id]">
           </div>
         </Card>
       </div>
+
+      {absolute && (
+        <div className="mt-4">
+          <Card title="Absolute qualification" aside={`evaluated on the run this gate scored · criteria are ${CONFIG.source}`} emphasis={absolute.pass ? "good" : "crit"}>
+            <StateBadge state={absolute.pass ? "PASS" : "FAIL"} size="lg" />
+            <ul className="mt-3 grid gap-1.5 md:grid-cols-2">
+              {absolute.criteria.map((x) => (
+                <li key={x.label} className="grid grid-cols-[max-content_1fr] items-start gap-2 text-[12.5px]">
+                  <Pill tone={x.ok ? "good" : "crit"}>{x.ok ? "ok" : "fail"}</Pill>
+                  <span>
+                    {x.label} <span className="text-ink-3">· {x.detail}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-[12.5px] text-ink-2">Final release = absolute qualification PASS and regression gate PASS. {final?.reasons.join(" ")}</p>
+          </Card>
+        </div>
+      )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
         <Card title="Next">
