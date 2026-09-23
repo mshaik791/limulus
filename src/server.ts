@@ -4,6 +4,9 @@ import { dirname, join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { decide } from "./decide.ts";
 import { publicKeyPem, readChain, verifyChain } from "./record.ts";
+import { intentAgents, readIntents, verifyIntentChain } from "./intent.ts";
+import { ingestEvent, computeMetrics, generateCandidates, readCandidates, approveCandidate, rejectCandidate } from "./monitor.ts";
+import { agentConfigs, profileForConfig } from "./failure-profile.ts";
 import { scenarios } from "./scenarios.ts";
 import { readOutcomes, readSettlements, recordSettlement, verifyOutcomeForDecision } from "./outcome.ts";
 import { buildReceipt, verifyReceipt, type Receipt } from "./receipt.ts";
@@ -539,7 +542,46 @@ const server = createServer(async (req, res) => {
       return record ? json(res, 200, record) : json(res, 404, { error: "No such record" });
     }
 
-    if (path === "/v1/verify") return json(res, 200, { ...verifyChain(), publicKey: publicKeyPem });
+    if (path === "/v1/intents" && req.method === "GET") {
+      const all = readIntents();
+      return json(res, 200, { count: all.length, agents: intentAgents(), intents: all.slice(-50) });
+    }
+
+    // One public verify endpoint covers both the decision chain and every agent's
+    // signed intent chain. ok is true only when both verify.
+    if (path === "/v1/verify") {
+      const decisions = verifyChain();
+      const perAgent = intentAgents().map((agentId) => ({ agentId, ...verifyIntentChain(agentId) }));
+      const intents = { ok: perAgent.every((a) => a.ok), count: readIntents().length, agents: perAgent };
+      return json(res, 200, { ok: decisions.ok && intents.ok, decisions, intents, publicKey: publicKeyPem });
+    }
+
+    // Monitor -> Lab pipeline. Every candidate action here has a CLI equivalent
+    // (src/monitor-cli.ts). Approval is the only path into a suite; scanning only
+    // ever produces pending candidates.
+    if (path === "/v1/monitor/events" && req.method === "POST") {
+      const body = (await readBody(req)) as Parameters<typeof ingestEvent>[0];
+      return json(res, 201, ingestEvent(body));
+    }
+    if (path === "/v1/monitor/scan" && req.method === "POST") return json(res, 200, generateCandidates());
+    if (path === "/v1/monitor/metrics" && req.method === "GET") return json(res, 200, computeMetrics());
+    if (path === "/v1/monitor/candidates" && req.method === "GET") return json(res, 200, { candidates: readCandidates() });
+    if (path.startsWith("/v1/monitor/candidates/") && path.endsWith("/approve") && req.method === "POST") {
+      const r = approveCandidate(path.split("/")[4]);
+      return json(res, r.ok ? 200 : 400, r);
+    }
+    if (path.startsWith("/v1/monitor/candidates/") && path.endsWith("/reject") && req.method === "POST") {
+      return json(res, 200, { ok: rejectCandidate(path.split("/")[4]) });
+    }
+
+    // Per-agent failure profile: your agent fails on X, with n and a Wilson interval.
+    if (path === "/v1/profiles" && req.method === "GET") return json(res, 200, { configs: agentConfigs() });
+    if (path.startsWith("/v1/profiles/") && req.method === "GET") {
+      const name = decodeURIComponent(path.split("/")[3]);
+      const version = url.searchParams.get("version") ?? agentConfigs().filter((c) => c.name === name).map((c) => c.version).pop();
+      if (!version) return json(res, 404, { error: "no Lab runs for that agent" });
+      return json(res, 200, profileForConfig(name, version));
+    }
 
     // Key management. The key itself is returned once, at creation.
     if (path === "/v1/keys" && req.method === "POST") {

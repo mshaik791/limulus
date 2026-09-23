@@ -354,3 +354,188 @@ exist only in the Increase adapter, which is correct — the held/approve step i
 real-money gate, not part of the unaided-agent Lab. No fabricated scenarios were added for
 the new codes (§9); the codes are a public taxonomy, exercised by the state-machine test
 rather than by invented narratives.
+
+---
+
+# Overnight build log (2026-09-21)
+
+Autonomous session. Branch `overnight/2026-09-21`, cut from `zuhayr` (not `main`) because
+the prompt builds on derive-scope, the false-block metric, skipped-control and the Nacha
+taxonomy — all of which live in `zuhayr`, not `main`. The overnight PR therefore stacks on
+PR #1; noted for the reviewer. Network was available, so real sources were fetched where
+they mattered most; everything else is marked `unverified-model-recall` and queued in
+`research/VERIFY.md`. No URL, title, statistic or case was invented.
+
+## 2026-09-21 — Workstream A: failure taxonomy + research corpus — done
+
+Added `research/` (eight sourced area files + `VERIFY.md`), `src/bench/taxonomy.ts` (eight
+families, ~45 sourced failure modes), tagged all 22 open-pool scenarios and the 7 held-out
+families, and a validating self-test (`npm run selftest:taxonomy`). Clean/legitimate
+scenarios that test no failure mode (`man-003`, `man-004`, family `legitimate-clean`) are
+logged as untagged rather than force-fitted.
+
+## 2026-09-21 — The existing Nacha set mixes credit and debit returns — severity: medium (correctness)
+
+**Finding.** `src/rails/nacha.ts` carries R01/R02/R03/R04/R16/R29 as one undifferentiated
+"return" set. But an AP agent *paying* a vendor originates a **credit**, and R01 (insufficient
+funds), R29 (corporate not authorised), R05/R07/R08/R10/R11 are **debit** return reasons —
+they arise when money is *pulled*, not pushed (Modern Treasury ACH reference, fetched
+2026-09-21; see `research/ach.md`). Credit-relevant returns are R02/R03/R04/R16/R20/R23.
+Modelling R01 as a "return_after_settle" on a vendor credit is not realistic.
+
+**What I did.** Documented the credit-vs-debit split in `research/ach.md` and the taxonomy;
+did **not** rip out the existing set (the zuhayr rail-state test and prompt explicitly use
+it, and changing it risks that green suite). Flagged for a follow-up: split the sandbox
+return model into credit vs debit reason sets. Left as an open finding rather than a
+mid-stream refactor.
+
+## 2026-09-21 — Workstream B: deterministic variant generator — done
+
+`src/bench/variants.ts` turns a clean seed into many honest variants by applying mutation
+operators drawn from the taxonomy (no LLM). 16 operators across amount, account, payee,
+state and manipulation, including the real ABA weighted mod-10 routing checksum
+(`abaChecksumValid`/`makeValidAba`/`breakAba`). Every variant records `variantOf`,
+`operators` and a deterministic `variantSeed`; every trap operator emits a matching pay
+control so false-block stays measurable; variants are deduplicated by a content
+fingerprint. CLI `node src/lab-cli.ts generate --seed man-003 --count N` writes runnable
+`*.scenario.json` files. `selftest:variants` green.
+
+Two fixes made while building it: (1) the strict scenario-file validator rejected the new
+metadata keys and dotted ids, so it was taught `taxonomy`/`scopeDimension`/`variantOf`/
+`operators`/`variantSeed` (still strict on everything else) and variant ids were sanitised;
+(2) control twins first broke answerability by changing the invoice id in the authorization
+but not the documents — fixed to keep the id and distinguish controls with a benign note.
+
+Signal: the careful reference agent, on 28 generated variants of one clean seed, scored
+safety 86 (4/28 critical) and capability 100 (17/17 pay-controls) — it falls for some traps
+it was never hand-written against, which is the point of breadth.
+
+## 2026-09-21 — Workstream C: signed intent records — done
+
+`src/intent.ts`: a tamper-evident record of what an agent declared it was about to pay,
+captured before the payment. Canonicalised, SHA-256 hashed, Ed25519-signed (reusing
+`record.ts`), and **hash-chained per agent** — each record carries the hash of that agent's
+previous intent. Documents are referenced by content hash, never content. The model
+identity carries a `source` field (configured / self-reported / unknown) because we cannot
+verify it. CLI `intent-cli.ts`; the public `/v1/verify` endpoint was **extended** (not
+duplicated) to verify both the decision chain and every agent's intent chain, and a
+`/v1/intents` listing added.
+
+Protect reads the intent record, not a free-text claim: `requireIntent()` returns escalate
+when no signed intent backs an order, which is how the advisory and enforced arms refuse to
+release on the agent's word alone.
+
+**What it proves / does not** (stated in code and here): it proves the record existed in
+this exact form at this time and is unaltered; it does **not** prove the declaration was
+correct or honest — a prompt-injected agent can sign a confident declaration of a wrong
+payment. The record is what makes a declaration-vs-order *mismatch* detectable later.
+
+`selftest:intent` proves a single altered byte, a removed record and an inserted record each
+break chain verification, that chains stay per-agent, and that a missing intent escalates.
+Full regression green.
+
+## 2026-09-21 — Workstream D: Monitor → Lab pipeline — done
+
+`src/monitor.ts`: event ingestion (nine event types, each carrying agent/config/run/org/
+time), grouped metrics (conformance / integrity / recovery / control / outcome, each figure
+a value/n), and a candidate pipeline enforcing the two hard rules in code:
+
+- **Candidate, not auto-insertion.** A failure event produces a *pending* candidate in a
+  review queue. `approveCandidate` is the only path into a suite; scanning only ever creates
+  pending candidates. CLI (`monitor-cli.ts`) and API (`/v1/monitor/*`) both drive it.
+- **Shape, not values.** A candidate is synthesised by re-applying the failed mutation to a
+  fixed *synthetic* seed via the variant generator — no account, name, amount, invoice or
+  document from the source event is copied in. `selftest:monitor` asserts (proven, not
+  asserted-in-prose) that none of the raw customer values appears in the candidate.
+
+Candidates dedup by (org + taxonomy node + preserved property), collapsing a thousand
+identical production events into one candidate with a count. Approved candidates land in
+`data/suites/<org>/` with provenance `customer:<org> event:<id>` and run on the next suite.
+Protect decisions feed the same queue: a block becomes a refuse-candidate, a human override
+of a block a pay (false-block) candidate.
+
+The e2e the prompt asked for passes: a production event with a transposed account becomes a
+candidate with no raw values, is approved, and runs in the next suite.
+
+**Robustness fix made in passing:** `loadScenarioDir` threw on a not-yet-created directory;
+a customer's private suite has no files until their first approval, so a missing directory
+is now an empty suite, not a crash. Honestly labelled: the pipeline "proves the data
+contract is wired end to end, not that the system learns."
+
+## 2026-09-21 — Workstream E: per-agent failure profile — done
+
+`src/failure-profile.ts` aggregates a config's Lab runs by taxonomy node: trials, failures,
+rate with a **95% Wilson interval**, simulated exposure, and the worst example run. It ranks
+by the interval's *lower bound* (what can be defended, not the point estimate), and below a
+minimum n of 10 it says "not enough trials" rather than inventing a number. Every rate
+carries n; every amount is labelled simulated. `compareProfiles` diffs two configs of one
+agent per node. CLI (`failure-profile-cli.ts`), API (`/v1/profiles`, `/v1/profiles/:name`).
+
+To make this self-contained, `gradeEpisode` now carries `taxonomy` and settled `paidAmount`
+onto each grade (additive; graders unchanged, all green).
+
+Real output on the naive reference agent: *"payee.bank-detail-change — an unverified request
+to change the account of record (BEC): 48 of 48 trials failed (100%, 95% CI 93–100%),
+simulated exposure 1,585,200 … reproduce: … fix: …"* — the sentence a customer pays for,
+with its n, its interval, and links to the failing run.
+
+## 2026-09-21 — Workstream F: measurement pass — done (unaided arm only)
+
+`src/bench/measure.ts` runs the expanded suite (22 seeds + 55 deterministic variants of the
+clean seeds = 77 scenarios, 20 trials each) against both reference agents and writes
+`research/RESULTS.md` with per-node rates, 95% intervals and simulated exposure.
+
+**No LLM key, no `.env`, no claude binary are present.** So per the budget rule the live-model
+runs and the advisory/enforced (gated) arms are deferred, and **model spend is $0** against the
+$25 cap. RESULTS.md states this plainly and reports only the unaided arm, labelling every
+number as reference-agent and simulated. The skipped-control and gate false-block rates are
+explicitly marked deferred (they need the gated arms).
+
+Signal worth noting: on the expanded suite the careful reference agent drops to **safety 93**
+(from 100 on the base pack) and the naive agent to **safety 24** — the generated variants have
+teeth, which is the point of breadth. The one number that matters most (off vs enforced delta)
+is honestly deferred until a key exists.
+
+## 2026-09-21 — Red-team pass (section 10), before the PR
+
+Each question checked, not asserted. Open items first.
+
+**OPEN — a hash chain does not detect tail truncation (severity: medium).** `verifyIntentChain`
+(and the existing `verifyChain` for decisions) detects alteration, mid-sequence removal and
+insertion — the tamper self-test proves all three. It does **not** detect removal of the *tail*:
+drop the last k records and the remaining prefix still links validly. A hash chain has no
+built-in length commitment. This is inherent, not a bug, and the same is true of the decision
+chain. Mitigation for later: an external anchor — a published head hash, an expected count, or
+an outside timestamp per record (the README already lists outside timestamping as unbuilt). Do
+not claim "cannot be silently truncated"; claim "any alteration or mid-sequence edit is detected."
+
+**OK — could a reported rate be wrong from shared state, timing, seeding, or a variant leaking
+the answer?** Variants set `truth`/`expected` and the grader compares the payment against `truth`;
+value-in-document operators keep `truth` correct, so a variant never writes the answer into the
+world in a way the grader reads. Generation is deterministic (seeded) and deduped by content
+fingerprint, so no double-counting. Each `runSuite` is independent; self-tests use `allowRetake`.
+The known measurement-bug family (denominators, same-millisecond seeding) is covered by the
+existing tested accounting.
+
+**OK — did any customer value survive into a generated scenario?** No. Candidates are synthesised
+from a fixed synthetic seed via the variant generator; `selftest:monitor` fails if any raw event
+value appears in a candidate, and it passes. Provenance records `customer:<org> event:<id>` by
+design (identifiers, not payment values).
+
+**OK — unverifiable sources not listed?** No. Every `unverified-model-recall` source is in
+`research/VERIFY.md` (14 rows). No URL, title, statistic or case was invented; specific figures
+that could not be fetched were omitted rather than recalled.
+
+**OK — a number without n, or an unlabelled simulated amount?** None found. The failure profile,
+monitor metrics, RESULTS.md and the Lab axes all carry n; amounts are labelled simulated.
+
+**OK — banned words / overclaiming?** Grep of new code and research for
+certified/guaranteed/notarized/self-improving/"trained on"/bare-"safe" is clean. The Monitor loop
+is labelled "proves the data contract is wired, not that the system learns."
+
+**OK — can an LLM influence an allow/block decision?** No. Grep confirms no model call in
+`intent.ts`, `monitor.ts`, `failure-profile.ts`, `taxonomy.ts`, `variants.ts`, `decide.ts`,
+`verdict.ts`, `checks.ts`. The whole pipeline is deterministic code.
+
+**OK — custody / money movement?** Nothing added touches a real rail, holds funds, or moves
+money. The rail remains simulated; amounts are simulated.
