@@ -5,15 +5,15 @@ import { usePathname } from "next/navigation";
 import { Activity, AlertTriangle, Eye, FileLock2, GitCompare, LayoutGrid, PlayCircle, Shield, ShieldCheck, FileText } from "lucide-react";
 import type { ComponentType } from "react";
 
-type Item = { href: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }> };
+type Item = { href: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }>; group?: string };
 
 export const LABS_NAV: Item[] = [
   { href: "/labs", label: "Overview", icon: LayoutGrid },
-  { href: "/labs/tests", label: "Test Runs", icon: PlayCircle },
+  { href: "/labs/tests", label: "Tests", icon: PlayCircle },
   { href: "/labs/arena", label: "Model Arena", icon: GitCompare },
-  { href: "/labs/releases", label: "Release Gates", icon: ShieldCheck },
-  { href: "/labs/policies", label: "Policies", icon: FileText },
-  { href: "/labs/qualifications", label: "Assurance Checks", icon: Shield },
+  { href: "/labs/releases", label: "Releases", icon: ShieldCheck },
+  { href: "/labs/policies", label: "Policies", icon: FileText, group: "Controls" },
+  { href: "/labs/qualifications", label: "Assurance Checks", icon: Shield, group: "Controls" },
 ];
 export const CORE_NAV: Item[] = [
   { href: "/production", label: "Shadow Mode", icon: Eye },
@@ -49,18 +49,21 @@ export function Sidebar({ engine, sandbox, rail }: { engine: { ok: boolean; vers
 
       <nav className="px-3">
         <div className="eyebrow px-2 pb-1.5">{inLabs ? "Labs" : "Core"}</div>
-        {items.map((it) => {
+        {items.map((it, i) => {
           const active = it.href === "/labs" ? path === "/labs" : path === it.href || path.startsWith(`${it.href}/`);
           const Icon = it.icon;
+          const heading = it.group && items[i - 1]?.group !== it.group ? <div className="eyebrow px-2 pb-1.5 pt-4">{it.group}</div> : null;
           return (
-            <Link
-              key={it.href}
-              href={it.href}
-              className={`mb-[2px] flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-[7px] text-[13px] transition-colors ${active ? "bg-accent-soft text-ink" : "text-ink-2 hover:bg-surface hover:text-ink"}`}
-            >
-              <Icon size={15} strokeWidth={1.75} className={active ? "text-accent-ink" : "text-ink-3"} />
-              {it.label}
-            </Link>
+            <div key={it.href}>
+              {heading}
+              <Link
+                href={it.href}
+                className={`mb-[2px] flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-[7px] text-[13px] transition-colors ${active ? "bg-accent-soft text-ink" : "text-ink-2 hover:bg-surface hover:text-ink"}`}
+              >
+                <Icon size={15} strokeWidth={1.75} className={active ? "text-accent-ink" : "text-ink-3"} />
+                {it.label}
+              </Link>
+            </div>
           );
         })}
       </nav>

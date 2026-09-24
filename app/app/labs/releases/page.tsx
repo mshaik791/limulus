@@ -7,7 +7,7 @@ import { day, int, when } from "@/lib/format";
 import { agentDisplay, agentRaw, suiteName } from "@/lib/names";
 import { Card, Delta, EmptyState, LinkButton, Offline, PageHeader, Pill, StateBadge } from "@/components/ui";
 
-export const metadata = { title: "Release Gates" };
+export const metadata = { title: "Releases" };
 
 // Two questions with two answers, then one decision. The regression gate asks
 // whether the candidate is worse than the baseline; the absolute qualification
@@ -31,7 +31,7 @@ export default async function Releases() {
 
   return (
     <>
-      <PageHeader title="Release Gates" subtitle="A candidate is ready only when it clears the absolute bar and is no worse than what shipped." />
+      <PageHeader title="Releases" subtitle="A candidate is ready only when it clears the absolute bar and is no worse than what shipped." />
       {!g ? (
         <EmptyState title="No gate has run." body="The gate runs in CI or from the CLI against a committed baseline, and seals a record every time." code="node src/bench/ci-gate.ts --scenarios scenarios --agent careful" />
       ) : (

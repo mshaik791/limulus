@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ApiError, episodes, labRun, scenario as loadScenario, type Scenario, type Violation } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { trajectory } from "@/lib/derive";
+import { buildGraph } from "@/lib/graph";
+import { ExecutionGraph } from "@/components/blocks";
 import { int, money, ms } from "@/lib/format";
 import { agentDisplay, agentRaw } from "@/lib/names";
 import { Scrubber } from "@/components/timeline";
@@ -47,7 +49,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
   if (!grade || !trace) {
     return (
       <>
-        <Breadcrumb items={[{ href: "/labs/tests", label: "Test Runs" }, { href: base, label: run.id }, { label: scenarioId }]} />
+        <Breadcrumb items={[{ href: "/labs/tests", label: "Tests" }, { href: base, label: run.id }, { label: scenarioId }]} />
         <EmptyState title={`No episode of ${scenarioId} in this run.`} />
       </>
     );
@@ -71,7 +73,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
 
   return (
     <>
-      <Breadcrumb items={[{ href: "/labs/tests", label: "Test Runs" }, { href: base, label: run.id }, { label: scenarioId }]} />
+      <Breadcrumb items={[{ href: "/labs/tests", label: "Tests" }, { href: base, label: run.id }, { label: scenarioId }]} />
       <PageHeader
         eyebrow={
           <span className="flex items-center gap-2">
@@ -109,6 +111,27 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
         }
       />
       <EnvBar />
+
+      <Card title="Execution map" aside="how authorization, evidence, policy and simulated execution connected · nothing here moved money" emphasis={critical ? "crit" : undefined} className="mb-4">
+        {(() => {
+          const g = buildGraph(run.agent, scenario, trace, grade.violations, critical);
+          return <ExecutionGraph nodes={g.nodes} edges={g.edges} height={260} />;
+        })()}
+        <div className="mt-3 flex flex-wrap gap-4 text-[11.5px] text-ink-3">
+          <span>
+            <span className="mr-1.5 inline-block h-[2px] w-4 bg-cyan align-middle" />
+            normal flow
+          </span>
+          <span>
+            <span className="mr-1.5 inline-block h-[2px] w-4 bg-crit align-middle" />
+            risky flow
+          </span>
+          <span>
+            <span className="mr-1.5 inline-block h-[10px] w-[10px] rounded-full border border-crit align-middle" />
+            simulated rail not reached
+          </span>
+        </div>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-[280px_1fr_300px]">
         {/* ---- left: context -------------------------------------------------- */}

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui";
 // Connect Agent shows the contract, because connecting is an endpoint, not a
 // form: the harness POSTs turns to it and never holds a key.
 
-export function RunTest({ agents, show = ["connect", "run"] }: { agents: { key: string; name: string; version: string }[]; show?: ("connect" | "run")[] }) {
+export function RunTest({ agents, show = ["connect", "run"], runLabel = "Run Simulation", quiet = false }: { agents: { key: string; name: string; version: string }[]; show?: ("connect" | "run")[]; runLabel?: string; quiet?: boolean }) {
   const [open, setOpen] = useState<"run" | "connect" | null>(null);
   return (
     <div className="relative flex items-center gap-2">
@@ -19,13 +19,13 @@ export function RunTest({ agents, show = ["connect", "run"] }: { agents: { key: 
         </button>
       )}
       {show.includes("run") && (
-        <button type="button" onClick={() => setOpen(open === "run" ? null : "run")} className="rounded-[var(--radius-sm)] border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:brightness-110">
-          Run Simulation
+        <button type="button" onClick={() => setOpen(open === "run" ? null : "run")} className={quiet ? "rounded-[var(--radius-sm)] border border-line-2 bg-surface-2 px-3 py-1.5 text-[13px] font-medium hover:border-line-hover" : "rounded-[var(--radius-sm)] border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:brightness-110"}>
+          {runLabel}
         </button>
       )}
 
       {open === "run" && (
-        <form action={runTestAction} className="absolute right-0 top-[calc(100%+8px)] z-20 w-[360px] rounded-[var(--radius)] border border-line-2 bg-surface p-4 text-[13px] shadow-2xl">
+        <form action={runTestAction} className={`absolute ${quiet ? "left-0" : "right-0"} top-[calc(100%+8px)] z-20 w-[360px] rounded-[var(--radius)] border border-line-2 bg-surface p-4 text-[13px] shadow-2xl`}>
           <div className="mb-3 text-[14px] font-medium">Run a test</div>
           <label className="mb-2 grid gap-1">
             <span className="text-ink-3">reference agent</span>

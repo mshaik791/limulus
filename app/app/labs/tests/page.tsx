@@ -1,21 +1,23 @@
 import Link from "next/link";
 import { AlertOctagon, FlaskConical, PlayCircle, ShieldCheck } from "lucide-react";
-import { gates, labRuns } from "@/lib/api";
+import { candidates, compares, gates, labRuns, records, shadowRecords } from "@/lib/api";
+import { activity } from "@/lib/activity";
 import { safe } from "@/lib/safe";
 import { int, ms, when, withinDays } from "@/lib/format";
 import { agentDisplay, suiteName } from "@/lib/names";
-import { MetricCard } from "@/components/blocks";
+import { ActivityFeed, MetricCard } from "@/components/blocks";
 import { Card, EmptyState, EnvBar, Offline, PageHeader, Pill, Rate, StateBadge } from "@/components/ui";
 
-export const metadata = { title: "Test Runs" };
+export const metadata = { title: "Tests" };
 
 // Every Lab run, filterable. Suites and agents get their human names; the raw
 // identifiers stay in the tooltip and on the run page.
 
 export default async function TestRuns(props: PageProps<"/labs/tests">) {
   const search = await props.searchParams;
-  const [runs, gt] = await Promise.all([safe(labRuns()), safe(gates())]);
+  const [runs, gt, cmp, shadowRows, cands, chain] = await Promise.all([safe(labRuns()), safe(gates()), safe(compares()), safe(shadowRecords()), safe(candidates()), safe(records())]);
   if (!runs) return <Offline />;
+  const feed = activity({ runs, gates: gt ?? [], compares: cmp ?? [], shadow: shadowRows ?? [], candidates: cands ?? [], decisions: chain ?? [] }, 12);
   const f = { agent: str(search.agent), suite: str(search.suite), gate: str(search.gate), q: str(search.q).toLowerCase() };
   const gateByRun = new Map((gt ?? []).map((g) => [g.runId, g]));
 
@@ -36,7 +38,7 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
 
   return (
     <>
-      <PageHeader title="Test Runs" subtitle="Every Lab run on record. Each row is a signed record; open one for its grades and traces." />
+      <PageHeader title="Tests" subtitle="Every Lab run on record. Each row is a signed record; open one for its grades and traces." />
       <EnvBar />
 
       <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -140,6 +142,12 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
           </div>
         </Card>
       )}
+
+      <div className="mt-6">
+        <Card title="Activity" aside={`${int(feed.length)} most recent sealed records`}>
+          <ActivityFeed items={feed} empty="Nothing sealed yet." />
+        </Card>
+      </div>
     </>
   );
 }

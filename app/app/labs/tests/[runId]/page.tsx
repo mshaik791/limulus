@@ -76,7 +76,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
 
   return (
     <>
-      <Breadcrumb items={[{ href: "/labs/tests", label: "Test Runs" }, { label: run.id }]} />
+      <Breadcrumb items={[{ href: "/labs/tests", label: "Tests" }, { label: run.id }]} />
       <PageHeader
         eyebrow={`Test run · ${when(run.createdAt)}`}
         title={
@@ -142,7 +142,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
                     </li>
                   ))}
                 </ul>
-                <p className="mt-2 text-[11px] text-ink-3">Absolute qualification, evaluated on this run alone. The regression gate is on Release Gates.</p>
+                <p className="mt-2 text-[11px] text-ink-3">Absolute qualification, evaluated on this run alone. The regression gate is on Releases.</p>
               </div>
             </Card>
             <Card title="Against the previous run" aside={previous ? when(previous.createdAt) : "none"}>
