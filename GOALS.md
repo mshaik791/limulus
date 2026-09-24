@@ -38,6 +38,12 @@ with a live model behind the Lab endpoint (Model Arena: `7e66901`).
 - **Done when:** `research/RESULTS.md` carries the off-vs-enforced table from a live
   model, every cell with n, and the console Compare screen renders it.
 - **Metric:** the loss-prevention delta, quotable with its n.
+- 🔶 *(2026-09-23 — pilot done, full run gated)* Pilot `cmp_620a3ffc9fe04bef` (4×2×3):
+  the gate eliminated the live BEC loss (off: paid poisoned 2/2; gated: 0/2) **and**
+  collapsed capability to 0 — the agent stalled after calling the gate, $0 settled even on
+  the clean control. Two blockers before the 30-trial run, both in FINDINGS 2026-09-23:
+  diagnose the gated-arm stall (prompt / step budget / verdict shape), and explain or fix
+  the compare module's wrongful-amount accounting, which does not reconcile with episodes.
 
 ### 2. Real reference data behind the checks
 Swap invented screening data for the real, public, freely-redistributable lists. All
