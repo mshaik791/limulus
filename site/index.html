@@ -1064,20 +1064,23 @@
       <div class="models-x"><table class="models-t">
         <thead><tr><th>Model, self-reported</th><th>Route</th><th>Answered</th><th>Scenarios passed</th><th>Critical failures</th><th>Safety</th><th>Latency per episode</th><th>Cost</th></tr></thead>
         <tbody>
-          <tr><td class="m">anthropic/claude-sonnet-4.5</td><td>OpenRouter</td><td>22 of 22</td><td>16 of 22</td><td>0</td><td>100</td><td>10.7 s</td><td>unavailable</td></tr>
-          <tr><td class="m">google/gemini-2.5-pro</td><td>OpenRouter</td><td>22 of 22</td><td>14 of 22</td><td class="r">1</td><td>93</td><td>24.4 s</td><td>unavailable</td></tr>
-          <tr><td class="m">openai/gpt-4.1</td><td>OpenRouter</td><td>19 of 22</td><td>9 of 19</td><td class="r">7</td><td>54</td><td>8.9 s</td><td>unavailable</td></tr>
-          <tr><td class="m">claude opus (CLI alias)</td><td>Claude CLI</td><td>22 of 22</td><td>14 of 22</td><td class="r">1</td><td>93</td><td>15.7 s</td><td>unavailable</td></tr>
-          <tr><td class="m">claude sonnet (CLI alias)</td><td>Claude CLI</td><td>22 of 22</td><td>14 of 22</td><td class="r">2</td><td>89</td><td>15.5 s</td><td>unavailable</td></tr>
-          <tr><td class="m">claude haiku (CLI alias)</td><td>Claude CLI</td><td>14 of 22</td><td>8 of 14</td><td>0</td><td>100</td><td>37.5 s</td><td>unavailable</td></tr>
+          <tr><td class="m">anthropic/claude-sonnet-4.5</td><td>OpenRouter</td><td>22 of 22</td><td>16 of 22</td><td class="r">1</td><td>96</td><td>9.7 s</td><td>unavailable</td></tr>
+          <tr><td class="m">x-ai/grok-4.7</td><td>OpenRouter</td><td>22 of 22</td><td>15 of 22</td><td>0</td><td>100</td><td>23.6 s</td><td>unavailable</td></tr>
+          <tr><td class="m">openai/gpt-5</td><td>OpenRouter</td><td>22 of 22</td><td>13 of 22</td><td class="r">3</td><td>85</td><td>55.8 s</td><td>unavailable</td></tr>
+          <tr><td class="m">google/gemini-2.5-pro</td><td>OpenRouter</td><td>22 of 22</td><td>12 of 22</td><td class="r">2</td><td>86</td><td>24.7 s</td><td>unavailable</td></tr>
+          <tr><td class="m">deepseek/deepseek-chat-v3.1</td><td>OpenRouter</td><td>22 of 22</td><td>12 of 22</td><td class="r">5</td><td>74</td><td>20.3 s</td><td>unavailable</td></tr>
+          <tr><td class="m">meta-llama/llama-4-maverick</td><td>OpenRouter</td><td>22 of 22</td><td>11 of 22</td><td class="r">3</td><td>82</td><td>17.8 s</td><td>unavailable</td></tr>
+          <tr><td class="m">openai/gpt-4.1</td><td>OpenRouter</td><td>22 of 22</td><td>11 of 22</td><td class="r">6</td><td>65</td><td>8.4 s</td><td>unavailable</td></tr>
+          <tr><td class="m">google/gemini-2.5-flash</td><td>OpenRouter</td><td>19 of 22</td><td>10 of 19</td><td class="r">1</td><td>92</td><td>3.7 s</td><td>unavailable</td></tr>
         </tbody>
       </table></div>
-      <p class="models-cap">Two sealed comparison records from 24 September 2026: one through OpenRouter, one through the
-        local Claude CLI, which reports an alias rather than a version. “Answered” counts episodes with a usable reply;
-        every rate carries that n, and unanswered episodes are in no denominator. Safety counts wrongful payments only,
-        so a model can score 100 and still fail scenarios by refusing or by not escalating. Cost is not measured.
-        The <a href="#evidence">findings below</a> come from an earlier, separate set of experiments with the Claude Code
-        default model at 20 trials per arm; the two are not the same test.</p>
+      <p class="models-cap">Two sealed comparison records from 24 September 2026, both through OpenRouter: three models in one,
+        five in the other, same suite and settings. “Answered” counts episodes with a usable reply; every rate carries that n,
+        and unanswered episodes are in no denominator. Safety counts wrongful payments only, so a model can score 100 and
+        still fail scenarios by refusing or by not escalating. Cost is not measured. One scenario beat all eight models: a
+        vendor email from a lookalike domain asking for a bank-detail change. The <a href="#evidence">findings below</a> come
+        from an earlier, separate set of experiments with the Claude Code default model at 20 trials per arm; the two are not
+        the same test.</p>
     </div>
   </div>
 </section>
