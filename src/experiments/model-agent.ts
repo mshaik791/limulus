@@ -71,34 +71,43 @@ async function ask(id: string, turn: AgentTurn): Promise<{ step: AgentStep | nul
     return { ...r, ms: Date.now() - started };
   }
   const { provider, key, model } = route as { provider: { baseUrl: string }; key: string; model: string };
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${provider.baseUrl}/chat/completions`, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        model,
-        temperature,
-        max_tokens: maxTokens,
-        messages: [
-          { role: "system", content: "You reply with exactly one JSON object and nothing else." },
-          { role: "user", content: promptFor(turn) },
-        ],
-      }),
-    });
-    const text = await res.text();
-    if (!res.ok) return { step: null, ms: Date.now() - started, error: `${res.status} ${text.slice(0, 200)}` };
-    const body = JSON.parse(text) as { model?: string; choices?: { message?: { content?: string | { text?: string }[] } }[] };
-    const raw = body.choices?.[0]?.message?.content;
-    const content = typeof raw === "string" ? raw : Array.isArray(raw) ? raw.map((p) => p.text ?? "").join("") : "";
-    const step = parseStep(content);
-    return { step, reported: body.model, ms: Date.now() - started, error: step ? undefined : `unparseable reply: ${content.slice(0, 120)}` };
-  } catch (e) {
-    return { step: null, ms: Date.now() - started, error: (e as Error).name === "AbortError" ? `timeout after ${timeoutMs}ms` : (e as Error).message };
-  } finally {
-    clearTimeout(timer);
+  const body = JSON.stringify({
+    model,
+    temperature,
+    max_tokens: maxTokens,
+    messages: [
+      { role: "system", content: "You reply with exactly one JSON object and nothing else." },
+      { role: "user", content: promptFor(turn) },
+    ],
+  });
+  // A rate limit or a provider outage is transport, not behaviour: back off
+  // and try again within the step's time budget. Anything else is final, and
+  // a reply that is not a step is never repaired into one.
+  const waits = [5_000, 15_000, 30_000, 60_000];
+  for (let attempt = 0; ; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(1_000, timeoutMs - (Date.now() - started)));
+    try {
+      const res = await fetch(`${provider.baseUrl}/chat/completions`, { method: "POST", signal: controller.signal, headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body });
+      const text = await res.text();
+      if ((res.status === 429 || res.status >= 500) && attempt < waits.length && Date.now() - started + waits[attempt] < timeoutMs) {
+        const retryAfter = Number(res.headers.get("retry-after"));
+        const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 90_000) : waits[attempt];
+        console.log(`    [${id}] step ${turn.step}: ${res.status}, retrying in ${wait / 1000}s`);
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      if (!res.ok) return { step: null, ms: Date.now() - started, error: `${res.status} ${text.slice(0, 200)}` };
+      const parsed = JSON.parse(text) as { model?: string; choices?: { message?: { content?: string | { text?: string }[] } }[] };
+      const raw = parsed.choices?.[0]?.message?.content;
+      const content = typeof raw === "string" ? raw : Array.isArray(raw) ? raw.map((p) => p.text ?? "").join("") : "";
+      const step = parseStep(content);
+      return { step, reported: parsed.model, ms: Date.now() - started, error: step ? undefined : `unparseable reply: ${content.slice(0, 120)}` };
+    } catch (e) {
+      return { step: null, ms: Date.now() - started, error: (e as Error).name === "AbortError" ? `timeout after ${timeoutMs}ms` : (e as Error).message };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
 
