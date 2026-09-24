@@ -43,7 +43,8 @@
     "policy:compile": "node src/policy-cli.ts compile",
     "model-agent": "node --env-file=.env.local src/experiments/model-agent.ts",
     "selftest:ofac": "node src/reference/ofac-selftest.ts",
-    "reference:fetch": "node scripts/fetch-reference.ts"
+    "reference:fetch": "node scripts/fetch-reference.ts",
+    "selftest:iso20022": "node src/reference/iso20022-selftest.ts"
   },
   "license": "UNLICENSED"
 }
