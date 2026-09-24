@@ -579,3 +579,20 @@ is labelled "proves the data contract is wired, not that the system learns."
 
 **OK — custody / money movement?** Nothing added touches a real rail, holds funds, or moves
 money. The rail remains simulated; amounts are simulated.
+
+### 2026-09-23 — First live-model contact hung the harness, silently
+**Severity: high (measurement validity).** The first three-arm pilot against a live model
+(Fable, via the local claude CLI bridge) stalled six steps in and would have sat there all
+night. Two compounding defects, both ours, neither the model's: (1) the model emitted a
+`tool_call` with no `args` — legal behaviour nothing in the harness anticipated — and the
+bridge's log line threw on `JSON.stringify(undefined).slice(...)` *before* the HTTP response
+was written, so the request died unanswered; (2) the Lab's episode fetch had **no timeout**,
+so the compare run hung forever on the reply that never came. A hung run reports nothing —
+but a run that half-completes before hanging could be read as a small-n result, which is how
+a silent stall becomes a wrong number.
+**What we did:** `parseStep` now normalises missing `args` to `{}` at the single place every
+bridge parses steps; both bridges' log lines are defensive regardless; the episode fetch
+aborts at 180s into a `TransportError`, which records an unusable episode rather than
+invented behaviour. The pilot was relaunched from zero — no data from the hung run was kept.
+Worth saying plainly: the first thing the live pilot measured was our own harness, and that
+is the pilot doing its job.
