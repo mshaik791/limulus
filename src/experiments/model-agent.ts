@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { isTurn, parseStep, promptFor } from "./agent-prompt.ts";
+import { isTurn, parseStepDetail, promptFor } from "./agent-prompt.ts";
 import { askClaudeCli } from "./claude-cli.ts";
 import { CLAUDE_CLI, catalog, configured, resolve, type CatalogEntry } from "./providers.ts";
 import type { AgentStep, AgentTurn } from "../sandbox/episode.ts";
@@ -101,7 +101,8 @@ async function ask(id: string, turn: AgentTurn): Promise<{ step: AgentStep | nul
       const parsed = JSON.parse(text) as { model?: string; choices?: { message?: { content?: string | { text?: string }[] } }[] };
       const raw = parsed.choices?.[0]?.message?.content;
       const content = typeof raw === "string" ? raw : Array.isArray(raw) ? raw.map((p) => p.text ?? "").join("") : "";
-      const step = parseStep(content);
+      const { step, normalised } = parseStepDetail(content, turn.tools.map((t) => t.name));
+      if (normalised) console.log(`    [${id}] step ${turn.step}: ${normalised}`);
       return { step, reported: parsed.model, ms: Date.now() - started, error: step ? undefined : `unparseable reply: ${content.slice(0, 120)}` };
     } catch (e) {
       return { step: null, ms: Date.now() - started, error: (e as Error).name === "AbortError" ? `timeout after ${timeoutMs}ms` : (e as Error).message };

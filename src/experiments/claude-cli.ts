@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentStep, AgentTurn } from "../sandbox/episode.ts";
-import { parseStep, promptFor } from "./agent-prompt.ts";
+import { parseStepDetail, promptFor } from "./agent-prompt.ts";
 
 // One step from a Claude model through the local Claude CLI: no API key, the
 // CLI's own login. Shared by the Claude bridge and the model agent.
@@ -53,7 +53,8 @@ export function askClaudeCli(turn: AgentTurn, model: string | undefined, timeout
     });
     child.on("close", () => {
       clearTimeout(killer);
-      const step = parseStep(out);
+      const { step, normalised } = parseStepDetail(out, turn.tools.map((t) => t.name));
+      if (normalised) console.log(`    [claude-cli/${model ?? "default"}] step ${turn.step}: ${normalised}`);
       resolve(step ? { step } : { step: null, error: err.trim().slice(0, 160) || `unparseable reply: ${out.trim().slice(0, 120)}` });
     });
   });
