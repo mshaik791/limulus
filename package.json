@@ -41,7 +41,9 @@
     "selftest:shadow": "node src/shadow-selftest.ts",
     "selftest:gate": "node src/bench/gate-selftest.ts",
     "policy:compile": "node src/policy-cli.ts compile",
-    "model-agent": "node --env-file=.env.local src/experiments/model-agent.ts"
+    "model-agent": "node --env-file=.env.local src/experiments/model-agent.ts",
+    "selftest:ofac": "node src/reference/ofac-selftest.ts",
+    "reference:fetch": "node scripts/fetch-reference.ts"
   },
   "license": "UNLICENSED"
 }
