@@ -11,7 +11,6 @@
 //   mistral/mistral-large-latest  api.mistral.ai            MISTRAL_API_KEY
 //   deepseek/deepseek-chat        api.deepseek.com          DEEPSEEK_API_KEY
 //   groq/llama-3.3-70b-versatile  api.groq.com              GROQ_API_KEY
-//   openrouter/<vendor>/<model>   openrouter.ai             OPENROUTER_API_KEY
 //   claude-cli/opus|sonnet|haiku  the local Claude CLI      no key; the CLI's own login
 //
 // With no direct key for a provider, the id goes as written to a gateway that
@@ -38,12 +37,11 @@ export const PROVIDERS: Provider[] = [
   { key: "mistral", label: "Mistral", baseUrl: "https://api.mistral.ai/v1", env: ["MISTRAL_API_KEY"], strip: true },
   { key: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", env: ["DEEPSEEK_API_KEY"], strip: true },
   { key: "groq", label: "Groq", baseUrl: "https://api.groq.com/openai/v1", env: ["GROQ_API_KEY"], strip: true },
-  { key: "openrouter", label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", env: ["OPENROUTER_API_KEY"], strip: true },
 ];
 
 /** Gateways take the id as written. First with a credential wins. */
 export const GATEWAYS: Provider[] = [
-  { key: "openrouter-gateway", label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", env: ["OPENROUTER_API_KEY"], strip: false },
+  { key: "openrouter", label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", env: ["OPENROUTER_API_KEY"], strip: false },
   { key: "vercel-gateway", label: "Vercel AI Gateway", baseUrl: process.env.AI_GATEWAY_BASE_URL ?? "https://ai-gateway.vercel.sh/v1", env: ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"], strip: false },
 ];
 
@@ -67,6 +65,9 @@ export function resolve(id: string, via: "auto" | "direct" | "gateway" = "auto")
   const prefix = slash > 0 ? id.slice(0, slash) : "";
   const rest = slash > 0 ? id.slice(slash + 1) : id;
   if (prefix === CLAUDE_CLI) return { route: { provider: { key: CLAUDE_CLI, label: "Claude CLI" }, model: rest } };
+  // An explicit gateway prefix ("openrouter/<vendor>/<model>") pins that gateway and hands it the rest.
+  const pinned = GATEWAYS.find((g) => g.key === prefix);
+  if (pinned) return keyFor(pinned) ? { route: { provider: pinned, key: keyFor(pinned)!, model: rest } } : { route: null, reason: `no credential for ${pinned.label} (${pinned.env.join(" or ")})` };
   const direct = PROVIDERS.find((p) => p.key === prefix);
   const directKey = direct ? keyFor(direct) : undefined;
   const gateway = GATEWAYS.find((g) => keyFor(g));
@@ -108,7 +109,7 @@ export async function catalog(timeoutMs = 8000): Promise<{ entries: CatalogEntry
         const isGateway = p === gateway;
         for (const raw of ids) {
           const id = isGateway ? raw : `${p.key}/${raw}`;
-          if (!id.includes("/")) continue;
+          if (!id.includes("/") || id.startsWith("~")) continue;
           const name = id.slice(id.indexOf("/") + 1);
           if (!CHAT_ID.test(name) || NOT_CHAT.test(name)) continue;
           if (isGateway && PROVIDERS.some((d) => id.startsWith(`${d.key}/`) && keyFor(d))) continue; // a direct route wins

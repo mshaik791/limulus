@@ -37,7 +37,9 @@ const allowed = (arg("--models", "") ?? "").split(",").map((s) => s.trim()).filt
 const via = (arg("--via", "auto") ?? "auto") as "auto" | "direct" | "gateway";
 const temperature = Number(arg("--temperature", "0"));
 const timeoutMs = Number(arg("--timeout", "120000"));
-const maxTokens = Number(arg("--max-tokens", "400"));
+// Reasoning models spend part of the budget thinking before the JSON; a
+// budget that is too small truncates the step, which is then rightly unusable.
+const maxTokens = Number(arg("--max-tokens", "4000"));
 
 const providers = configured();
 if (providers.length === 0) console.log("  No provider credential in the environment: only claude-cli/* models will work. See src/experiments/providers.ts for the variables.");
@@ -64,7 +66,8 @@ async function ask(id: string, turn: AgentTurn): Promise<{ step: AgentStep | nul
   const { route, reason } = resolve(id, via);
   if (!route) return { step: null, ms: 0, error: reason };
   if (route.provider.key === CLAUDE_CLI) {
-    const r = await askClaudeCli(turn, route.model, timeoutMs);
+    // The CLI starts a whole session per step; give it longer than an API call.
+    const r = await askClaudeCli(turn, route.model, Math.max(timeoutMs, 240_000));
     return { ...r, ms: Date.now() - started };
   }
   const { provider, key, model } = route as { provider: { baseUrl: string }; key: string; model: string };

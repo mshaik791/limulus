@@ -47,19 +47,36 @@ Reply with the JSON object only. No prose, no code fence.`;
 
 /**
  * The first balanced JSON object in a model's reply, as a step, or null. Models
- * are asked for bare JSON and sometimes wrap it; nothing else is repaired.
+ * are asked for bare JSON and sometimes wrap it in prose or a code fence, so
+ * the scan is for the first object whose braces balance; nothing else is
+ * repaired, and a truncated reply is not a step.
  */
 export function parseStep(text: string): AgentStep | null {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try {
-    const step = JSON.parse(match[0]) as AgentStep;
-    if (step.type === "tool_call" && step.tool) return step;
-    if (step.type === "finish" && step.action) return step;
-    return null;
-  } catch {
-    return null;
+  for (let start = text.indexOf("{"); start !== -1; start = text.indexOf("{", start + 1)) {
+    let depth = 0;
+    let inString = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (inString) {
+        if (ch === "\\") i++;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === "{") depth++;
+      else if (ch === "}" && --depth === 0) {
+        try {
+          const step = JSON.parse(text.slice(start, i + 1)) as AgentStep;
+          if (step.type === "tool_call" && step.tool) return step;
+          if (step.type === "finish" && step.action) return step;
+        } catch {
+          /* not this one */
+        }
+        break;
+      }
+    }
   }
+  return null;
 }
 
 /** True for a well-formed agent turn; a malformed probe must never take a subject down. */

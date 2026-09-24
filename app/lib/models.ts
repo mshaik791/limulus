@@ -21,7 +21,7 @@ export async function modelAgent(): Promise<ModelAgentHealth | null> {
 /** The agent endpoint for one model id, as an arm URL. */
 export const modelEndpoint = (id: string) => `${MODEL_AGENT}/agent?model=${encodeURIComponent(id)}`;
 
-const VENDOR: Record<string, string> = { openai: "OpenAI", google: "Google", anthropic: "Anthropic", "claude-cli": "Claude (local CLI)", xai: "xAI", meta: "Meta", mistral: "Mistral", deepseek: "DeepSeek", alibaba: "Alibaba", groq: "Groq", cohere: "Cohere", amazon: "Amazon", perplexity: "Perplexity", moonshotai: "Moonshot", zai: "Z.ai", openrouter: "OpenRouter" };
+const VENDOR: Record<string, string> = { openai: "OpenAI", google: "Google", anthropic: "Anthropic", "claude-cli": "Claude (local CLI)", xai: "xAI", "x-ai": "xAI", meta: "Meta", "meta-llama": "Meta", mistral: "Mistral", mistralai: "Mistral", deepseek: "DeepSeek", alibaba: "Alibaba", qwen: "Qwen", groq: "Groq", cohere: "Cohere", amazon: "Amazon", perplexity: "Perplexity", moonshotai: "Moonshot", zai: "Z.ai", "z-ai": "Z.ai", openrouter: "OpenRouter", nvidia: "NVIDIA", microsoft: "Microsoft" };
 export const vendorName = (key: string) => VENDOR[key] ?? key;
 
 /** A short arm label for a model id: "GPT-4o mini", "Gemini 2.5 Flash"; the id itself when nothing better is known. */
