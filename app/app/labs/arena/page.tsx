@@ -6,7 +6,9 @@ import { int, ms, ofN, pct, when } from "@/lib/format";
 import { agentDisplay, modelDisplay, suiteName } from "@/lib/names";
 import { ArmSwatch } from "@/components/charts";
 import { Button, Card, EmptyState, EnvBar, Note, Offline, PageHeader, Pill, Rate, StateBadge, Tabs } from "@/components/ui";
-import { startCompare } from "./actions";
+import { modelAgent, vendorName } from "@/lib/models";
+import { ModelPicker } from "./model-picker";
+import { startCompare, startModelCompare } from "./actions";
 
 export const metadata = { title: "Model Arena" };
 
@@ -32,12 +34,13 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
   const rows = tab === "models" ? models : configs;
   const latest = rows[0] ? await safe(compare(rows[0].id)) : null;
   const error = typeof search.error === "string" ? search.error : null;
+  const agent = tab === "models" ? await modelAgent() : null;
 
   return (
     <>
       <PageHeader title="Model Arena" subtitle="Which model or configuration performs best? Same tests, same policy, same tools; only the subject changes." />
       <EnvBar />
-      {error && <Note tone="crit">{error === "two-arms" ? "A comparison needs at least two arms." : `The engine refused the comparison: ${error}`}</Note>}
+      {error && <Note tone="crit">{error === "two-arms" ? "A comparison needs at least two arms." : error === "two-models" ? "Pick at least two models." : error === "too-many-models" ? "At most six models per comparison." : `The engine refused the comparison: ${error}`}</Note>}
       <Tabs
         base="/labs/arena"
         active={tab}
@@ -53,9 +56,9 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
         ) : tab === "models" ? (
           <EmptyState
             title="No model comparison yet."
-            body="A model comparison holds the agent, prompts, tools, policy, gate and trial count constant and changes only the model behind the endpoint. Each endpoint reports its model per step, or the bridge is started with one, so the record carries the identity. Nothing here is hardcoded: models appear when runs report them."
-            code={`npm run model-agent -- --models anthropic/claude-sonnet-4.5,openai/gpt-4.1,google/gemini-2.5-pro
-node src/lab-cli.ts compare "Claude Sonnet=http://localhost:9100/agent?model=anthropic/claude-sonnet-4.5:off" "GPT-4.1=http://localhost:9100/agent?model=openai/gpt-4.1:off" "Gemini 2.5 Pro=http://localhost:9100/agent?model=google/gemini-2.5-pro:off" --trials 30`}
+            body="A model comparison holds the prompt, tools, policy, gate and trial count constant and changes only the model. Pick models on the right, or run one from the CLI. Models appear here when a run reports them; nothing is hardcoded."
+            code={`npm run model-agent
+node src/lab-cli.ts compare "GPT-4.1=http://localhost:9100/agent?model=openai/gpt-4.1:off" "Gemini 2.5 Pro=http://localhost:9100/agent?model=google/gemini-2.5-pro:off" "Claude Sonnet=http://localhost:9100/agent?model=claude-cli/sonnet:off" --trials 3`}
           />
         ) : (
           <EmptyState title="No configuration comparison yet." body="Put two configurations on identical scenarios and get one signed record that says which held up and why." />
@@ -92,6 +95,46 @@ node src/lab-cli.ts compare "Claude Sonnet=http://localhost:9100/agent?model=ant
           )}
         </div>
         <div className="xl:col-span-4">
+          {tab === "models" ? (
+            <Card title="Compare Models" className="h-full">
+              {agent ? (
+                <form action={startModelCompare} className="grid gap-3 text-[13px]">
+                  <ModelPicker models={agent.models} vendors={Object.fromEntries([...new Set(agent.models.map((m) => m.provider))].map((k) => [k, vendorName(k)]))} />
+                  <label className="grid gap-1">
+                    <span className="text-ink-3">or type model ids, comma separated</span>
+                    <input name="custom" placeholder="openai/gpt-4.1, google/gemini-2.5-pro" className="mono" />
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="grid gap-1">
+                      <span className="text-ink-3">gate</span>
+                      <select name="controls" defaultValue="off">
+                        <option value="off">gate off</option>
+                        <option value="advisory">gate advisory</option>
+                        <option value="enforced">gate enforced</option>
+                      </select>
+                    </label>
+                    <label className="grid gap-1">
+                      <span className="text-ink-3">trials per scenario</span>
+                      <input type="number" name="trials" min={1} max={30} defaultValue={1} />
+                    </label>
+                  </div>
+                  <Button tone="accent">Compare Models</Button>
+                  <p className="text-[11.5px] text-ink-3">
+                    Routes: {agent.providers.map((p) => p.label).join(", ")}. Every model runs the open pool with the same prompt, tools and gate; a model that gives no usable step is recorded as unanswered, never guessed. Runs take minutes per model.
+                  </p>
+                  {agent.problems.length > 0 && <p className="text-[11.5px] text-warn-ink">{agent.problems.join(" · ")}</p>}
+                </form>
+              ) : (
+                <div className="grid gap-3 text-[13px]">
+                  <p className="text-ink-2">Start the model agent to compare models from here. It puts any chat model behind the Lab endpoint; keys stay on your side.</p>
+                  <pre className="mono overflow-x-auto rounded-[var(--radius-sm)] bg-sunken p-2.5 text-[11px] text-ink-2">{`# one key for every vendor (openrouter.ai/keys), or a provider's own key
+echo "OPENROUTER_API_KEY=…" >> .env.local
+npm run model-agent`}</pre>
+                  <p className="text-[11.5px] text-ink-3">Claude models also work with no key at all through the local Claude CLI, as claude-cli/opus, sonnet and haiku.</p>
+                </div>
+              )}
+            </Card>
+          ) : (
           <Card title="Run Comparison" className="h-full">
             <form action={startCompare} className="grid gap-3 text-[13px]">
               {[1, 2, 3, 4].map((i) => (
@@ -124,6 +167,7 @@ node src/lab-cli.ts compare "Claude Sonnet=http://localhost:9100/agent?model=ant
               <pre className="mono overflow-x-auto rounded-[var(--radius-sm)] bg-sunken p-2.5 text-[11px] text-ink-2">{`node src/lab-cli.ts compare "GPT-4.1=http://a/agent:off" "Gemini=http://b/agent:off"`}</pre>
             </form>
           </Card>
+          )}
         </div>
       </div>
     </>
