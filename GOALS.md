@@ -42,23 +42,28 @@ with a live model behind the Lab endpoint (Model Arena: `7e66901`).
 ### 2. Real reference data behind the checks
 Swap invented screening data for the real, public, freely-redistributable lists. All
 deterministic; no key needed.
-- **OFAC SDN list** (US Treasury official download) → the sanctions-screen family checks
-  the real list, not three invented names.
-- **Fed ABA / FedACH routing directory** → routing validation against real numbers (the
-  mod-10 checksum operator becomes real screening).
-- **Full Nacha return set R01–R85** → complete `rails/nacha.ts`; **fix the logged
-  credit-vs-debit mixup** (R01/R29 are debit returns; a vendor payment is a credit —
-  credit-relevant set is R02/R03/R04/R16/R20/R23; see `research/ach.md`).
-- **ISO 20022 reject reason codes** → real instant-rail (RTP/FedNow) reject scenarios.
-- **Done when:** each list is vendored with source + fetch date, a selftest validates
-  format, and at least one scenario family screens against each.
+- ✅ **OFAC SDN list** *(2026-09-23)* — vendored (19,391 entries, `reference/ofac-sdn.tsv`,
+  refresh via `scripts/fetch-reference.ts`); `src/reference/ofac.ts` screens
+  deterministically; the sanctions family now picks real SDN names. `selftest:ofac`.
+- ⚠️ **Fed ABA / FedACH routing directory** — the Fed directory is no longer freely
+  redistributable (E-Payments Routing Directory agreement); checksum validation stays,
+  full-directory screening needs a licensing decision. Logged, not faked.
+- ✅ **Full Nacha return set** *(2026-09-23)* — all 70 published codes with the
+  credit/debit split; validator warns on debit codes in credit scenarios.
+- ✅ **ISO 20022 reject reason codes** *(2026-09-23)* — `src/reference/iso20022.ts`,
+  classified, only AM04 resendable; `selftest:iso20022`. Primary code-set spreadsheet
+  still in VERIFY.md.
 - **Metric:** scenarios backed by real reference data vs invented (count).
 
 ### 3. Verify the 14 sources in `research/VERIFY.md`
 Fetch and confirm each `unverified-model-recall` row; move to verified or correct the
 text that cited it. Nothing unverified appears in a deck, memo or customer document.
-- **Done when:** VERIFY.md has zero unverified rows cited anywhere outward-facing.
-- **Metric:** unverified-sources count (target 0 for cited ones).
+- ✅ *(2026-09-23, partial: 14 → 5)* — Verified: Nacha 2026 fraud rule (Phase 2 covers all
+  non-consumer originators, "False Pretenses" = BEC), UCC 4A framework, Fedwire finality,
+  RTP (final/24×7/credit-push), FedNow (near-real-time/24×7), OFAC, ISO rejects
+  (secondary). Remaining 5 triaged in VERIFY.md — the UCC 4A interpretive claim is marked
+  **needs counsel**, not just needs-fetch.
+- **Metric:** unverified-sources count (target 0 for cited ones). Now 5.
 
 ## P1 — corpus growth and grader coverage (the renewal engine)
 
