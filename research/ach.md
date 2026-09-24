@@ -9,10 +9,13 @@ not when you push it — so they are only relevant to a payment agent if it orig
 debits. Nacha's 2026 fraud-monitoring requirement extends risk-based monitoring to
 non-consumer originators, but it is monitoring, not a certification, and not agent-specific.
 
-A subtle correctness point the code should respect: **a returned credit and a returned
-debit are different failure modes.** `src/rails/nacha.ts` currently carries R01/R02/R03/
-R04/R16/R29 as one undifferentiated "return" set; R01 (insufficient funds) and R29
-(corporate not authorised) are debit-return reasons. This is logged in FINDINGS.md.
+A subtle correctness point the code respects since 2026-09-23: **a returned credit and a
+returned debit are different failure modes.** `src/rails/nacha.ts` now carries the full
+published catalog (70 codes, transcribed from the Modern Treasury reference, fetched
+2026-09-23) with a `class` per code — the credit-relevant set an AP agent must handle is
+R02/R03/R04/R12/R14/R15/R16/R20/R23/R24/R31/R36/R83; R01/R09 (funds timing) and the
+authorization-dispute codes (R05/R07/R08/R10/R11/R29) are debit-only, and the scenario
+validator warns when a debit-only code is injected on a vendor credit.
 
 ## Return codes (credit-relevant marked ✓)
 

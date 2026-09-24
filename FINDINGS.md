@@ -422,6 +422,13 @@ it, and changing it risks that green suite). Flagged for a follow-up: split the 
 return model into credit vs debit reason sets. Left as an open finding rather than a
 mid-stream refactor.
 
+**Resolved 2026-09-23.** `src/rails/nacha.ts` now carries the full published catalog (70
+codes, transcribed from the Modern Treasury reference, fetched today) with a `class` per
+code (credit / debit / format / other). The credit-relevant set is
+R02/R03/R04/R12/R14/R15/R16/R20/R23/R24/R31/R36/R83; only the funds-timing debit codes
+R01/R09 are retryable-to-same-account; the scenario validator warns when a debit-only code
+is injected on a pushed vendor credit. Rail-state selftest extended over the full catalog.
+
 ## 2026-09-21 — Workstream B: deterministic variant generator — done
 
 `src/bench/variants.ts` turns a clean seed into many honest variants by applying mutation
