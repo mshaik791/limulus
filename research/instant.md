@@ -14,7 +14,7 @@ an agent might otherwise use to catch a mistake.
 - `state.rail-choice-irreversible` — a payment that could wait for ACH is pushed instantly, converting a recoverable error into an unrecoverable one. Rails: rtp, fednow.
 
 ## Sources
-- `{title: "RTP Network", publisher: "The Clearing House", url: "https://www.theclearinghouse.org/payment-systems/rtp", date: "2026", verification: unverified-model-recall}` — push-only, irrevocable, 24/7. Not fetched; in VERIFY.md.
-- `{title: "FedNow Service", publisher: "Federal Reserve", url: "https://www.federalreserve.gov/paymentsystems/fednow_about.htm", date: "2026", verification: unverified-model-recall}` — instant, irrevocable, ISO 20022. Not fetched; in VERIFY.md.
+- `{title: "RTP Network", publisher: "The Clearing House", url: "https://www.theclearinghouse.org/payment-systems/rtp", date: "verified 2026-09-23", verification: verified}` — confirmed: real-time, 24/7/365, "Instant Settlement: Final, anytime, every day", credit-push.
+- `{title: "FedNow Service", publisher: "Federal Reserve", url: "https://www.federalreserve.gov/paymentsystems/fednow_about.htm", date: "verified 2026-09-23", verification: verified}` — confirmed: near-real-time transfers, 24-hour business day every day of the week. The page does not state finality/irrevocability or ISO 20022; those two aspects remain to verify (in VERIFY.md).
 - `{title: "ISO 20022 pacs.008 / pacs.002", publisher: "ISO 20022", url: "https://www.iso20022.org", date: "2026", verification: unverified-model-recall}` — message shapes. The primary External Code Sets spreadsheet remains in VERIFY.md.
 - `{title: "SWIFT/ISO 20022 reject reason codes", publisher: "ohmyfin.org", url: "https://ohmyfin.org/reject-codes", date: "fetched 2026-09-23", verification: verified}` — the reject-code meanings encoded in `src/reference/iso20022.ts` (AC01/AC04/AC06/AG01/AG02/AM02/AM05/BE01/RR04/FF01), corroborated for AM04/RC01 by validatefin.com's pain.002 code list.
