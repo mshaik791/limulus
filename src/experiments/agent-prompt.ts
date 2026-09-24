@@ -54,7 +54,11 @@ export function parseStep(text: string): AgentStep | null {
   if (!match) return null;
   try {
     const step = JSON.parse(match[0]) as AgentStep;
-    if (step.type === "tool_call" && step.tool) return step;
+    // A tool call with no args is a real model behaviour (first live pilot,
+    // 2026-09-23: it crashed the bridge's log line and hung the Lab's episode
+    // loop waiting on a reply that never came). Normalise here, at the one
+    // place every bridge parses steps, so args is always an object.
+    if (step.type === "tool_call" && step.tool) return { ...step, args: step.args ?? {} };
     if (step.type === "finish" && step.action) return step;
     return null;
   } catch {

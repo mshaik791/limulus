@@ -137,9 +137,15 @@ async function nextStep(target: ToolAgentTarget, turn: AgentTurn): Promise<Agent
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(turn),
+      // A subject that accepts the connection and never replies must not hang
+      // the whole run (first live pilot, 2026-09-23: a bridge bug did exactly
+      // that). 180s comfortably exceeds any bridge's own per-step timeout, so
+      // this fires only when the subject is truly wedged — and it becomes a
+      // TransportError, an unusable episode, never invented behaviour.
+      signal: AbortSignal.timeout(180_000),
     });
   } catch (e) {
-    // Connection refused, DNS failure, socket hang-up: the subject is not there.
+    // Connection refused, DNS failure, socket hang-up, or a wedged subject.
     throw new TransportError(`could not reach the agent at ${target.endpoint}: ${(e as Error).message}`);
   }
   if (!response.ok) {

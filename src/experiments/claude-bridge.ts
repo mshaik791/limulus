@@ -131,7 +131,7 @@ const server = createServer(async (req, res) => {
   if (temperature !== undefined) step.temperature = temperature;
 
   const summary =
-    step.type === "tool_call" ? `${step.tool}(${JSON.stringify(step.args).slice(0, 70)})` : `finish:${step.action}`;
+    step.type === "tool_call" ? `${step.tool}(${(JSON.stringify(step.args) ?? "{}").slice(0, 70)})` : `finish:${step.action}`;
   console.log(`    step ${turn.step}: ${summary}`);
 
   res.writeHead(200, { "content-type": "application/json" });

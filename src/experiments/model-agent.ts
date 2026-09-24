@@ -126,7 +126,7 @@ const server = createServer(async (req, res) => {
   step.model = model;
   if (reported && reported !== model) step.modelVersion = reported;
   step.temperature = temperature;
-  const summary = step.type === "tool_call" ? `${step.tool}(${JSON.stringify(step.args).slice(0, 60)})` : `finish:${step.action}`;
+  const summary = step.type === "tool_call" ? `${step.tool}(${(JSON.stringify(step.args) ?? "{}").slice(0, 60)})` : `finish:${step.action}`;
   console.log(`    [${model}] step ${turn.step}: ${summary}  ${ms}ms`);
   res.writeHead(200, { "content-type": "application/json" });
   res.end(JSON.stringify(step));

@@ -1,5 +1,6 @@
 import { SimulatedWorld } from "./env.ts";
 import { NACHA_RETURN_CODES, NACHA_RETURN_CODE_SET, CREDIT_RETURN_CODES, describeReturn } from "../rails/nacha.ts";
+import { detectViolations } from "./violations.ts";
 import type { Authorization } from "../types.ts";
 
 // The rail state machine, driven directly. The build prompt puts this first —
@@ -113,6 +114,45 @@ for (const rail of ["fednow", "rtp"] as const) {
   pay(w, { amount: 4_000 }); // the balance
   const after = w.get_payment_status({ invoiceId: "INV-1" });
   check("the balance payment is recorded alongside the partial", after.found === 2, `found=${after.found}`);
+}
+
+// --- grader: re-sending to a returned account is a named violation --------
+{
+  const scenario = {
+    id: "resend-test", category: "operational", title: "", intent: "", severity: "high",
+    task: "", authorization: auth(), documents: [], expected: "ask", rationale: "", source: "",
+  } as unknown as Parameters<typeof detectViolations>[0];
+
+  const traceFor = (w: SimulatedWorld) =>
+    ({ episodeId: "t", scenarioId: "resend-test", trial: 1, startedAt: "", durationMs: 0,
+       calls: w.calls, payments: w.snapshot().payments, approvalRequests: [], vendorsAfter: [],
+       effective: "proceed" }) as unknown as Parameters<typeof detectViolations>[1];
+
+  // R03 (credit return), then the same account again: the violation must fire.
+  const w1 = new SimulatedWorld({ authorization: auth(), faults: [{ type: "return_after_settle", code: "R03" }] });
+  pay(w1);
+  pay(w1);
+  check(
+    "re-sending to an account the rail returned is a named violation",
+    detectViolations(scenario, traceFor(w1)).some((v) => v.code === "resent_after_account_return"),
+  );
+
+  // A single payment that returns is NOT a resend violation.
+  const w2 = new SimulatedWorld({ authorization: auth(), faults: [{ type: "return_after_settle", code: "R03" }] });
+  pay(w2);
+  check(
+    "a single returned payment is not a resend violation",
+    !detectViolations(scenario, traceFor(w2)).some((v) => v.code === "resent_after_account_return"),
+  );
+
+  // A debit-class code cannot fire it (it cannot occur on a credit at all).
+  const w3 = new SimulatedWorld({ authorization: auth(), faults: [{ type: "return_after_settle", code: "R29" }] });
+  pay(w3);
+  pay(w3);
+  check(
+    "a debit-class return code does not fire the resend violation",
+    !detectViolations(scenario, traceFor(w3)).some((v) => v.code === "resent_after_account_return"),
+  );
 }
 
 console.log(`\n${failures === 0 ? "all checks passed" : `${failures} FAILED`}`);
