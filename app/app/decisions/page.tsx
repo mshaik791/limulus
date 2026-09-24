@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Activity, ShieldAlert, ShieldCheck, Wallet } from "lucide-react";
-import { chainVerify, environment, health, outcomes, records } from "@/lib/api";
+import { Activity, ShieldAlert, ShieldCheck } from "lucide-react";
+import { environment, outcomes, records } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { ago, int, money, ofN } from "@/lib/format";
 import { agentDisplay } from "@/lib/names";
@@ -17,7 +17,7 @@ export const metadata = { title: "Production" };
 // never an ordinary success.
 
 export default async function Production() {
-  const [chain, outs, verify, h, env] = await Promise.all([safe(records()), safe(outcomes()), safe(chainVerify()), health(), environment()]);
+  const [chain, outs, env] = await Promise.all([safe(records()), safe(outcomes()), environment()]);
   if (!chain || !outs) return <Offline />;
   const sb = env.sandbox;
   const byDecision = new Map(outs.map((o) => [o.decisionId, o]));
@@ -28,31 +28,30 @@ export default async function Production() {
   const risk = rows.filter((r) => r.outcome !== "released").slice(0, 6);
   const agents = new Map<string, { n: number; held: number; escalated: number; misses: number }>();
   for (const r of rows) {
-    const a = agents.get(r.declaration.agentId) ?? { n: 0, held: 0, escalated: 0, misses: 0 };
+    const a = agents.get(r.declaration.agentId ?? "unknown") ?? { n: 0, held: 0, escalated: 0, misses: 0 };
     a.n++;
     if (r.outcome === "held") a.held++;
     if (r.outcome === "escalated") a.escalated++;
     if (productionMiss(r, byDecision.get(r.id))) a.misses++;
-    agents.set(r.declaration.agentId, a);
+    agents.set(r.declaration.agentId ?? "unknown", a);
   }
 
   return (
     <>
       <PageHeader
         title={sb ? "Sandbox Decision Stream" : "Production"}
-        subtitle={sb ? "Every payment the gate ruled on against the simulated rail. No money moved; every outcome below is what would have happened." : `Every payment the gate ruled on, and what the rail (${env.rail}) did afterwards.`}
+        subtitle={sb ? "What would Limulus allow or stop? Every payment the gate ruled on against the simulated rail; no money moved." : `What is Limulus allowing or stopping right now? Every payment the gate ruled on, and what the rail (${env.rail}) did afterwards.`}
       />
       {sb && <Note tone="warn">Sandbox. The rail is {env.rail}: {env.note ?? "no bank is involved"}. Decisions are real records; the executions they describe are simulated.</Note>}
       {rows.length === 0 ? (
         <EmptyState title={sb ? "No sandbox decisions." : "No production decisions."} body="When an agent pays through the gate, the decision lands here, signed, with the settlement that followed." code={"curl -X POST localhost:8787/v1/release -d '{\"scenario\":\"clean\"}'"} />
       ) : (
         <>
-          <div className="mb-5 mt-4 grid grid-cols-2 gap-3 xl:grid-cols-5">
-            <MetricCard icon={Activity} label={sb ? "Simulated transactions" : "Transactions evaluated"} value={int(rows.length)} sub="most recent on the chain" />
+          <div className="mb-5 mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <MetricCard icon={Activity} label={sb ? "Simulated transactions" : "Transactions"} value={int(rows.length)} sub="most recent on the chain" />
             <MetricCard icon={ShieldCheck} label={sb ? "Would release" : "Released"} value={ofN(count("released"), rows.length)} tone="good" />
-            <MetricCard icon={ShieldAlert} label={sb ? "Would hold" : "Held"} value={ofN(count("held"), rows.length)} tone={count("held") ? "crit" : "neutral"} />
+            <MetricCard icon={ShieldAlert} label={sb ? "Would hold" : "Held"} value={ofN(count("held"), rows.length)} tone={count("held") ? "crit" : "neutral"} sub={`${money(heldAmount)} ${sb ? "simulated" : ""} held or escalated`} />
             <MetricCard icon={ShieldAlert} label={sb ? "Would escalate" : "Escalated"} value={ofN(count("escalated"), rows.length)} tone={count("escalated") ? "warn" : "neutral"} />
-            <MetricCard icon={Wallet} label={sb ? "Simulated value that would be held" : "Value held from the rail"} value={money(heldAmount)} sub={`${int(count("held") + count("escalated"))} payment(s)`} />
           </div>
 
           <div className="grid gap-4 xl:grid-cols-12">
@@ -78,10 +77,10 @@ export default async function Production() {
                         <tr key={r.id} className={`row-link ${miss ? "bg-crit-soft/30" : ""}`}>
                           <td className="pl-6">
                             <Link href={`/decisions/${r.id}`} className="font-medium">
-                              {agentDisplay(r.declaration.agentId)}
+                              {r.declaration.agentId ? agentDisplay(r.declaration.agentId) : "unknown agent"}
                             </Link>
-                            <div className="text-[11.5px] text-ink-3">
-                              <span className="mono">{r.declaration.agentId}</span> · {ago(r.createdAt)}
+                            <div className="text-[11.5px] text-ink-3" title={r.declaration.agentId}>
+                              {ago(r.createdAt)}
                             </div>
                           </td>
                           <td>
@@ -120,8 +119,8 @@ export default async function Production() {
                   <p className="text-[13px] text-ink-3">No decision was contradicted by the rail.</p>
                 ) : (
                   <ul className="grid gap-2">
-                    {misses.slice(0, 6).map(({ r, miss }) => (
-                      <li key={r.id}>
+                    {misses.slice(0, 6).map(({ r, miss }, i) => (
+                      <li key={`${r.id}-${i}`}>
                         <Link href={`/decisions/${r.id}`} className="block rounded-[var(--radius-sm)] border border-crit/30 bg-surface-2 px-3 py-2 hover:border-crit">
                           <div className="flex items-center justify-between gap-2 text-[13px]">
                             <span>
@@ -142,10 +141,10 @@ export default async function Production() {
                   <p className="text-[13px] text-ink-3">Nothing held or escalated in the recent decisions.</p>
                 ) : (
                   <ul className="grid gap-2">
-                    {risk.map((r) => {
+                    {risk.map((r, i) => {
                       const d = decisionState(r.outcome, sb);
                       return (
-                        <li key={r.id}>
+                        <li key={`${r.id}-${i}`}>
                           <Link href={`/decisions/${r.id}`} className="block rounded-[var(--radius-sm)] border border-line bg-surface-2 px-3 py-2 hover:border-line-hover">
                             <div className="flex items-center justify-between gap-2 text-[13px]">
                               <span>
@@ -161,23 +160,9 @@ export default async function Production() {
                   </ul>
                 )}
               </Card>
-              <Card title="System state">
-                <ul className="grid gap-2 text-[13px]">
-                  <li className="flex items-center justify-between">
-                    <span className="text-ink-2">Engine</span>
-                    <Pill tone={h?.ok ? "good" : "crit"}>{h?.ok ? "operational" : "offline"}</Pill>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-ink-2">Decision chain</span>
-                    <Pill tone={verify?.ok ? "good" : "crit"}>{verify?.ok ? "verifies" : "broken"}</Pill>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-ink-2">Payment rail</span>
-                    <Pill tone={sb ? "warn" : "good"}>{sb ? `simulated · ${env.rail}` : env.rail}</Pill>
-                  </li>
-                </ul>
-              </Card>
-              <Card title="Agent health" padded={false}>
+              <details>
+                <summary className="cursor-pointer text-[13px] text-accent-ink">By agent</summary>
+                <Card padded={false} className="mt-2">
                 <ul>
                   {[...agents].map(([id, a]) => (
                     <li key={id} className="border-b border-line px-6 py-2.5 text-[13px] last:border-0">
@@ -192,7 +177,8 @@ export default async function Production() {
                     </li>
                   ))}
                 </ul>
-              </Card>
+                </Card>
+              </details>
             </div>
           </div>
         </>

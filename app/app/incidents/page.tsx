@@ -29,26 +29,25 @@ export default async function Incidents() {
 
   return (
     <>
-      <PageHeader title="Incidents" subtitle="Production misses and near misses, and the candidate regression scenarios made from them. A person decides what enters the suite." />
+      <PageHeader title="Incidents" subtitle="What went wrong? Misses from production, and the candidate tests made from them. A person decides what enters the suite." />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Card>
+      <div className="mb-6 flex flex-wrap gap-x-10 gap-y-3">
+        <div>
           <div className="text-[12px] text-ink-3">{env.sandbox ? "Simulated misses" : "Production misses"}</div>
-          <div className={`mt-1 text-[28px] font-semibold tabular ${misses.length ? "text-crit-ink" : ""}`}>{int(misses.length)}</div>
-          <div className="text-[11.5px] text-ink-3">decision contradicted by the observed outcome</div>
-        </Card>
-        <Card>
-          <div className="text-[12px] text-ink-3">Candidates awaiting review</div>
-          <div className={`mt-1 text-[28px] font-semibold tabular ${pending.length ? "text-warn-ink" : ""}`}>{int(pending.length)}</div>
-        </Card>
-        <Card>
-          <div className="text-[12px] text-ink-3">Approved into suites</div>
-          <div className="mt-1 text-[28px] font-semibold tabular text-good-ink">{int(list.filter((c) => c.status === "approved").length)}</div>
-        </Card>
-        <Card>
-          <div className="text-[12px] text-ink-3">Rejected</div>
-          <div className="mt-1 text-[28px] font-semibold tabular">{int(list.filter((c) => c.status === "rejected").length)}</div>
-        </Card>
+          <div className={`mt-1 text-[26px] font-semibold leading-none tabular ${misses.length ? "text-crit-ink" : ""}`}>{int(misses.length)}</div>
+        </div>
+        <div>
+          <div className="text-[12px] text-ink-3">Awaiting review</div>
+          <div className={`mt-1 text-[26px] font-semibold leading-none tabular ${pending.length ? "text-warn-ink" : ""}`}>{int(pending.length)}</div>
+        </div>
+        <div>
+          <div className="text-[12px] text-ink-3">Became tests</div>
+          <div className="mt-1 text-[26px] font-semibold leading-none tabular">{int(list.filter((c) => c.status === "approved").length)}</div>
+        </div>
+        <div>
+          <div className="text-[12px] text-ink-3">Dismissed</div>
+          <div className="mt-1 text-[26px] font-semibold leading-none tabular">{int(list.filter((c) => c.status === "rejected").length)}</div>
+        </div>
       </div>
 
       {misses.length > 0 && (
@@ -94,15 +93,18 @@ export default async function Incidents() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <StateBadge state="REVIEW" label={c.scenario.severity.toUpperCase()} />
-                    <span className="mono text-[12px] text-ink-3">{c.taxonomyNode}</span>
-                    <span className="text-[12px] text-ink-3">· {int(c.count)} signal(s) · org {c.org}</span>
+                    <span className="text-[12px] text-ink-3">
+                      {int(c.count)} signal{c.count === 1 ? "" : "s"} · detected {ago(c.createdAt)}
+                    </span>
                   </div>
                   <div className="mt-2 text-[18px] font-semibold leading-snug">{c.scenario.title}</div>
                   <p className="mt-1 text-[13px] text-ink-2">
-                    {c.preservedProperty}. Correct answer: <span className="text-ink">{c.scenario.expected}</span>.
+                    {c.preservedProperty}. The correct action is to <span className="text-ink">{c.scenario.expected}</span>.
                   </p>
                   <p className="mt-2 text-[12.5px] text-ink-3">{c.scenario.intent}</p>
-                  <p className="mt-2 text-[12px] text-ink-3">Detected {ago(c.createdAt)}</p>
+                  <p className="mono mt-2 text-[11px] text-ink-3">
+                    {c.taxonomyNode} · org {c.org}
+                  </p>
                 </div>
                 <form action={decideAction} className="grid content-start gap-2 text-[13px]">
                   <input name="reason" placeholder="reason, for the record" />

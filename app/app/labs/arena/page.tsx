@@ -3,7 +3,7 @@ import { compare, compares, referenceAgents, type CompareRecord } from "@/lib/ap
 import { safe } from "@/lib/safe";
 import { CONFIG, EVIDENCE_LABEL, evidence } from "@/lib/config";
 import { int, ms, ofN, pct, when } from "@/lib/format";
-import { modelDisplay, suiteName } from "@/lib/names";
+import { agentDisplay, modelDisplay, suiteName } from "@/lib/names";
 import { ArmSwatch } from "@/components/charts";
 import { Button, Card, EmptyState, EnvBar, Note, Offline, PageHeader, Pill, Rate, StateBadge, Tabs } from "@/components/ui";
 import { startCompare } from "./actions";
@@ -35,7 +35,7 @@ export default async function Arena(props: PageProps<"/labs/arena">) {
 
   return (
     <>
-      <PageHeader title="Model Arena" subtitle="Compare financial-agent configurations under identical conditions: same scenarios, policies, tools and trial count." />
+      <PageHeader title="Model Arena" subtitle="Which model or configuration performs best? Same tests, same policy, same tools; only the subject changes." />
       <EnvBar />
       {error && <Note tone="crit">{error === "two-arms" ? "A comparison needs at least two arms." : `The engine refused the comparison: ${error}`}</Note>}
       <Tabs
@@ -100,7 +100,7 @@ node src/lab-cli.ts compare "Claude Sonnet=http://localhost:9100/agent?model=ant
                     <option value="">{i > 2 ? "no arm" : "agent"}</option>
                     {(agents ?? []).map((a) => (
                       <option key={a.key} value={a.key}>
-                        {a.name}
+                        {agentDisplay(a.name)} v{a.version}
                       </option>
                     ))}
                   </select>
@@ -141,8 +141,9 @@ function Hero({ record, mode }: { record: CompareRecord; mode: "models" | "confi
           const scen = Object.values(a.scenarios ?? {});
           const passed = scen.filter((s) => s.verdict === "pass").length;
           const rec = pick?.label === a.label && ev === "eligible";
-          const title = mode === "models" ? modelDisplay(a.agent.subject.model, a.agent.subject.source) : a.label;
-          const sub = mode === "models" ? a.label : a.agent.subject.model ? modelDisplay(a.agent.subject.model, a.agent.subject.source) : `${a.agent.name} v${a.agent.version}`;
+          const title = mode === "models" ? (a.agent.subject.model ? a.label : "Unknown model") : a.label;
+          const armEv = evidence(a.episodes);
+          const sub = mode === "models" ? (a.agent.subject.model ? `${modelDisplay(a.agent.subject.model)} · ${a.agent.subject.source === "configured" ? "configured" : "self-reported by the endpoint"}` : "the endpoint reported no model") : a.agent.subject.model ? modelDisplay(a.agent.subject.model, a.agent.subject.source) : `${agentDisplay(a.agent.name)} v${a.agent.version}`;
           return (
             <div key={a.label} className={`min-w-[240px] rounded-[var(--radius)] border p-4 ${rec ? "border-model/60 bg-model-soft [box-shadow:var(--glow-model)]" : "border-line bg-surface-2"}`}>
               <div className="flex items-start justify-between gap-2">
@@ -179,8 +180,12 @@ function Hero({ record, mode }: { record: CompareRecord; mode: "models" | "confi
                   <Pill tone={a.controls.mode === "enforced" ? "good" : a.controls.mode === "advisory" ? "warn" : "neutral"}>{a.controls.mode}</Pill>
                 </div>
                 <div className="flex justify-between text-ink-3">
-                  <span>trials</span>
-                  <span className="tabular text-ink-2">{int(a.episodes)} episodes</span>
+                  <span>tests run</span>
+                  <span className="tabular text-ink-2">{int(a.episodes)}</span>
+                </div>
+                <div className="flex justify-between text-ink-3">
+                  <span>evidence</span>
+                  <span className={armEv === "eligible" ? "text-good-ink" : armEv === "provisional" ? "text-warn-ink" : "text-warn-ink"}>{armEv === "eligible" ? "sufficient" : armEv === "provisional" ? "provisional" : "insufficient"}</span>
                 </div>
               </div>
             </div>

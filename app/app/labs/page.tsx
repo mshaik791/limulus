@@ -3,9 +3,9 @@ import { ArrowRight } from "lucide-react";
 import { candidates, gates, labRun, labRuns, profile, referenceAgents, shadowSummary, type EpisodeGrade, type GateRecord, type LabRunSummary } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { CONFIG } from "@/lib/config";
-import { FAMILIES, agentKey, counts, coverageConfidence, failingByFamily, familyAxes, readiness, type Readiness } from "@/lib/derive";
+import { FAMILIES, agentKey, counts, coverageConfidence, failingByFamily, familyAxes, plainReadiness, readiness, type Readiness } from "@/lib/derive";
 import { ago, int, money, ofN } from "@/lib/format";
-import { agentDisplay, modelDisplay, suiteName } from "@/lib/names";
+import { agentDisplay, agentTitle, agentVersionLabel, modelDisplay, suiteName } from "@/lib/names";
 import { Card, EmptyState, EnvBar, LinkButton, Note, Offline, PageHeader, Pill, StateBadge } from "@/components/ui";
 import { AgentSelect } from "./agent-select";
 import { RunTest } from "./run-test";
@@ -48,7 +48,8 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
   const gateByAgent = new Map<string, GateRecord>();
   for (const g of gt ?? []) gateByAgent.set(`${g.agent.name}@${g.agent.version}`, g);
   const [full, prof] = await Promise.all([safe(labRun(latest.id)), safe(profile(latest.agent.name, latest.agent.version))]);
-  const grades = (full?.grades ?? []).filter((g) => !g.unusable);
+  if (!full) return <Offline />;
+  const grades = full.grades.filter((g) => !g.unusable);
   const c = counts(grades);
   const axes = familyAxes(prof?.nodes ?? []);
   const coverage = coverageConfidence(axes);
@@ -77,7 +78,16 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
   // Recent tests of this agent, any version; coverage is per version.
   const recent = runs.filter((r) => r.agent.name === latest.agent.name).reverse().slice(0, 8);
   const versions = [...new Set(recent.map((r) => r.agent.version))];
-  const coverageByVersion = new Map(await Promise.all(versions.map(async (v) => [v, coverageConfidence(familyAxes((await safe(profile(latest.agent.name, v)))?.nodes ?? []))] as const)));
+  const [versionEvidence, recentRecords] = await Promise.all([
+    Promise.all(versions.map(async (v) => {
+      const record = v === latest.agent.version ? prof : await safe(profile(latest.agent.name, v));
+      const versionAxes = record ? familyAxes(record.nodes) : null;
+      return [v, versionAxes] as const;
+    })),
+    Promise.all(recent.map(async (r) => [r.id, r.id === latest.id ? full : await safe(labRun(r.id))] as const)),
+  ]);
+  const axesByVersion = new Map(versionEvidence);
+  const recordsById = new Map(recentRecords);
 
   const gateWord = !ready.regression ? { state: "NONE" as const, label: "NOT RUN" } : ready.regression.verdict === "overridden" ? { state: "OVERRIDDEN" as const, label: "OVERRIDDEN" } : ready.regression.pass ? { state: "PASS" as const, label: "PASS" } : { state: "BLOCKED" as const, label: "BLOCKED" };
 
@@ -88,7 +98,7 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
       {error && <Note tone="crit">The engine refused the run: {error}</Note>}
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <AgentSelect value={agentKey(latest)} options={choices.map((r) => ({ key: agentKey(r), label: agentLabel(r) }))} />
+        <AgentSelect value={agentKey(latest)} options={choices.map((r) => ({ key: agentKey(r), label: agentTitle(r) }))} />
         <span className="text-[13px] text-ink-3">Last tested {ago(latest.createdAt)}</span>
       </div>
 
@@ -99,7 +109,7 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
           <div className="mt-3">
             <StateBadge state={ready.state} label={STATUS_LABEL[ready.state]} size="lg" />
           </div>
-          <div className="mt-4 text-[22px] font-semibold leading-tight tracking-[-0.01em]">{agentLabel(latest)}</div>
+          <div className="mt-4 text-[22px] font-semibold leading-tight tracking-[-0.01em]">{agentTitle(latest)}</div>
           <div className="mt-1 text-[13px] text-ink-3">
             {modelDisplay(latest.agent.subject.model, latest.agent.subject.source)} · {suiteName(latest.suite.id).name}
           </div>
@@ -121,7 +131,7 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
             </p>
           )}
 
-          <p className={`text-[15px] leading-relaxed text-ink ${thin ? "mt-3" : "mt-6"}`}>{plain(ready, c, gate)}</p>
+          <p className={`text-[15px] leading-relaxed text-ink ${thin ? "mt-3" : "mt-6"}`}>{plainReadiness(ready, c, gate)}</p>
 
           <div className="mt-6 flex flex-wrap gap-2">
             {blocked || worst ? (
@@ -270,13 +280,16 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
               </thead>
               <tbody>
                 {recent.map((r) => {
-                  const rd = readiness(r, gateByAgent.get(agentKey(r)));
-                  const cov = coverageByVersion.get(r.agent.version);
+                  const record = recordsById.get(r.id);
+                  const versionAxes = axesByVersion.get(r.agent.version);
+                  const rd = record && versionAxes && gt ? readiness(r, gateByAgent.get(agentKey(r)), record.grades, versionAxes) : null;
+                  const cov = versionAxes ? coverageConfidence(versionAxes) : null;
+                  const critical = record ? counts(record.grades).criticalEpisodes : null;
                   return (
                     <tr key={r.id} className="row-link">
                       <td className="pl-6">
                         <Link href={`/labs/tests/${r.id}`} className="font-medium">
-                          {r.agent.version === "external" ? modelDisplay(r.agent.subject.model) : `v${r.agent.version}`}
+                          {agentVersionLabel(r)}
                         </Link>
                         <span className="ml-2 text-[11.5px] text-ink-3">{suiteName(r.suite.id).name}</span>
                       </td>
@@ -284,9 +297,9 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
                         {r.axes.safety.score} <span className="text-[11px] text-ink-3">n={int(r.axes.safety.sampleSize)}</span>
                       </td>
                       <td className="text-right tabular">{cov ? `${cov.pct}%` : "–"}</td>
-                      <td className={`text-right tabular ${r.axes.criticalViolations.length ? "text-crit-ink" : ""}`}>{int(r.axes.criticalViolations.length)}</td>
+                      <td className={`text-right tabular ${critical ? "text-crit-ink" : ""}`}>{critical === null ? "–" : int(critical)}</td>
                       <td>
-                        <StateBadge state={rd.state} label={rd.state === "REVIEW" ? "REVIEW" : undefined} />
+                        <StateBadge state={rd?.state ?? "NONE"} label={rd ? rd.state === "REVIEW" ? "REVIEW REQUIRED" : undefined : "UNAVAILABLE"} />
                       </td>
                       <td className="pr-6 text-right text-ink-3">{ago(r.createdAt)}</td>
                     </tr>
@@ -297,7 +310,7 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
           </div>
         </Card>
         <p className="mt-2 text-[11.5px] text-ink-3">
-          Ready only when the run clears the bar on its own (safety ≥ {CONFIG.minSafety}, no critical failure, ≥ {CONFIG.minEpisodes} tests, required risk areas covered) and the regression gate passes. <Link href="/labs/tests">All tests →</Link>
+          Coverage and release gates reflect the current evidence for each version. Critical failures count test executions, not individual findings. Ready only when the run clears the bar on its own (safety ≥ {CONFIG.minSafety}, no critical failure, ≥ {CONFIG.minEpisodes} tests, required risk areas covered) and the regression gate passes. <Link href="/labs/tests">All tests →</Link>
         </p>
       </section>
     </>
@@ -315,32 +328,6 @@ function Stat({ label, value, sub, tone }: { label: string; value: React.ReactNo
       <dd className="mt-1.5 text-[11.5px] text-ink-3">{sub}</dd>
     </div>
   );
-}
-
-/** "AP Agent — Careful v0.3.2", or the model for an external endpoint, never a host and port as the headline. */
-function agentLabel(r: LabRunSummary): string {
-  const name = agentDisplay(r.agent.name);
-  if (r.agent.version === "external") return r.agent.subject.model ? `${name} · ${modelDisplay(r.agent.subject.model)}` : `${name} · ${r.agent.name}`;
-  return `${name} v${r.agent.version}`;
-}
-
-/** One sentence a product owner can act on, from the two gates' criteria. */
-function plain(ready: Readiness, c: ReturnType<typeof counts>, gate: GateRecord | undefined): string {
-  if (ready.state === "READY") return "Ready to deploy: this version clears the bar on its own and the regression gate found nothing worse than the baseline.";
-  if (ready.state === "REVIEW") return ready.regression?.verdict === "overridden" ? `Clears the bar on its own; the regression gate failed and was overridden by ${gate?.override?.actor ?? "a person"}. A person should confirm before deploying.` : "Clears the bar on its own; the regression gate has not run for this version yet.";
-  const why: string[] = [];
-  for (const x of ready.absolute?.criteria.filter((k) => !k.ok) ?? []) {
-    if (x.label.startsWith("Safety")) why.push(`safety is below the ${CONFIG.minSafety} bar`);
-    else if (x.label.startsWith("No episode")) why.push(`${int(c.criticalEpisodes)} test${c.criticalEpisodes === 1 ? "" : "s"} ended in a critical failure`);
-    else if (x.label.startsWith("At least")) why.push(`only ${int(c.episodes)} of the ${CONFIG.minEpisodes} tests needed have run`);
-    else if (x.label.startsWith("Required")) why.push(`not enough tests in ${x.detail.replace("insufficient evidence for ", "").split(",").map((k) => FAMILIES.find((f) => f.key === k.trim())?.label.toLowerCase() ?? k.trim()).join(", ")}`);
-  }
-  for (const x of ready.regression?.criteria.filter((k) => !k.ok) ?? []) {
-    if (x.label.startsWith("No new critical")) why.push("the regression gate found new critical failures");
-    else if (x.label.startsWith("No previously")) why.push("scenarios that used to pass now fail");
-    else why.push("a score dropped beyond the tolerance");
-  }
-  return `Not ready to deploy because ${why.join("; ")}.`;
 }
 
 /** A headline for a scenario whose definition is not served (held out), from the worst finding's code. */

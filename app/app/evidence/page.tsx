@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { Clock, FileLock2, ShieldCheck, Signature } from "lucide-react";
+import { Clock, FileLock2, ShieldCheck } from "lucide-react";
 import { chainVerify, environment, records } from "@/lib/api";
 import { safe } from "@/lib/safe";
-import { ago, int, money, pct, when } from "@/lib/format";
+import { ago, int, money, when } from "@/lib/format";
+import { agentDisplay } from "@/lib/names";
 import { MetricCard } from "@/components/blocks";
-import { Card, decisionState, EmptyState, Hash, Offline, PageHeader, Pill, StateBadge } from "@/components/ui";
+import { Card, decisionState, EmptyState, Offline, PageHeader, Pill, StateBadge } from "@/components/ui";
 
-export const metadata = { title: "Evidence Ledger" };
+export const metadata = { title: "Evidence" };
 
 // The decision chain as a ledger. Every record is signed and linked to the
 // one before it; the chain is recomputed on every visit. Monospace only for
@@ -22,14 +23,13 @@ export default async function Evidence() {
   return (
     <>
       <PageHeader
-        title="Evidence Ledger"
-        subtitle="The signed decision chain. Each record carries its hash, its signature and the hash of the record before it."
+        title="Evidence"
+        subtitle="Can you prove what happened? Every decision is signed and chained to the one before it; open one for the proof."
         actions={verify ? <Pill tone={verify.ok ? "good" : "crit"} size="md">{verify.ok ? "Chain verified end-to-end" : "Chain broken"}</Pill> : undefined}
       />
-      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <MetricCard icon={FileLock2} label="Records" value={int(total)} sub={`${int(rows.length)} shown`} />
-        <MetricCard icon={Signature} label="Signed" value={pct(signed, chain.length)} sub="Ed25519 over a SHA-256 hash" tone="good" />
-        <MetricCard icon={ShieldCheck} label="Verification" value={verify ? (verify.ok ? "Healthy" : "Broken") : "–"} tone={verify?.ok ? "good" : "crit"} sub="every hash and signature recomputed" />
+      <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <MetricCard icon={FileLock2} label="Records" value={int(total)} sub={`${int(signed)} signed · ${int(rows.length)} shown`} />
+        <MetricCard icon={ShieldCheck} label="Chain" value={verify ? (verify.ok ? "Verified" : "Broken") : "–"} tone={verify?.ok ? "good" : "crit"} sub="every hash and signature recomputed on this visit" />
         <MetricCard icon={Clock} label="Latest record" value={rows[0] ? ago(rows[0].createdAt) : "–"} sub={rows[0] ? when(rows[0].createdAt) : undefined} />
       </div>
       {rows.length === 0 ? (
@@ -43,9 +43,8 @@ export default async function Evidence() {
                 <th>agent</th>
                 <th className="text-right">amount</th>
                 <th>decision</th>
-                <th>policy</th>
                 <th>timestamp</th>
-                <th className="pr-6">signature</th>
+                <th className="pr-6">verification</th>
               </tr>
             </thead>
             <tbody>
@@ -55,18 +54,17 @@ export default async function Evidence() {
                     <Link href={`/evidence/${r.id}`} className="font-medium">
                       {r.paymentOrder.payeeName}
                     </Link>
-                    <div className="mono text-[11px] text-ink-3">{r.id}</div>
+                    <div className="text-[11.5px] text-ink-3">{r.declaration.invoiceId}</div>
                   </td>
-                  <td className="text-[13px]">{r.declaration.agentId}</td>
+                  <td className="text-[13px]" title={r.declaration.agentId}>{agentDisplay(r.declaration.agentId)}</td>
                   <td className="text-right text-[15px] tabular">{money(r.paymentOrder.amount, r.paymentOrder.currency)}</td>
                   <td>
                     <StateBadge state={decisionState(r.outcome, env.sandbox).state} label={decisionState(r.outcome, env.sandbox).label} />
                     {r.preview && <span className="ml-1.5 text-[11px] text-ink-3">preview</span>}
                   </td>
-                  <td className="text-[12.5px] text-ink-2">{r.authorization.policyVersion}</td>
                   <td className="whitespace-nowrap text-[12.5px] text-ink-2">{when(r.createdAt)}</td>
                   <td className="pr-6">
-                    <Pill tone="good">signed</Pill> <Hash value={r.hash} n={10} />
+                    <Pill tone={r.signature && r.hash ? "good" : "crit"}>{r.signature && r.hash ? "signed" : "unsigned"}</Pill>
                   </td>
                 </tr>
               ))}

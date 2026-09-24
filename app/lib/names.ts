@@ -19,7 +19,8 @@ export function suiteName(id: string): { name: string; raw: string } {
 }
 
 /** "AP Agent — Careful", with the implementation id kept for the muted line beneath. */
-export function agentDisplay(name: string): string {
+export function agentDisplay(name: string | undefined): string {
+  if (!name) return "unknown agent";
   if (name === "reference-careful-tools") return "AP Agent — Careful";
   if (name === "reference-naive-tools") return "AP Agent — Naive";
   if (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(name)) return "External Agent";
@@ -28,6 +29,16 @@ export function agentDisplay(name: string): string {
 }
 
 export const agentRaw = (name: string, version?: string) => `${name}${version ? ` v${version}` : ""}`;
+
+/** "AP Agent — Careful v0.3.2", or the model behind an external endpoint; never a host and port as the headline. */
+export function agentTitle(r: { agent: { name: string; version: string; subject?: { model?: string } } }): string {
+  const name = agentDisplay(r.agent.name);
+  if (r.agent.version === "external") return r.agent.subject?.model ? `${name} · ${modelDisplay(r.agent.subject.model)}` : `${name} · ${r.agent.name}`;
+  return `${name} v${r.agent.version}`;
+}
+
+/** The version cell: the model for an external endpoint, the version otherwise. */
+export const agentVersionLabel = (r: { agent: { name: string; version: string; subject?: { model?: string } } }) => (r.agent.version === "external" ? (r.agent.subject?.model ? modelDisplay(r.agent.subject.model) : r.agent.name) : `v${r.agent.version}`);
 
 /** A readable model name from what an endpoint reported; never invented when nothing was reported. */
 export function modelDisplay(model?: string, source?: string): string {

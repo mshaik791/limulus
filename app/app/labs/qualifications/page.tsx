@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, ShieldAlert, ShieldCheck, Target } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Target } from "lucide-react";
 import { qualifications, records, shadowRecords } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { day, int, money, ofN, pct, when } from "@/lib/format";
@@ -61,14 +61,12 @@ export default async function AssuranceChecks() {
 
   return (
     <>
-      <PageHeader title="Assurance Checks" subtitle="Deterministic checks every financial action is evaluated against." />
+      <PageHeader title="Assurance Checks" subtitle="What controls protect transactions? Deterministic checks, no model in the path." />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-5">
-        <MetricCard icon={ShieldCheck} label="Active checks" value={int(CHECKS.length)} sub="deterministic, no model in the path" />
-        <MetricCard icon={Activity} label="Evaluations" value={int(evaluations)} sub={`across ${int(sources.length)} decisions read`} />
-        <MetricCard icon={ShieldAlert} label="Check interventions" value={int(interventions)} tone={interventions ? "warn" : "good"} sub="a check that held or escalated, per check" />
-        <MetricCard icon={ShieldAlert} label="Unique transactions held / escalated" value={`${int(heldTx)} / ${int(escalatedTx)}`} tone={heldTx ? "crit" : "neutral"} sub="per decision, however many checks fired" />
-        <MetricCard icon={Target} label="Coverage" value={pct(exercised, CHECKS.length)} sub={`${ofN(exercised, CHECKS.length)} checks exercised at least once`} />
+      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <MetricCard icon={ShieldCheck} label="Active checks" value={int(CHECKS.length)} sub={`${int(evaluations)} evaluations across ${int(sources.length)} decisions`} />
+        <MetricCard icon={ShieldAlert} label="Transactions held / escalated" value={`${int(heldTx)} / ${int(escalatedTx)}`} tone={heldTx ? "crit" : "neutral"} sub={`${int(interventions)} check interventions, counted per check`} />
+        <MetricCard icon={Target} label="Checks exercised" value={pct(exercised, CHECKS.length)} sub={`${ofN(exercised, CHECKS.length)} fired at least once`} />
       </div>
 
       <div className="mb-5 grid gap-4">
