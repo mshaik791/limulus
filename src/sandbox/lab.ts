@@ -140,7 +140,11 @@ export type RunSuiteOptions = {
  * but "was this one configuration or several".
  */
 function rollUpSubject(traces: EpisodeTrace[]): SubjectIdentity {
-  const usable = traces.filter((t) => t.subject);
+  // An episode the subject never answered says nothing about which model it
+  // was, so it carries no identity here. It is still counted as unusable
+  // everywhere else; what it must not do is register as "a second model" and
+  // blank the identity of the episodes that did answer.
+  const usable = traces.filter((t) => t.subject && !t.unusable);
   if (usable.length === 0) return { source: "unknown" };
 
   const ids = [...new Set(usable.map((t) => `${t.subject.model ?? "?"}@${t.subject.modelVersion ?? "?"}`))];

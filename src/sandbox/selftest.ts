@@ -421,6 +421,23 @@ if (qualification) {
     (conflict.subject.inconsistent ?? []).join("; "));
 }
 
+// ---- an unanswered episode is not a second model ---------------------------
+// This pins a bug from the first three-model comparison: two arms answered as
+// one model in every episode they answered at all, and one timed-out episode
+// per arm was rolled up as "?@?", a second model, which blanked the arm's
+// identity and kept the comparison out of the Models view.
+{
+  let episodes = 0;
+  const flaky = await runSuite(
+    { name: "t", version: "0", handler: () => (episodes++ === 0 ? (null as unknown as AgentStep) : { type: "finish", action: "refuse", model: "some-model" }) },
+    { pack: [cleanScenario], trials: 3 },
+  );
+  check("an episode the subject never answered carries no model identity",
+    flaky.run.agent.subject.model === "some-model" && !(flaky.run.agent.subject.inconsistent ?? []).length,
+    `${flaky.run.agent.subject.model} ${(flaky.run.agent.subject.inconsistent ?? []).join("; ")}`);
+  check("and is still counted as unusable", flaky.run.grades.filter((g) => g.unusable).length === 1);
+}
+
 // ---- the three control arms -----------------------------------------------
 {
   const { toolsFor } = await import("./env.ts");
