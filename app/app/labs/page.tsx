@@ -126,7 +126,18 @@ function NextStepStrip({ step }: { step: NonNullable<ReturnType<typeof nextStep>
 }
 
 function Context() { return <div className="labs-context"><span>Local workspace <span aria-hidden="true">/</span> Test</span><span>Sandbox · No real money moves</span></div>; }
-function Arches() { return <div className="labs-arches" aria-hidden="true"><i /><i /><i /></div>; }
+// The carapace: a schematic of the horseshoe-crab shell (domed prosoma, central ridge, telson),
+// drawn in hemolymph at low opacity — the brand's namesake as a quiet instrument backdrop.
+function Arches() {
+  return (
+    <svg className="labs-carapace" viewBox="0 0 320 200" fill="none" aria-hidden="true">
+      <path d="M6 200 V108 C6 50 92 12 160 12 C228 12 314 50 314 108 V200" stroke="var(--accent)" strokeWidth="1.5" opacity="0.42" />
+      <path d="M52 200 V122 C52 76 102 48 160 48 C218 48 268 76 268 122 V200" stroke="var(--accent)" strokeWidth="1.25" opacity="0.24" />
+      <path d="M160 48 V200" stroke="var(--accent)" strokeWidth="1.25" opacity="0.4" />
+      <path d="M116 62 V200 M204 62 V200" stroke="var(--accent)" strokeWidth="1" opacity="0.14" />
+    </svg>
+  );
+}
 function TextLink({ href, children }: { href: string; children: React.ReactNode }) { return <Link className="labs-text-link" href={href}>{children}<ArrowUpRight size={15} aria-hidden="true" /></Link>; }
 function Requirement({ label, value, status }: { label: string; value: string; status: "pass" | "fail" | "warn" | "unknown" }) {
   return <li><span role="img" className={`labs-check is-${status}`} aria-label={status === "pass" ? "Passed" : status === "fail" ? "Failed" : status === "warn" ? "Needs attention" : "Unknown"}>{status === "pass" ? <Check size={13} /> : status === "fail" ? <X size={13} /> : status === "warn" ? "!" : <Minus size={13} />}</span><span>{label}</span><span className="labs-requirement-value">{value}</span></li>;
