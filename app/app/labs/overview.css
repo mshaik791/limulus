@@ -226,3 +226,19 @@
 .labs-job-error p + p { margin-top:6px; }
 @media(max-width:1000px) { .labs-two-col { grid-template-columns:1fr; } }
 @media(max-width:740px) { .labs-block,.labs-form,.labs-aside,.labs-list { padding:18px; } .labs-kv { grid-template-columns:1fr; gap:2px 0; } .labs-kv dt { margin-top:8px; } .labs-next { padding:16px; } .labs-version-actions { justify-items:start; text-align:left; } }
+/* Agents: one row per connected agent, three facts and two actions. */
+.labs-agent-rows { display:grid; gap:0; }
+.labs-agent-rows > li { display:grid; gap:7px; padding:16px 0; border-top:1px solid var(--line); font-size:13px; }
+.labs-agent-row-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.labs-agent-name { font-size:17px; font-weight:550; letter-spacing:-.02em; }
+.labs-agent-name:hover { color:var(--accent); }
+.labs-agent-facts { display:flex; gap:6px 22px; flex-wrap:wrap; align-items:center; }
+.labs-agent-facts b { font-weight:500; color:var(--ink-2); }
+.labs-agent-actions { display:flex; gap:22px; flex-wrap:wrap; margin-top:4px; }
+.labs-demo-details { padding:0; }
+.labs-demo-details > summary { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:16px 26px; cursor:pointer; list-style:none; }
+.labs-demo-details > summary::-webkit-details-marker { display:none; }
+.labs-demo-details > summary h2 { font-size:16px; }
+.labs-demo-details > summary::after { content:"Show"; margin-left:auto; font-size:12px; color:var(--accent-ink); }
+.labs-demo-details[open] > summary::after { content:"Hide"; }
+.labs-demo-details .labs-demo-list { padding:0 26px 8px; }
