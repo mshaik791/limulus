@@ -67,7 +67,7 @@ export type VersionRecord = {
   /** Snapshot of the connection the version was recorded with. */
   endpoint: string;
   /** Configuration metadata the customer declared. Declared, not verified. */
-  declared?: { model?: string; modelVersion?: string; temperature?: number; note?: string };
+  declared?: { model?: string; modelVersion?: string; temperature?: number; note?: string; promptHash?: string };
   createdAt: string;
 };
 
@@ -139,7 +139,8 @@ export type CreateAgentInput = {
   workflow: string;
   endpoint: string;
   auth?: AuthConfig & { value: string };
-  version: { label: string; model?: string; modelVersion?: string; temperature?: number; note?: string };
+  /** promptHash: sha256 of the instruction text the endpoint runs, when the operator can state it. Recorded on every run of the version. */
+  version: { label: string; model?: string; modelVersion?: string; temperature?: number; note?: string; promptHash?: string };
 };
 
 export class RegistryError extends Error {
@@ -189,6 +190,7 @@ function newVersion(agent: AgentRecord, v: CreateAgentInput["version"]): Version
   if (clean(v.modelVersion)) declared.modelVersion = clean(v.modelVersion);
   if (typeof v.temperature === "number" && Number.isFinite(v.temperature)) declared.temperature = v.temperature;
   if (clean(v.note, 500)) declared.note = clean(v.note, 500);
+  if (typeof v.promptHash === "string" && /^[0-9a-f]{64}$/.test(v.promptHash)) declared.promptHash = v.promptHash;
   return {
     id: `ver_${randomBytes(8).toString("hex")}`,
     agentId: agent.id,
@@ -347,6 +349,7 @@ export function targetFor(agentId: string, versionId: string): ToolAgentTarget {
     ...(version.declared?.model ? { model: version.declared.model } : {}),
     ...(version.declared?.modelVersion ? { modelVersion: version.declared.modelVersion } : {}),
     ...(version.declared?.temperature !== undefined ? { temperature: version.declared.temperature } : {}),
+    ...(version.declared?.promptHash ? { promptHash: version.declared.promptHash } : {}),
     headers: outboundHeaders(agent.connection),
     registry: { agentId: agent.id, versionId: version.id },
   };

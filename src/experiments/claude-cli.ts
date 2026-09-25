@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentStep, AgentTurn } from "../sandbox/episode.ts";
-import { parseStepDetail, promptFor } from "./agent-prompt.ts";
+import { parseStepDetail, promptFor, type PromptVariant } from "./agent-prompt.ts";
 
 // One step from a Claude model through the local Claude CLI: no API key, the
 // CLI's own login. Shared by the Claude bridge and the model agent.
@@ -26,9 +26,9 @@ export const claudeBin = process.env.CLAUDE_BIN ?? `${process.env.HOME}/.local/b
 const neutralDir = mkdtempSync(join(tmpdir(), "limulus-agent-"));
 
 /** One model call. Null if it could not produce a usable step within the timeout. */
-export function askClaudeCli(turn: AgentTurn, model: string | undefined, timeoutMs: number): Promise<{ step: AgentStep | null; error?: string }> {
+export function askClaudeCli(turn: AgentTurn, model: string | undefined, timeoutMs: number, prompt: PromptVariant = "v1"): Promise<{ step: AgentStep | null; error?: string }> {
   return new Promise((resolve) => {
-    const args = ["-p", promptFor(turn), "--disallowedTools", "Read,Write,Edit,Bash,Glob,Grep,WebFetch,WebSearch,Task,TodoWrite,NotebookEdit"];
+    const args = ["-p", promptFor(turn, prompt), "--disallowedTools", "Read,Write,Edit,Bash,Glob,Grep,WebFetch,WebSearch,Task,TodoWrite,NotebookEdit"];
     if (model) args.push("--model", model);
 
     // Claude Code refuses to start inside another Claude Code session. The

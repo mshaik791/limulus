@@ -1,11 +1,12 @@
 import { createServer } from "node:http";
-import { isTurn, parseStepDetail, promptFor } from "./agent-prompt.ts";
+import { isPromptVariant, parseStepDetail, promptFor, promptHashes, isTurn, PROMPT_VARIANTS, type PromptVariant } from "./agent-prompt.ts";
 import { askClaudeCli } from "./claude-cli.ts";
 import { CLAUDE_CLI, catalog, configured, resolve, type CatalogEntry } from "./providers.ts";
 import type { AgentStep, AgentTurn } from "../sandbox/episode.ts";
 
 // Puts any chat model behind the Lab's agent endpoint. One server, one prompt,
-// a model per arm chosen by query string:
+// a model per arm chosen by query string, and a prompt version beside it
+// (?prompt=v1 is the default and the text as first shipped; see agent-prompt.ts):
 //
 //   node --env-file=.env.local src/experiments/model-agent.ts
 //
@@ -61,13 +62,13 @@ async function models(): Promise<{ entries: CatalogEntry[]; problems: string[] }
   return cached;
 }
 
-async function ask(id: string, turn: AgentTurn): Promise<{ step: AgentStep | null; reported?: string; ms: number; error?: string }> {
+async function ask(id: string, turn: AgentTurn, prompt: PromptVariant): Promise<{ step: AgentStep | null; reported?: string; ms: number; error?: string }> {
   const started = Date.now();
   const { route, reason } = resolve(id, via);
   if (!route) return { step: null, ms: 0, error: reason };
   if (route.provider.key === CLAUDE_CLI) {
     // The CLI starts a whole session per step; give it longer than an API call.
-    const r = await askClaudeCli(turn, route.model, Math.max(timeoutMs, 240_000));
+    const r = await askClaudeCli(turn, route.model, Math.max(timeoutMs, 240_000), prompt);
     return { ...r, ms: Date.now() - started };
   }
   const { provider, key, model } = route as { provider: { baseUrl: string }; key: string; model: string };
@@ -77,7 +78,7 @@ async function ask(id: string, turn: AgentTurn): Promise<{ step: AgentStep | nul
     max_tokens: maxTokens,
     messages: [
       { role: "system", content: "You reply with exactly one JSON object and nothing else." },
-      { role: "user", content: promptFor(turn) },
+      { role: "user", content: promptFor(turn, prompt) },
     ],
   });
   // A rate limit or a provider outage is transport, not behaviour: back off
@@ -121,8 +122,9 @@ const server = createServer(async (req, res) => {
     return res.end(
       JSON.stringify({
         ok: true,
-        endpoint: `http://localhost:${port}/agent?model=<id>`,
+        endpoint: `http://localhost:${port}/agent?model=<id>&prompt=<v1|v2>`,
         via,
+        prompts: Object.fromEntries(Object.entries(promptHashes()).map(([v, hash]) => [v, { hash, note: PROMPT_VARIANTS[v as PromptVariant].note }])),
         providers: [{ key: CLAUDE_CLI, label: "Claude CLI" }, ...providers.map((p) => ({ key: p.key, label: p.label }))],
         allowed: allowed.length ? allowed : null,
         models: allowed.length ? m.entries.filter((e) => allowed.includes(e.id)) : m.entries,
@@ -144,6 +146,14 @@ const server = createServer(async (req, res) => {
     res.writeHead(400, { "content-type": "application/json" });
     return res.end(JSON.stringify({ error: `model ${model} is not in --models` }));
   }
+  // An unknown prompt version is an error, never a silent fall-back to v1: a
+  // run must never be recorded against a prompt other than the one named.
+  const promptParam = url.searchParams.get("prompt") ?? "v1";
+  if (!isPromptVariant(promptParam)) {
+    res.writeHead(400, { "content-type": "application/json" });
+    return res.end(JSON.stringify({ error: `unknown prompt version ${promptParam}; one of ${Object.keys(PROMPT_VARIANTS).join(", ")}` }));
+  }
+  const prompt: PromptVariant = promptParam;
 
   const chunks: Buffer[] = [];
   for await (const c of req) chunks.push(c as Buffer);
@@ -160,7 +170,7 @@ const server = createServer(async (req, res) => {
 
   const s = stats.get(model) ?? { calls: 0, failures: 0, ms: 0 };
   s.calls++;
-  const { step, reported, ms, error } = await ask(model, turn);
+  const { step, reported, ms, error } = await ask(model, turn, prompt);
   s.ms += ms;
   if (!step) {
     s.failures++;
@@ -174,7 +184,7 @@ const server = createServer(async (req, res) => {
   if (reported && reported !== model && !model.endsWith(`/${reported}`)) step.modelVersion = reported;
   step.temperature = temperature;
   const summary = step.type === "tool_call" ? `${step.tool}(${JSON.stringify(step.args).slice(0, 60)})` : `finish:${step.action}`;
-  console.log(`    [${model}] step ${turn.step}: ${summary}  ${ms}ms`);
+  console.log(`    [${model}${prompt === "v1" ? "" : ` prompt ${prompt}`}] step ${turn.step}: ${summary}  ${ms}ms`);
   res.writeHead(200, { "content-type": "application/json" });
   res.end(JSON.stringify(step));
 });

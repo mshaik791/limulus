@@ -434,7 +434,7 @@ export type AgentRecord = {
   createdAt: string;
   updatedAt: string;
 };
-export type VersionRecord = { id: string; agentId: string; label: string; endpoint: string; declared?: { model?: string; modelVersion?: string; temperature?: number; note?: string }; createdAt: string };
+export type VersionRecord = { id: string; agentId: string; label: string; endpoint: string; declared?: { model?: string; modelVersion?: string; temperature?: number; note?: string; promptHash?: string }; createdAt: string };
 export type JobState = "queued" | "running" | "completed" | "failed" | "interrupted";
 export type Job = {
   id: string;
