@@ -129,5 +129,5 @@ function Context() { return <div className="labs-context"><span>Local workspace 
 function Arches() { return <div className="labs-arches" aria-hidden="true"><i /><i /><i /></div>; }
 function TextLink({ href, children }: { href: string; children: React.ReactNode }) { return <Link className="labs-text-link" href={href}>{children}<ArrowUpRight size={15} aria-hidden="true" /></Link>; }
 function Requirement({ label, value, status }: { label: string; value: string; status: "pass" | "fail" | "warn" | "unknown" }) {
-  return <li><span className={`labs-check is-${status}`} aria-label={status === "pass" ? "Passed" : status === "fail" ? "Failed" : status === "warn" ? "Needs attention" : "Unknown"}>{status === "pass" ? <Check size={13} /> : status === "fail" ? <X size={13} /> : status === "warn" ? "!" : <Minus size={13} />}</span><span>{label}</span><span className="labs-requirement-value">{value}</span></li>;
+  return <li><span role="img" className={`labs-check is-${status}`} aria-label={status === "pass" ? "Passed" : status === "fail" ? "Failed" : status === "warn" ? "Needs attention" : "Unknown"}>{status === "pass" ? <Check size={13} /> : status === "fail" ? <X size={13} /> : status === "warn" ? "!" : <Minus size={13} />}</span><span>{label}</span><span className="labs-requirement-value">{value}</span></li>;
 }

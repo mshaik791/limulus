@@ -159,3 +159,13 @@ below happens on branch `dashboard/yc-polish` off updated main.
   nav + Suspense boundary work) and compiles; the markup is trivial/static.
 - Next: OG image (evaluate feasibility in this Next fork); a short demo screenshot gallery; then
   PR `dashboard/yc-polish` → main.
+
+### Iter 9 — 2026-09-25 · Lighthouse audit → accessibility 100
+- Ran Lighthouse (desktop, navigation) on the Overview: A11y **96**, Best Practices 100, SEO 100,
+  Agentic Browsing 50 — 2 audits failed (`aria-prohibited-attr`, `agent-accessibility-tree`).
+- Root cause: the "Deployment requirements" status icon rendered `<span class="labs-check"
+  aria-label="Passed/Failed">` — `aria-label` is prohibited on a role-less `<span>`, which also
+  malformed the a11y tree. Fix: added `role="img"` (page.tsx:132) so the icon is a valid, labelled
+  image for assistive tech. Only instance in the app (grep-confirmed).
+- Re-audit: **all four categories 100, 0 failures.** Build green.
+- Next: PR `dashboard/yc-polish` → main (loading skeleton + a11y fix); then evaluate OG image.
