@@ -75,7 +75,7 @@ export function Scrubber({ calls, findingsBySeq, steps }: { calls: ToolCall[]; f
         </span>
       </div>
 
-      <div className={`rounded-[var(--radius)] border p-4 ${findings.some((f) => f.severity === "critical") ? "border-crit/40 bg-crit-soft/40" : findings.length ? "border-warn/40 bg-warn-soft/30" : "border-line bg-surface-2"}`}>
+      <div className="rounded-[var(--radius)] border border-line bg-surface-2 p-4">
         <div className="flex flex-wrap items-baseline gap-3">
           <span className="text-[11px] tabular text-ink-3">
             {call.seq}. +{ms(call.elapsedMs)}

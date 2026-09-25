@@ -1,27 +1,51 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-// Small pieces shared by the Labs onboarding screens, in the approved shell's
-// classes. Colour carries state; every state also has its word.
+// One product, one shell. The lifecycle is the primary navigation — Test,
+// Qualify, Monitor, Protect — and every section keeps the same header bar and
+// the same sub-tab row position, so moving between stages is a tab change,
+// never a change of application. This is the single source of truth for both
+// levels; the header and every page shell derive from it and cannot drift.
 
-// The five primary Labs destinations — the single source of truth for the sub-tab row, shown on
-// onboarding pages (via <LabsNav/>) and on every deep Labs page (via the shell). Keep in sync in
-// exactly one place so the onboarding and content shells can never drift apart.
-export const LABS_TABS: [string, string][] = [["/labs", "Overview"], ["/labs/agents", "Agents"], ["/labs/tests", "Tests"], ["/labs/arena", "Compare models"], ["/labs/releases", "Releases"]];
+export type Section = { key: "test" | "qualify" | "monitor" | "protect"; label: string; href: string; hint: string; tabs: [string, string][] };
 
-// The href of the tab that owns a given pathname (prefix match), or "" when none does.
-export function activeLabsTab(pathname: string): string {
-  return LABS_TABS.find(([href]) => (href === "/labs" ? pathname === "/labs" : pathname === href || pathname.startsWith(`${href}/`)))?.[0] ?? "";
+export const SECTIONS: Section[] = [
+  { key: "test", label: "Test", href: "/labs", hint: "Run agents against failure scenarios in the sandbox", tabs: [["/labs", "Overview"], ["/labs/agents", "Agents"], ["/labs/tests", "Tests"], ["/labs/arena", "Compare models"]] },
+  { key: "qualify", label: "Qualify", href: "/labs/releases", hint: "Gate a version on evidence before it may pay", tabs: [["/labs/releases", "Releases"], ["/labs/policies", "Policies"], ["/labs/qualifications", "Assurance checks"]] },
+  { key: "monitor", label: "Monitor", href: "/production", hint: "Observe real decisions in Shadow Mode, read-only", tabs: [["/production", "Shadow Mode"], ["/evidence", "Evidence"]] },
+  { key: "protect", label: "Protect", href: "/decisions", hint: "The gate's decisions, and where the rail contradicted one", tabs: [["/decisions", "Decisions"], ["/incidents", "Incidents"]] },
+];
+
+const owns = (href: string, path: string) => (href === "/labs" ? path === "/labs" : path === href || path.startsWith(`${href}/`));
+
+/** The section that owns a pathname — by tab prefix, falling back by area. */
+export function activeSection(pathname: string): Section {
+  for (const s of SECTIONS) if (s.tabs.some(([href]) => owns(href, pathname))) return s;
+  return pathname.startsWith("/labs") ? SECTIONS[0] : SECTIONS[2];
 }
 
-export function LabsNav({ current }: { current: string }) {
+/** The href of the active section's tab that owns the pathname, or "". */
+export function activeTab(pathname: string): string {
+  return activeSection(pathname).tabs.find(([href]) => owns(href, pathname))?.[0] ?? "";
+}
+
+/** The sub-tab row for whichever section owns the pathname. Same markup, same
+    position, on every screen in the product. */
+export function SectionNav({ pathname }: { pathname: string }) {
+  const section = activeSection(pathname);
+  const active = activeTab(pathname);
   return (
-    <nav className="labs-tabs investigation-nav" aria-label="Labs navigation">
-      {LABS_TABS.map(([href, label]) => (
-        <Link key={href} href={href} aria-current={href === current ? "page" : undefined}>{label}</Link>
+    <nav className="labs-tabs investigation-nav" aria-label={`${section.label} navigation`}>
+      {section.tabs.map(([href, label]) => (
+        <Link key={href} href={href} aria-current={href === active ? "page" : undefined}>{label}</Link>
       ))}
     </nav>
   );
+}
+
+/** Back-compat wrapper for the onboarding pages that render their own nav. */
+export function LabsNav({ current }: { current: string }) {
+  return <SectionNav pathname={current} />;
 }
 
 export function StatePill({ tone, children }: { tone: "pass" | "fail" | "warn" | "unknown"; children: ReactNode }) {

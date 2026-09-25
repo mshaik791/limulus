@@ -172,8 +172,8 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
                     <pre className="whitespace-pre-wrap rounded-[var(--radius-sm)] bg-sunken p-2.5 text-[12px] leading-snug text-ink-2">{d.text}</pre>
                     {d.hiddenText && (
                       <div className="mt-1.5">
-                        <div className="text-[11px] text-crit-ink">hidden in the file, invisible when rendered</div>
-                        <pre className="whitespace-pre-wrap rounded-[var(--radius-sm)] border border-crit/40 bg-crit-soft p-2.5 text-[12px] leading-snug">{d.hiddenText}</pre>
+                        <div className="text-[11px] uppercase tracking-[0.06em] text-crit-ink">Hidden in the file, invisible when rendered</div>
+                        <pre className="mt-1 whitespace-pre-wrap rounded-[var(--radius-sm)] border-l-2 border-crit bg-sunken p-2.5 text-[12px] leading-snug text-ink-2">{d.hiddenText}</pre>
                       </div>
                     )}
                   </div>

@@ -76,13 +76,15 @@ export function Sidebar({ engine, sandbox, rail }: { engine: { ok: boolean; vers
         <div className="mb-2 flex items-center gap-2">
           {sandbox ? (
             <>
-              <span className="rounded-[4px] bg-warn-soft px-1.5 py-[1px] text-[10px] font-semibold tracking-[0.08em] text-warn-ink">SANDBOX</span>
-              <span className="text-ink-3">No payment rails connected</span>
+              <span aria-hidden className="h-[6px] w-[6px] shrink-0 rounded-full bg-warn" />
+              <span className="font-medium text-ink-2">Sandbox</span>
+              <span className="text-ink-3">· no rails connected</span>
             </>
           ) : (
             <>
-              <span className="rounded-[4px] bg-good-soft px-1.5 py-[1px] text-[10px] font-semibold tracking-[0.08em] text-good-ink">PRODUCTION</span>
-              <span className="text-ink-3">rail {rail}</span>
+              <span aria-hidden className="h-[6px] w-[6px] shrink-0 rounded-full bg-good" />
+              <span className="font-medium text-ink-2">Production</span>
+              <span className="text-ink-3">· rail {rail}</span>
             </>
           )}
         </div>

@@ -55,7 +55,7 @@ export default async function ShadowDetail(props: PageProps<"/production/[id]">)
           </div>
           <div className="mt-2 text-[12px] text-ink-3">{failed.length ? `${failed.length} check(s) fired` : "every check passed"}</div>
         </Card>
-        <Card emphasis={r.agreement === "would_have_held" ? "crit" : r.agreement === "agree" ? "good" : "warn"}>
+        <Card>
           <div className="eyebrow">So</div>
           <div className="mt-2">
             <StateBadge state={r.agreement === "agree" ? "PASS" : r.agreement === "would_have_held" ? "BLOCKED" : "REVIEW"} label={r.agreement.replaceAll("_", " ").toUpperCase()} size="lg" />

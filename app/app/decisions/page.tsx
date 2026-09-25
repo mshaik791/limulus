@@ -74,7 +74,7 @@ export default async function Production() {
                       const miss = productionMiss(r, o);
                       const d = decisionState(r.outcome, sb);
                       return (
-                        <tr key={r.id} className={`row-link ${miss ? "bg-surface-2/60" : ""}`}>
+                        <tr key={r.id} className="row-link">
                           <td className="pl-6">
                             <Link href={`/decisions/${r.id}`} className="font-medium">
                               {r.declaration.agentId ? agentDisplay(r.declaration.agentId) : "unknown agent"}
@@ -114,7 +114,7 @@ export default async function Production() {
               </Card>
             </div>
             <div className="grid content-start gap-4 xl:col-span-4">
-              <Card title={sb ? "Simulated misses" : "Production misses"} aside={`${int(misses.length)}`} emphasis={misses.length ? "crit" : undefined}>
+              <Card title={sb ? "Simulated misses" : "Production misses"} aside={`${int(misses.length)}`}>
                 {misses.length === 0 ? (
                   <p className="text-[13px] text-ink-3">No decision was contradicted by the rail.</p>
                 ) : (
@@ -169,8 +169,8 @@ export default async function Production() {
                       <div className="flex items-center justify-between gap-3">
                         <span className="truncate">{agentDisplay(id)}</span>
                         <span className="shrink-0 text-[12px] tabular text-ink-3">
-                          {int(a.n)} · <span className={a.held ? "text-crit-ink" : ""}>{int(a.held)} {sb ? "would hold" : "held"}</span> · {int(a.escalated)} {sb ? "would escalate" : "escalated"}
-                          {a.misses ? <span className="text-crit-ink"> · {int(a.misses)} miss</span> : null}
+                          {int(a.n)} · <span>{int(a.held)} {sb ? "would hold" : "held"}</span> · {int(a.escalated)} {sb ? "would escalate" : "escalated"}
+                          {a.misses ? <span> · {int(a.misses)} <span className="text-crit-ink">miss</span></span> : null}
                         </span>
                       </div>
                       <div className="mono text-[11px] text-ink-3">{id}</div>

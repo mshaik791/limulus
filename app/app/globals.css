@@ -1,65 +1,65 @@
 @import "tailwindcss";
 
 /*
-  Dark is the primary language: deep navy, three card levels, borders that are
-  barely there. Colour has semantic meaning or it is not used. Blue is the
-  system and agent state, cyan is activity on a path, green is verified or
-  released, amber is attention or hold, red is critical or blocked, violet is
-  simulation and model comparison. Nothing glows unless it is a state.
+  Light, document-grade. The reference class for this product (Stripe, Mercury,
+  Vanta, Sentry) is a quiet white ledger: near-white canvas, white surfaces,
+  hairline borders, and semantic colour that appears only in words, dots and
+  figures — never as a filled row, chip or block. Success is silent; red on a
+  screen means exactly one thing: look here, something failed.
 */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Deep tidal ink — cool, near-black; the benthic dark the horseshoe crab lives in. */
-  --bg: #080b11;
-  --sidebar: #0a0e15;
-  --surface: #111722;
-  --surface-2: #161d2b;
-  --surface-3: #1d2534;
-  --sunken: #05070c;
-  --line: rgba(150, 170, 200, 0.10);
-  --line-2: rgba(150, 170, 200, 0.17);
-  --line-hover: rgba(80, 180, 224, 0.34);
+  --bg: #f7f8fa;
+  --sidebar: #fbfcfd;
+  --surface: #ffffff;
+  --surface-2: #f4f6f8;
+  --surface-3: #eceff3;
+  --sunken: #f6f8fa;
+  --line: #e7e9ee;
+  --line-2: #d8dce3;
+  --line-hover: #b9c4d2;
 
-  --ink: #eef3f9;
-  --ink-2: #9aa6b9;
-  --ink-3: #8792a4;
+  --ink: #191d24;
+  --ink-2: #4d5665;
+  --ink-3: #667084;
 
-  /* Hemolymph — the horseshoe crab's copper-blue blood. The single signature colour. */
-  --accent: #46b1e0;
-  --accent-ink: #8fd4ef;
-  --accent-soft: rgba(70, 177, 224, 0.13);
-  --cyan: #46b1e0;
-  --cyan-soft: rgba(70, 177, 224, 0.10);
+  /* Hemolymph, deepened for a light ground — the single interactive colour. */
+  --accent: #0f6f9e;
+  --accent-ink: #0b5c84;
+  --accent-soft: rgba(15, 111, 158, 0.08);
+  --cyan: #0f6f9e;
+  --cyan-soft: rgba(15, 111, 158, 0.07);
 
-  /* Semantics: filmic and desaturated — legible, never a traffic light. Colour only with its word. */
-  --good: #3fa587;
-  --good-ink: #79c9ac;
-  --good-soft: rgba(63, 165, 135, 0.10);
-  --warn: #cf9b46;
-  --warn-ink: #e3bd77;
-  --warn-soft: rgba(207, 155, 70, 0.10);
-  --crit: #db5f72;
-  --crit-ink: #ef8b9b;
-  --crit-soft: rgba(219, 95, 114, 0.10);
-  --model: #8a7ce0;
-  --model-ink: #b3a8f0;
-  --model-soft: rgba(138, 124, 224, 0.10);
+  /* Semantics are text-grade: dark enough for AA as 12px words on white. */
+  --good: #178457;
+  --good-ink: #116b46;
+  --good-soft: rgba(23, 132, 87, 0.08);
+  --warn: #b07c1d;
+  --warn-ink: #8a6116;
+  --warn-soft: rgba(176, 124, 29, 0.09);
+  --crit: #c13548;
+  --crit-ink: #ab2738;
+  --crit-soft: rgba(193, 53, 72, 0.07);
+  --model: #6a58cc;
+  --model-ink: #5647ad;
+  --model-soft: rgba(106, 88, 204, 0.08);
 
-  --arm-1: #46b1e0;
-  --arm-2: #e0864f;
-  --arm-3: #3fa587;
-  --arm-4: #cf9b46;
+  --arm-1: #0f6f9e;
+  --arm-2: #b0652d;
+  --arm-3: #178457;
+  --arm-4: #b07c1d;
 
-  --radius: 10px;
+  --radius: 8px;
   --radius-sm: 6px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.22);
-  /* Restraint: a hairline ring in the state colour — no candy glow. */
-  --glow-crit: inset 0 0 0 1px rgba(219, 95, 114, 0.30);
-  --glow-good: inset 0 0 0 1px rgba(63, 165, 135, 0.30);
-  --glow-warn: inset 0 0 0 1px rgba(207, 155, 70, 0.30);
-  --glow-accent: inset 0 0 0 1px rgba(70, 177, 224, 0.30);
-  --glow-model: inset 0 0 0 1px rgba(138, 124, 224, 0.28);
+  /* Hairline borders carry the structure; the shadow is barely there. */
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  /* No coloured halos. Kept as variables so old call sites resolve to nothing. */
+  --glow-crit: none;
+  --glow-good: none;
+  --glow-warn: none;
+  --glow-accent: none;
+  --glow-model: none;
 }
 
 @theme inline {
@@ -98,8 +98,7 @@
 
 html,
 body {
-  background: radial-gradient(1200px 800px at 100% -8%, rgba(70, 177, 224, 0.06), transparent 55%), var(--bg);
-  background-attachment: fixed;
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 14px;
@@ -115,16 +114,16 @@ body {
   font-family: var(--font-mono);
   font-size: 0.92em;
 }
+/* One family throughout — this is an application, not a marketing page.
+   Headings differ from body by weight and size only. */
 h1, h2, h3, h4 {
-  font-family: var(--font-display), var(--font-geist-sans), system-ui, sans-serif;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
-/* Instrument readout: large figures in the display face, tabular so columns align. */
+/* Figures: tabular so columns of amounts align. Ink, never a semantic colour. */
 .metric {
-  font-family: var(--font-display), var(--font-geist-sans), sans-serif;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   font-weight: 600;
 }
 .eyebrow {
@@ -149,20 +148,23 @@ a {
 table {
   border-collapse: collapse;
 }
+/* Column headers: 11px letterspaced caps, the reference-class convention. */
 th {
   font-weight: 500;
   color: var(--ink-3);
   text-align: left;
-  font-size: 11.5px;
-  letter-spacing: 0.02em;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   position: sticky;
   top: 0;
   background: var(--surface);
   z-index: 1;
 }
+/* Rows sized for scanning, not for whitespace: ~38px with 13px body text. */
 td,
 th {
-  padding: 12px 14px;
+  padding: 9px 14px;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
 }
@@ -170,14 +172,14 @@ tr:last-child td {
   border-bottom: 0;
 }
 tbody tr.row-link:hover td {
-  background: rgba(90, 140, 255, 0.05);
+  background: rgba(15, 111, 158, 0.035);
   cursor: pointer;
 }
 
 input,
 select,
 textarea {
-  background: var(--sunken);
+  background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line-2);
   border-radius: var(--radius-sm);
