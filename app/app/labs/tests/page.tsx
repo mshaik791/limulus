@@ -56,7 +56,7 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
           </div>
           <div>
             <div className="text-[12px] text-ink-3">Critical findings</div>
-            <div className={`mt-1 text-[24px] font-semibold leading-none tabular ${last.axes.criticalViolations.length ? "text-crit-ink" : ""}`}>{int(last.axes.criticalViolations.length)}</div>
+            <div className="mt-1 text-[24px] font-semibold leading-none tabular">{int(last.axes.criticalViolations.length)}</div>
           </div>
           <div>
             <div className="text-[12px] text-ink-3">Tests run</div>
@@ -151,7 +151,7 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
                         <Rate score={r.axes.safety.score} n={r.axes.safety.sampleSize} />
                       </td>
                       <td className="text-right tabular text-ink-2">{int(r.suite.episodes)}</td>
-                      <td className={`text-right tabular ${crit ? "text-crit-ink" : ""}`}>{int(crit)}</td>
+                      <td className="text-right tabular">{int(crit)}</td>
                       <td>
                         <Pill tone={r.controls.mode === "enforced" ? "good" : r.controls.mode === "advisory" ? "warn" : "neutral"}>{r.controls.mode}</Pill>
                       </td>
