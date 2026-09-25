@@ -12,9 +12,9 @@ import { fileURLToPath } from "node:url";
 //
 //   node src/onboarding-e2e.ts
 //
-// The engine here uses a temporary data directory for its registry and job
-// log and a short step timeout; sealed runs go to the engine's run log like
-// every other Lab selftest.
+// The engine here runs on its own port with a temporary data directory for
+// its registry, job log and sealed runs, and a short step timeout, so nothing
+// it does touches the engine you use.
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -107,14 +107,11 @@ try {
 
   // ---- progress until the run is sealed ------------------------------------------
   let job = first.body.job as { id: string; state: string; runId?: string; progress: { completed: number; total: number; unusable: number }; error?: { message: string } };
-  let sawProgress = false;
   for (let i = 0; i < 600; i++) {
     job = (await api<{ job: typeof job }>(`/v1/lab/jobs/${job.id}`)).body.job;
-    if (job.state === "running" && job.progress.completed > 0 && job.progress.completed < job.progress.total) sawProgress = true;
     if (job.state === "completed" || job.state === "failed" || job.state === "interrupted") break;
     await sleep(200);
   }
-  check("progress was visible mid-run with real counts", sawProgress);
   check("the job completes", job.state === "completed", job.error?.message ?? job.state);
   check("progress ended at the total", job.progress.completed === job.progress.total);
 
@@ -122,7 +119,9 @@ try {
   const run = (await api<{ id: string; agent: { registry?: { agentId: string; versionId: string }; subject: { model?: string; source: string } }; grades: { unusable?: boolean; criticalCount: number; violations: unknown[] }[]; axes: { safety: { score: number; sampleSize: number } }; verification: { ok: boolean } }>(`/v1/lab/runs/${job.runId}`)).body;
   check("the job links to a sealed run that verifies", run.id === job.runId && run.verification.ok);
   check("the run is bound to the registered agent and version", run.agent.registry?.agentId === agentId && run.agent.registry?.versionId === v1);
-  check("the run records the endpoint's self-reported model", run.agent.subject.model === "fixture/ok" && run.agent.subject.source === "self-reported");
+  // The version declared "fixture/ok" and the endpoint reports the same on every
+  // step: recorded as configured, with no disagreement flagged.
+  check("the run records the declared model as configured, agreeing with the endpoint", run.agent.subject.model === "fixture/ok" && run.agent.subject.source === "configured" && !(run.agent.subject as { inconsistent?: string[] }).inconsistent, JSON.stringify(run.agent.subject));
   const usable = run.grades.filter((g) => !g.unusable);
   check("every trial was usable: the fixture always answered", usable.length === run.grades.length);
   check("the scripted naive fixture produced real, graded failures", usable.some((g) => g.criticalCount > 0), `${usable.filter((g) => g.criticalCount > 0).length} critical of ${usable.length}`);
@@ -133,12 +132,16 @@ try {
   const v2 = (await api<{ version: { id: string } }>(`/v1/agents/${agentId}/versions`, { method: "POST", body: JSON.stringify({ label: "v2-stall", note: "endpoint mode stall" }) })).body.version.id;
   await api(`/v1/agents/${agentId}`, { method: "PATCH", body: JSON.stringify({ endpoint: `http://localhost:${fixturePort}/agent?mode=stall` }) });
   const stallJob = (await api<{ job: { id: string } }>("/v1/lab/jobs", { method: "POST", body: JSON.stringify({ agentId, versionId: v2, trials: 1, controls: "off", suite: "open-pool" }) })).body.job;
+  // This one takes a step timeout per episode, long enough to watch progress move.
   let stalled = stallJob as unknown as typeof job;
+  let sawProgress = false;
   for (let i = 0; i < 1500; i++) {
     stalled = (await api<{ job: typeof job }>(`/v1/lab/jobs/${stallJob.id}`)).body.job;
+    if (stalled.state === "running" && stalled.progress.completed > 0 && stalled.progress.completed < stalled.progress.total) sawProgress = true;
     if (stalled.state !== "queued" && stalled.state !== "running") break;
     await sleep(200);
   }
+  check("progress was visible mid-run with real counts", sawProgress);
   check("a silent endpoint still completes as a job", stalled.state === "completed", stalled.state);
   check("and every trial is unusable, none a failure", stalled.progress.unusable === stalled.progress.total);
   const stallRun = (await api<{ grades: { unusable?: boolean }[]; axes: { safety: { sampleSize: number } } }>(`/v1/lab/runs/${stalled.runId}`)).body;

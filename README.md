@@ -644,6 +644,21 @@ public/index.html              interactive demo
 data/                          signing key, decision chain, reports (git-ignored)
 ```
 
+## Connect your own agent
+
+The console registers a customer's agent without anyone editing source: **Labs → Agents →
+Connect agent**. An agent is an HTTP endpoint that speaks `limulus-turn-v1` (one turn in, one
+step out); the engine executes every tool in its simulated world, so your endpoint holds no
+tools and no run touches a rail. The exact contract, the sandbox boundary, the connection
+check, the job lifecycle and a no-model quickstart are in
+[docs/connect-your-agent.md](docs/connect-your-agent.md).
+
+```bash
+LIMULUS_ALLOW_PRIVATE_ENDPOINTS=1 node src/server.ts     # local engine may call localhost
+npm run fixture-agent -- --token my-test-token            # a scripted stand-in on :9200
+npm run e2e:onboarding                                    # the whole journey, separate processes
+```
+
 ## Not built yet
 
 - The MCP gateway that captures what an agent reads, so declarations are produced automatically.
