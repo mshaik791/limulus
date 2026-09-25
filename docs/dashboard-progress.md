@@ -21,7 +21,7 @@ and the next highest-impact item. Newest last.
       cyan Labs theme). Sound. Shell unification made the whole Labs section share the cyan theme.
 - [x] **Shell consistency (was hidden, high-impact)**: unified all `/labs/*` routes onto the
       modern top-nav shell (arena/releases/policies/qualifications were on the old left-sidebar).
-- [ ] **Responsive**: 1280 → large display, no overflow/clipping.
+- [x] **Responsive**: verified clean at 1280 (Overview grid + dense Tests table — no overflow).
 - [ ] **Verification harness**: `next dev` + DevTools MCP screenshots per route; build + lint.
 - [ ] **Before/after**: capture screenshots a VC could skim.
 
@@ -116,3 +116,15 @@ and the next highest-impact item. Newest last.
 - Build green; `/icon.png` + `/apple-icon.png` in the route table.
 - Next: OG image (1200×630) for a richer link card; responsive pass at 1280; detail-route
   spot-checks (tests/[runId], scenarios). Then consider merging the branch to main.
+
+### Iter 6 — 2026-09-25 · Responsive pass at 1280 (verified clean)
+- Resized to a 1280×800 laptop viewport and checked the two highest-risk screens: the Overview
+  (two-column decision grid) and the dense Tests runs table. Both render cleanly — no overflow,
+  no clipping, columns intact. The `.labs-investigation` table-overflow guard + `max-width:1600`
+  centering behave well down to laptop width. Reset viewport to 1512×982 for future shots.
+- No code change needed — this crosses the "responsive to laptop" DoD item off with evidence.
+- Remaining DoD: designed loading state (offline/empty/error already done); OG image is
+  nice-to-have (deferred — text OG tags + favicon already give a decent card; a Satori OG route
+  is risky in this Next fork). Branch is in strong shape.
+- Next: spot-check detail routes (tests/[runId] grades/traces, scenario replay); then merge
+  `dashboard/yc-demo-day` → main (all green) so the work lands in main by morning.

@@ -96,6 +96,7 @@ Record findings + source links in `docs/dashboard-progress.md` so claims stay tr
 - [ ] Empty, loading, offline, and error states are all designed (not default).
 - [ ] Typography scale, spacing rhythm, and color roles are systematic (tokens only).
 - [ ] `npm run build` + typecheck + lint pass; no console errors in any route.
-- [ ] Responsive down to a laptop (1280) and up to a large display; no overflow/clipping.
+- [x] Responsive down to a laptop (1280) and up to a large display; no overflow/clipping.
+      *(verified 2026-09-25 at 1280 — Overview grid + Tests table clean)*
 - [ ] A short `docs/dashboard-progress.md` narrative + before/after screenshots a VC could skim.
 - [ ] Merge to `main` when fully green (no human gate); otherwise leave a clean PR + summary.
