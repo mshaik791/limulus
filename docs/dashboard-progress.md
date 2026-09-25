@@ -5,8 +5,8 @@ Each iteration appends a dated entry: what changed, screenshots taken, verificat
 and the next highest-impact item. Newest last.
 
 ## Backlog (highest-impact first — reorder as you learn)
-- [~] **Logo/brand**: DONE in code (both shells via `<LimulusMark>` CSS-mask component);
-      visual verification pending next iteration (build + screenshot).
+- [x] **Logo/brand**: DONE + visually verified in both shells (CommandBar + Sidebar), no
+      console errors; asset cropped tight (content fill 48%/65% → 70%/95%).
 - [ ] **Design-system audit**: confirm tokens in `globals.css` cover type scale, spacing,
       color roles, elevation, radii; fill gaps. No hard-coded hex anywhere in Labs.
 - [ ] **Overview (`/labs/page.tsx`)**: make the readiness verdict legible to a VC in 10s —
@@ -44,3 +44,24 @@ and the next highest-impact item. Newest last.
   non-blocking; consider setting it in `next.config.ts`.
 - Next highest-impact: stand up the DevTools screenshot harness (boot `next dev`, capture every
   Labs route) → then design-system audit + Overview hierarchy.
+
+### Iter 2 — 2026-09-25 · Verification harness + logo tightened (both shells verified)
+- Stood up the loop's verification harness: `next dev` on **:3001** (3000 was taken) + engine
+  `node src/server.ts` on **:8787** (dependency-light, no root deps needed) + Chrome DevTools MCP.
+- **Logo visually verified** in BOTH shells with live data — CommandBar (`/labs`) and Sidebar
+  (`/production`). Console clean (no errors/warnings) on `/labs`.
+- Measured the mark's alpha bbox (pure Node+zlib): it filled only 48%×65% of its canvas (≈26%
+  L/R padding). Cropped the asset to a tight 892×892 square centred on the mark (content fill
+  now 70%×95%); file also shrank 48.5KB→12.5KB. Re-verified visually — mark reads confidently
+  in both shells now. No component change needed (`contain` + the tighter asset).
+- Baseline read: the dashboard is already strong (coherent dark token system, good hierarchy,
+  thoughtful empty/offline states). YC polish is about consistency across the full route set,
+  not a rebuild.
+- **Job A (merge) landed:** PR #3 merged to `main` (`90a7027`); background agent also fixed a
+  real `twin-selftest` break from the OFAC list (`src/bench/twin.ts`), all CI green. TODO before
+  the final dashboard PR: merge `main` into `dashboard/yc-demo-day` to pick up that fix.
+- Observations to act on next: (1) the hero decorative "Arches" motif is the OLD placeholder —
+  consider echoing the real mark for brand cohesion; (2) run the full route sweep
+  (agents/tests/arena/releases/policies/qualifications + detail/new) for spacing/state polish;
+  (3) design-system audit (confirm tokens cover type scale/spacing/elevation; no hard-coded hex).
+- Next: route sweep screenshots → prioritize → design-system audit + Overview hierarchy.
