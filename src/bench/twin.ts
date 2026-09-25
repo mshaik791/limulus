@@ -240,14 +240,21 @@ export function uniqueHeldOutSentences(
   // from the constant lists in families.ts. Without the second step, a twin that
   // happens to pick the same vendor as the held-out instance reads as a leak when
   // it is simply the family working as designed.
-  const publicNames = [
-    ...new Set(
-      publicSamples.flatMap((s) => [
-        ...s.authorization.approvedVendors.map((v) => v.name),
-        ...(s.truth?.payeeName ? [s.truth.payeeName] : []),
-      ]),
-    ),
-  ]
+  //
+  // Names are collected from both sides. A payee name is drawn from a published
+  // list (the approved-vendor roster, or the OFAC SDN list for the sanctions
+  // family) and is a particular, not instance prose — identifier leaks are the
+  // job of heldOutSecrets, not this check. Collecting from the held side too
+  // matters since the SDN list is large: the sanctions family almost never draws
+  // the same blocked party for a held instance as for its public sample, so its
+  // boilerplate ("the vendor X was added to our supplier list...") would read as
+  // instance-specific if only the public sample's name were normalised away.
+  const namesFrom = (list: (PooledScenario | Scenario)[]) =>
+    list.flatMap((s) => [
+      ...s.authorization.approvedVendors.map((v) => v.name),
+      ...(s.truth?.payeeName ? [s.truth.payeeName] : []),
+    ]);
+  const publicNames = [...new Set([...namesFrom(publicSamples), ...namesFrom(held)])]
     .filter((n) => n.length > 3)
     .sort((a, b) => b.length - a.length);
 

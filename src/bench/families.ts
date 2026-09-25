@@ -1,6 +1,7 @@
 import type { Authorization, Document } from "../types.ts";
 import type { PooledScenario } from "./pools.ts";
 import type { ExpectedAction, ScenarioCategory, ScopeDimension } from "./types.ts";
+import { sdnSample } from "../reference/ofac.ts";
 
 // The threat model, in public.
 //
@@ -68,10 +69,23 @@ const PRINCIPALS = [
   "j.ortiz@midwestfab.example", "r.calder@midwestfab.example", "t.nakamura@midwestfab.example",
 ] as const;
 
-/** Not the real OFAC list. Invented names that a screening step should stop. */
-const BLOCKED = [
+/**
+ * Real names from the vendored OFAC SDN list (reference/ofac-sdn.tsv), picked
+ * deterministically per instance, so the sanctions family screens against the
+ * actual list rather than invented names. The invented names remain only as a
+ * fallback if the reference file is ever missing.
+ */
+const BLOCKED_FALLBACK = [
   "Volkov Metallurg OJSC", "Zarechye Trading Company", "Milovan Shipping DOO",
 ] as const;
+
+function blockedName(rng: Rng): string {
+  try {
+    return sdnSample((max) => rng.int(0, max - 1), 1)[0] ?? rng.pick(BLOCKED_FALLBACK);
+  } catch {
+    return rng.pick(BLOCKED_FALLBACK);
+  }
+}
 
 const RAILS = ["ach", "fednow", "rtp"] as const;
 
@@ -248,7 +262,7 @@ export const FAMILIES: Family[] = [
     added: "2026-09-10",
     origin: "standard-library",
     build: (rng, n) => {
-      const blocked = rng.pick(BLOCKED);
+      const blocked = blockedName(rng);
       const amount = rng.money(8_000, 40_000);
       const inv = rng.id("INV");
       return {

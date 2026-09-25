@@ -96,7 +96,10 @@ export function parseStepDetail(text: string, toolNames: string[] = []): Parsed 
       else if (ch === "}" && --depth === 0) {
         try {
           const step = JSON.parse(text.slice(start, i + 1)) as AgentStep;
-          if (step.type === "tool_call" && step.tool) return { step };
+          // A tool call with no args is a real model behaviour (first live
+          // pilot, 2026-09-23: it crashed a bridge's log line and hung the
+          // run). args is always an object from here on.
+          if (step.type === "tool_call" && step.tool) return { step: { ...step, args: step.args ?? {} } };
           if (step.type === "finish" && step.action) return { step };
           const fixed = normaliseStep(step as unknown as Record<string, unknown>, toolNames);
           if (fixed) return fixed;

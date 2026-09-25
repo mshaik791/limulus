@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { nachaReturn } from "../rails/nacha.ts";
 import { join, relative } from "node:path";
 import type { Authorization, Document, Vendor } from "../types.ts";
 import type { ExpectedAction, RailEvent, Scenario, ScenarioCategory } from "./types.ts";
@@ -439,6 +440,21 @@ function checkAnswerable(c: Checker, s: Scenario) {
       `this scenario injects rail events but is categorised "${s.category}". Recovery is scored from ` +
         `rail faults, and those are usually "operational"`,
     );
+  }
+
+  // A vendor payment is a pushed credit. A debit-return reason (R01, R29, ...)
+  // cannot come back on one; a scenario that injects it is modelling a world
+  // that does not exist, and whatever it meant to test is not being tested.
+  for (const event of s.railEvents ?? []) {
+    if (event.type !== "return") continue;
+    const detail = nachaReturn(event.code);
+    if (detail?.class === "debit") {
+      c.warn(
+        "railEvents",
+        `${detail.code} (${detail.name}) is a debit-return reason and cannot occur on a pushed vendor ` +
+          `credit. Use a credit return instead (e.g. ${["R02", "R03", "R04", "R16", "R20", "R23"].join(", ")}).`,
+      );
+    }
   }
 }
 

@@ -9,10 +9,13 @@ not when you push it — so they are only relevant to a payment agent if it orig
 debits. Nacha's 2026 fraud-monitoring requirement extends risk-based monitoring to
 non-consumer originators, but it is monitoring, not a certification, and not agent-specific.
 
-A subtle correctness point the code should respect: **a returned credit and a returned
-debit are different failure modes.** `src/rails/nacha.ts` currently carries R01/R02/R03/
-R04/R16/R29 as one undifferentiated "return" set; R01 (insufficient funds) and R29
-(corporate not authorised) are debit-return reasons. This is logged in FINDINGS.md.
+A subtle correctness point the code respects since 2026-09-23: **a returned credit and a
+returned debit are different failure modes.** `src/rails/nacha.ts` now carries the full
+published catalog (70 codes, transcribed from the Modern Treasury reference, fetched
+2026-09-23) with a `class` per code — the credit-relevant set an AP agent must handle is
+R02/R03/R04/R12/R14/R15/R16/R20/R23/R24/R31/R36/R83; R01/R09 (funds timing) and the
+authorization-dispute codes (R05/R07/R08/R10/R11/R29) are debit-only, and the scenario
+validator warns when a debit-only code is injected on a vendor credit.
 
 ## Return codes (credit-relevant marked ✓)
 
@@ -48,4 +51,5 @@ settles in 1–2 banking days.
 ## Sources
 - `{title: "ACH Return Code Reference", publisher: "Modern Treasury", url: "https://www.moderntreasury.com/learn/ach-return-code-reference", date: "fetched 2026-09-21", verification: verified}` — codes, titles, windows in the table above.
 - `{title: "ACH Return Codes (R01–R85)", publisher: "Ramp", url: "https://ramp.com/blog/ach-return-codes", date: "2026", verification: verified}` — corroborates the common-code shortlist and the 3%/15% return-rate thresholds.
-- `{title: "Nacha Operating Rules & Guidelines", publisher: "Nacha", url: "https://www.nacha.org/rules", date: "2026", verification: unverified-model-recall}` — primary authority for return windows, SEC codes, and the 2026 fraud-monitoring rule for non-consumer originators. Not fetched; listed in VERIFY.md.
+- `{title: "Risk Management Topics — Fraud Monitoring Phase 1 / Phase 2", publisher: "Nacha", url: "https://www.nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2", date: "verified 2026-09-23", verification: verified}` — the 2026 fraud-monitoring rule: Phase 1 covered ODFIs and high-volume (>6M entries) non-consumer originators; **Phase 2, from June 22, 2026, extends risk-based fraud monitoring to all non-consumer Originators, Third-Party Senders and TPSPs regardless of volume**, explicitly covering payments "authorized under False Pretenses" — Nacha's term for identity/authority/account-ownership misrepresentation, i.e. BEC. Risk-based, not per-transaction; not a certification.
+- `{title: "Nacha Operating Rules & Guidelines", publisher: "Nacha", url: "https://www.nacha.org/rules", date: "2026", verification: unverified-model-recall}` — primary authority for return windows and SEC codes. Windows corroborated by the Modern Treasury reference; the Rules text itself not fetched; listed in VERIFY.md.
