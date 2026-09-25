@@ -102,3 +102,17 @@ and the next highest-impact item. Newest last.
   Guarantees onboarding and content navs can't drift. Build green; arena verified unchanged.
 - Next: spot-check detail routes (tests/[runId], scenarios, agents/[agentId]); responsive pass
   at 1280; then a branded favicon + shared-link metadata for the demo.
+
+### Iter 5 — 2026-09-25 · Branded favicon + shared-link metadata
+- No favicon existed (default Next icon in the tab). Generated `app/app/icon.png` +
+  `app/app/apple-icon.png` (512²) from the mark: near-white silhouette on a dark rounded tile,
+  area-downsampled from the 892² asset — same pure-Node PNG decode/encode used for the crop.
+  Verified the composite by eye (crisp, balanced, legible); Next registers `/icon.png` +
+  `/apple-icon.png` as static routes.
+- Enriched `app/app/layout.tsx` metadata: descriptive default title
+  ("Limulus — Financial Agent Assurance"), a real product-accurate description, and
+  `openGraph` + `twitter` (summary) text tags so a shared demo link renders a proper card.
+  No invented URLs / no OG image yet (metadataBase intentionally unset — text tags need none).
+- Build green; `/icon.png` + `/apple-icon.png` in the route table.
+- Next: OG image (1200×630) for a richer link card; responsive pass at 1280; detail-route
+  spot-checks (tests/[runId], scenarios). Then consider merging the branch to main.
