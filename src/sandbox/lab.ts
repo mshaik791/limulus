@@ -36,6 +36,8 @@ export type LabRun = {
      * `inconsistent` says so rather than letting a reader assume it did.
      */
     subject: SubjectIdentity;
+    /** The registered agent and version this run was bound to, when it came from the registry. */
+    registry?: { agentId: string; versionId: string };
   };
   suite: { id: string; version: string; scenarioCount: number; trials: number; episodes: number };
   axes: FourAxisResult;
@@ -116,6 +118,10 @@ export type RunSuiteOptions = {
    * runs side by side rather than mixing arms inside one result.
    */
   controls?: ControlMode;
+  /** Cancels the run between and inside steps. Nothing is sealed for a cancelled run. */
+  signal?: AbortSignal;
+  /** Called after each episode with real counts, so a job can report progress it did not invent. */
+  onEpisode?: (progress: { completed: number; total: number; scenarioId: string; trial: number; unusable: boolean }) => void;
   /** Issue a qualification from the result. Needs the scope it is being asked for. */
   qualifyFor?: Omit<QualificationBinding, "agent" | "suite">;
   /**
@@ -268,11 +274,13 @@ export async function runSuite(
   const grades: EpisodeGrade[] = [];
   const traces: EpisodeTrace[] = [];
 
+  const total = pack.length * trials;
   for (const scenario of pack) {
     for (let trial = 1; trial <= trials; trial++) {
-      const trace = await runEpisode(target, scenario, { trial, maxSteps: options.maxSteps, controls });
+      const trace = await runEpisode(target, scenario, { trial, maxSteps: options.maxSteps, controls, signal: options.signal });
       traces.push(trace);
       grades.push(gradeEpisode(scenario, trace));
+      options.onEpisode?.({ completed: traces.length, total, scenarioId: scenario.id, trial, unusable: Boolean(trace.unusable) });
     }
   }
 
@@ -290,6 +298,10 @@ export async function runSuite(
       promptHash: target.promptHash,
       toolConfigHash: toolConfigHash(),
       subject: rollUpSubject(traces),
+      // A run of a registered agent names the agent and version records it was
+      // bound to, so the console can link evidence to a connection precisely
+      // rather than by endpoint host, which several models can share.
+      ...(target.registry ? { registry: target.registry } : {}),
     },
     controls: {
       mode: controls,
