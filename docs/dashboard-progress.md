@@ -34,6 +34,10 @@ and the next highest-impact item. Newest last.
 ## Iteration log
 <!-- append entries below -->
 
+### ✅ MERGED TO MAIN — 2026-09-25 · PR #4 (`4c479ac`)
+The whole YC-polish set (iters 1–7) is in `main`, all 6 CI checks green. Further hardening
+below happens on branch `dashboard/yc-polish` off updated main.
+
 ### Iter 1 — 2026-09-25 · Logo shipped to both shells (build-verified)
 - Added `app/components/logo.tsx` → `<LimulusMark>`: paints `app/public/limulus-mark.png`
   (monochrome, transparent bg — confirmed RGBA/hasAlpha) via CSS `mask` + `currentColor`, so the
@@ -141,3 +145,17 @@ and the next highest-impact item. Newest last.
 - DoD status: logo ✓, routes cohesive ✓, Overview verdict ✓, empty/offline/error states ✓,
   tokens systematic ✓, build/typecheck ✓, responsive ✓, favicon+metadata ✓. Nice-to-haves
   remaining: OG image, before/after screenshot doc, loading.tsx skeletons — hardening, post-merge.
+
+### Iter 8 — 2026-09-25 · Merge confirmed; route-transition loading skeleton
+- Confirmed PR #4 MERGED to main (`4c479ac`, 6/6 CI green). Started branch `dashboard/yc-polish`
+  off updated main for hardening. Audit: `error.tsx` + `not-found.tsx` already exist; no
+  `loading.tsx` anywhere.
+- Added `app/app/labs/loading.tsx` + `.labs-skel*` styles: an instant fallback for Labs route
+  transitions — the shell + sub-tabs stay, the content area shimmers (title/subtitle bars + two
+  panel placeholders). Respects `prefers-reduced-motion`; responsive.
+- Build green. Note on verification: locally the skeleton is hard to *see* — Next's client
+  router cache + fast local engine make visited-route transitions instant, so the fallback only
+  surfaces under real latency (the deployed shareable demo, B1). Confirmed it's wired (client
+  nav + Suspense boundary work) and compiles; the markup is trivial/static.
+- Next: OG image (evaluate feasibility in this Next fork); a short demo screenshot gallery; then
+  PR `dashboard/yc-polish` → main.

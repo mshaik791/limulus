@@ -211,6 +211,15 @@
 .labs-protocol p { color:var(--ink-2); margin:10px 0; }
 .labs-protocol pre { margin-top:8px; padding:14px; border-radius:10px; background:var(--sunken); font-size:11px; line-height:1.55; overflow:auto; }
 .labs-kv { display:grid; grid-template-columns:max-content 1fr; gap:8px 18px; font-size:13px; margin:12px 0; }
+
+/* Route-transition skeleton (app/labs/loading.tsx): shell + sub-tabs stay, content shimmers. */
+.labs-skel { padding-top:6px; }
+.labs-skel-bar,.labs-skel-panel { border-radius:10px; background:linear-gradient(100deg,var(--surface) 30%,var(--surface-2) 50%,var(--surface) 70%); background-size:300% 100%; animation:labs-shimmer 1.5s ease-in-out infinite; }
+.labs-skel-grid { display:grid; grid-template-columns:1.35fr 1fr; gap:18px; margin-top:30px; }
+.labs-skel-panel { height:260px; border:1px solid var(--line); }
+@keyframes labs-shimmer { 0% { background-position:150% 0; } 100% { background-position:-50% 0; } }
+@media(max-width:900px) { .labs-skel-grid { grid-template-columns:1fr; } }
+@media(prefers-reduced-motion:reduce) { .labs-skel-bar,.labs-skel-panel { animation:none; } }
 .labs-kv dt { color:var(--ink-2); }.labs-kv dd { min-width:0; overflow-wrap:anywhere; }
 .labs-warn { color:#efcd7c; font-size:13px; }.labs-warn a { text-decoration:underline; }
 .labs-total { font-size:13px; margin-top:10px; }
