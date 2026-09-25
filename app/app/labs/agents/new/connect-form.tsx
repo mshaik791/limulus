@@ -49,7 +49,7 @@ export function ConnectForm() {
           <label><span>Temperature</span><input name="temperature" type="number" step="0.1" min={0} max={2} /></label>
         </div>
         <label><span>Notes</span><input name="note" maxLength={500} placeholder="prompt revision, tool set, anything that identifies this configuration" /></label>
-        <p className="labs-muted">Recorded as your statement, with that provenance. The model an endpoint reports on each step is recorded separately as self-reported.</p>
+        <p className="labs-muted">These details are supplied by you and are not independently verified. The model your endpoint reports on each step is recorded separately.</p>
       </details>
 
       <div className="labs-actions">

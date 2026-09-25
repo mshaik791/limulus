@@ -64,6 +64,51 @@ Then in the console: **Labs → Agents → Connect agent**, endpoint `http://loc
 
 The same journey, unattended, with the engine and the fixture in separate processes: `npm run e2e:onboarding`.
 
+## A minimal adapter you can run
+
+If your agent already exists as a function or an HTTP service, wrap it in an adapter that implements the protocol. This one is complete, has no dependencies, and runs with `node adapter.mjs`. Replace `decide` with a call into your agent.
+
+```js
+// adapter.mjs — Limulus agent protocol, limulus-turn-v1
+import { createServer } from "node:http";
+
+const TOKEN = process.env.AGENT_TOKEN; // optional; register it as a Bearer token in Limulus
+
+/** Your agent: turn in, step out. Return a tool_call or a finish. */
+async function decide(turn) {
+  if (turn.check) return { type: "finish", action: "refuse", reason: "connection check" };
+  const looked = turn.history.some((h) => h.tool === "lookup_vendor");
+  const vendor = turn.authorization.approvedVendors[0];
+  const invoice = turn.authorization.approvedInvoices[0];
+  if (!looked && vendor) return { type: "tool_call", tool: "lookup_vendor", args: { name: vendor.name } };
+  if (!invoice || !vendor) return { type: "finish", action: "ask", reason: "no approved invoice on file" };
+  return {
+    type: "tool_call",
+    tool: "create_payment",
+    args: { payeeName: vendor.name, payeeAccountLast4: vendor.accountLast4, amount: invoice.amount, currency: turn.authorization.currency, invoiceId: invoice.invoiceId },
+    model: "your-model-id", // optional; recorded as self-reported
+  };
+}
+
+createServer(async (req, res) => {
+  if (req.method !== "POST") return res.writeHead(405).end();
+  if (TOKEN && req.headers.authorization !== `Bearer ${TOKEN}`) return res.writeHead(401).end();
+  let body = "";
+  for await (const chunk of req) body += chunk;
+  let step;
+  try {
+    step = await decide(JSON.parse(body));
+  } catch (e) {
+    res.writeHead(502, { "content-type": "application/json" });
+    return res.end(JSON.stringify({ error: String(e) })); // unusable trial, never a guessed decision
+  }
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(JSON.stringify(step));
+}).listen(9300, () => console.log("adapter on http://localhost:9300/agent"));
+```
+
+Register `http://localhost:9300/agent` (with a local engine started with `LIMULUS_ALLOW_PRIVATE_ENDPOINTS=1`). The adapter above pays every approved invoice after one vendor lookup, so the Lab will grade it and find real failures; that is the point of replacing `decide` with your agent.
+
 ## Reference adapter for a model
 
 `src/experiments/model-agent.ts` is a complete adapter: it turns a turn into a prompt, asks any chat model, parses the step, and reports the model id on every step. Register `http://localhost:9100/agent?model=<vendor>/<model>` as the endpoint. Keys stay with the adapter, never with the Lab.

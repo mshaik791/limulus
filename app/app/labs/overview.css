@@ -253,3 +253,9 @@
 .labs-advanced > summary { cursor:pointer; color:var(--accent-ink); }
 .labs-helper { font-size:12px; max-width:360px; line-height:1.45; }
 .labs-next.is-verified { border-color:#2f6b7a; }
+.labs-code { margin:12px 0; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--sunken); }
+.labs-code-head { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 12px; font-size:12px; color:var(--ink-2); border-bottom:1px solid var(--line); }
+.labs-code-head button { font:inherit; font-size:12px; color:var(--accent-ink); background:none; border:1px solid var(--line-2); border-radius:6px; padding:3px 10px; cursor:pointer; }
+.labs-code-head button:hover { border-color:var(--accent); }
+.labs-code pre { margin:0; padding:12px; font-size:11px; line-height:1.5; overflow:auto; max-height:320px; }
+.labs-protocol code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:var(--ink); }

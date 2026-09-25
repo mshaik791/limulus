@@ -19,7 +19,7 @@ export default async function NewAgent(props: PageProps<"/labs/agents/new">) {
     <div className="labs-page-head">
       <div>
         <h1>Connect a test version of your agent</h1>
-        <p>Your endpoint must support the Limulus agent protocol. Limulus sends scenarios and simulated tool results; your agent returns its next action. An existing agent URL needs a small adapter that speaks this shape; a reference adapter ships with the engine.</p>
+        <p>Your endpoint must support the Limulus agent protocol. Limulus sends scenarios and simulated tool results; your agent returns its next action. An existing agent URL needs an adapter that implements this protocol; the integration guide includes a runnable one.</p>
         <p className="labs-guide-links">
           <a href={GUIDE_URL} target="_blank" rel="noreferrer" className="labs-text-link">View integration guide<ArrowUpRight size={15} aria-hidden="true" /></a>
           <a href="#protocol-example" className="labs-text-link">See request/response example<ArrowUpRight size={15} aria-hidden="true" /></a>
@@ -38,7 +38,7 @@ export default async function NewAgent(props: PageProps<"/labs/agents/new">) {
           <li>Requests, responses and evaluation results are recorded. Your connection credential is excluded from test records.</li>
           <li>Your model provider may charge for requests, including the connection check.</li>
         </ul>
-        <div id="protocol-example"><ProtocolExample open /></div>
+        <ProtocolExample />
         <p className="labs-muted">No model yet? <code>npm run fixture-agent</code> in the engine starts a scripted stand-in at <code>http://localhost:9200/agent</code>. <Link href="/labs/agents">Back to agents</Link></p>
       </aside>
     </div>
