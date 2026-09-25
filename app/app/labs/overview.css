@@ -242,3 +242,8 @@
 .labs-demo-details > summary::after { content:"Show"; margin-left:auto; font-size:12px; color:var(--accent-ink); }
 .labs-demo-details[open] > summary::after { content:"Hide"; }
 .labs-demo-details .labs-demo-list { padding:0 26px 8px; }
+.labs-agent-result { display:grid; gap:3px; font-size:13px; }
+.labs-agent-result b { font-weight:500; color:var(--ink-2); }
+.labs-outline-button { display:inline-flex; align-items:center; padding:7px 14px; border:1px solid var(--accent); border-radius:8px; color:var(--accent-ink)!important; font-size:13px; font-weight:550; }
+.labs-outline-button:hover { background:var(--accent-soft); }
+.labs-agent-actions { align-items:center; }

@@ -64,18 +64,23 @@ export default async function Agents(props: PageProps<"/labs/agents">) {
                   <span><b>Connection:</b> <StatePill tone={CONNECTION_TONE[a.connection.state]}>{CONNECTION_LABEL[a.connection.state]}</StatePill></span>
                   <span><b>Version:</b> {latestVersion?.label ?? "—"}{versions.length > 1 ? <span className="labs-muted"> · {int(versions.length)} versions</span> : null}</span>
                 </div>
-                <div className="labs-agent-facts">
-                  {job ? (
-                    <span><b>Test in progress:</b> {JOB_LABEL[job.state]} · {job.progress.completed} of {job.progress.total} trials</span>
-                  ) : latestRun ? (
-                    <span><b>Latest test:</b> {latestRun.axes.safety.sampleSize ? <>safety score {latestRun.axes.safety.score}/100 on {int(latestRun.axes.safety.sampleSize)} usable trials · {int(latestRun.axes.criticalViolations.length)} critical findings</> : "no usable trials"}{runVersion ? ` · ${runVersion}` : ""} · {ago(latestRun.createdAt)}</span>
-                  ) : (
-                    <span><b>Latest test:</b> none yet</span>
-                  )}
-                </div>
+                {job ? (
+                  <div className="labs-agent-result"><b>Test in progress:</b> {JOB_LABEL[job.state]} · {job.progress.completed} of {job.progress.total} trials</div>
+                ) : latestRun ? (
+                  <div className="labs-agent-result">
+                    {latestRun.axes.safety.sampleSize ? (
+                      <div><b>Safety:</b> {latestRun.axes.safety.score}/100 · {int(latestRun.axes.safety.sampleSize)} usable trials · <span className={latestRun.axes.criticalViolations.length ? "labs-failure-text" : ""} title="Individual check failures graded as critical. A trial can fail more than one check.">{int(latestRun.axes.criticalViolations.length)} critical check failures</span></div>
+                    ) : (
+                      <div><b>Latest test:</b> no usable trials</div>
+                    )}
+                    <div className="labs-muted">Last tested {ago(latestRun.createdAt)}{runVersion ? ` · ${runVersion}` : ""}</div>
+                  </div>
+                ) : (
+                  <div className="labs-agent-result"><b>Latest test:</b> none yet</div>
+                )}
                 <div className="labs-agent-actions">
+                  {a.enabled && latestVersion && !job && <Link className="labs-outline-button" href={`/labs/tests/new?agentId=${encodeURIComponent(a.id)}&versionId=${encodeURIComponent(latestVersion.id)}`}>{latestRun ? "Run test" : "Run first test"}</Link>}
                   {job ? <Link className="labs-text-link" href={`/labs/jobs/${job.id}`}>View progress<ArrowUpRight size={15} aria-hidden="true" /></Link> : latestRun ? <Link className="labs-text-link" href={`/labs/tests/${latestRun.id}`}>View results<ArrowUpRight size={15} aria-hidden="true" /></Link> : null}
-                  {a.enabled && latestVersion && !job && <Link className="labs-text-link" href={`/labs/tests/new?agentId=${encodeURIComponent(a.id)}&versionId=${encodeURIComponent(latestVersion.id)}`}>{latestRun ? "Run test" : "Run first test"}<ArrowUpRight size={15} aria-hidden="true" /></Link>}
                 </div>
               </li>
             );
