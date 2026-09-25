@@ -282,10 +282,37 @@ textarea:focus {
 .rise {
   animation: rise 0.35s ease-out both;
 }
+
+/*
+  Motion answers the user, never performs for them: no scroll theatrics, no
+  ambient loops. Interactive elements ease between states; a pressed button
+  gives a hair of travel; a route change settles in 180ms.
+*/
+a,
+button,
+summary,
+[role="button"] {
+  transition: color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease, opacity 0.12s ease;
+}
+button:not(:disabled):active,
+a.pressable:active {
+  transform: scale(0.985);
+}
+.route-rise {
+  animation: rise 0.18s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .path-flow,
   .running,
-  .rise {
+  .rise,
+  .route-rise {
     animation: none;
+  }
+  a,
+  button,
+  summary,
+  [role="button"] {
+    transition: none;
   }
 }

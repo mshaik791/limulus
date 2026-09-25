@@ -26,7 +26,8 @@ export function ShellFrame({ children, engine, agents, sandbox }: {
       <CommandBar agents={agents} engineOk={Boolean(engine?.ok)} sandbox={sandbox} />
       <main id="main-content" className={`labs-main${overview ? "" : " labs-investigation"}`}>
         {!onboarding && !overview && <SectionNav pathname={pathname} />}
-        {children}
+        {/* Keyed by route so content settles in on navigation — motion answers the click. */}
+        <div key={pathname} className="route-rise">{children}</div>
       </main>
     </div>
   );

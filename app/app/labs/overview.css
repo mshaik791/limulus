@@ -9,6 +9,14 @@
 .labs-brand { display:flex; align-items:center; gap:10px; text-decoration:none; }
 .labs-brand svg { color:var(--accent); }
 .labs-brand span { font-size:13px; font-weight:600; letter-spacing:.16em; color:var(--ink); }
+/* The crab dips on hover — the mark is a currentColor mask, so shifting the
+   span's color repaints it in hemolymph. Motion only answers the pointer. */
+.labs-brand > span:first-child { transition: transform .22s ease, color .22s ease; }
+.labs-brand:hover > span:first-child { transform: rotate(-8deg) translateY(-1px); color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .labs-brand > span:first-child { transition: none; }
+  .labs-brand:hover > span:first-child { transform: none; }
+}
 .labs-primary-nav { display:flex; align-items:center; gap:4px; margin:auto; }
 .labs-primary-nav a { padding:6px 12px; font-size:13px; color:var(--ink-2); border-radius:var(--radius-sm); }
 .labs-primary-nav a:hover { background:var(--surface-2); color:var(--ink); }
