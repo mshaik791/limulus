@@ -74,7 +74,7 @@ export default async function Production() {
                       const miss = productionMiss(r, o);
                       const d = decisionState(r.outcome, sb);
                       return (
-                        <tr key={r.id} className={`row-link ${miss ? "bg-crit-soft/30" : ""}`}>
+                        <tr key={r.id} className={`row-link ${miss ? "bg-surface-2/60" : ""}`}>
                           <td className="pl-6">
                             <Link href={`/decisions/${r.id}`} className="font-medium">
                               {r.declaration.agentId ? agentDisplay(r.declaration.agentId) : "unknown agent"}
@@ -97,8 +97,8 @@ export default async function Production() {
                           <td className="pr-6">
                             {miss ? (
                               <span>
-                                <StateBadge state="INCIDENT" label={sb ? "SIMULATED MISS" : "INCIDENT"} />
-                                <div className="mt-0.5 text-[11.5px] text-crit-ink">{miss}</div>
+                                <StateBadge state="INCIDENT" label={sb ? "Simulated miss" : "Incident"} />
+                                <div className="mt-0.5 text-[11.5px] text-ink-3">{miss}</div>
                               </span>
                             ) : r.outcome === "released" ? (
                               <span className="text-[12px] text-ink-3">{o ? "as decided" : "awaiting rail"}</span>
@@ -121,14 +121,14 @@ export default async function Production() {
                   <ul className="grid gap-2">
                     {misses.slice(0, 6).map(({ r, miss }, i) => (
                       <li key={`${r.id}-${i}`}>
-                        <Link href={`/decisions/${r.id}`} className="block rounded-[var(--radius-sm)] border border-crit/30 bg-surface-2 px-3 py-2 hover:border-crit">
+                        <Link href={`/decisions/${r.id}`} className="block rounded-[var(--radius-sm)] border border-line bg-surface-2 px-3 py-2 hover:border-line-hover">
                           <div className="flex items-center justify-between gap-2 text-[13px]">
                             <span>
                               {money(r.paymentOrder.amount, r.paymentOrder.currency)} to {r.paymentOrder.payeeName}
                             </span>
-                            <StateBadge state="INCIDENT" label="MISS" />
+                            <StateBadge state="INCIDENT" label="Miss" />
                           </div>
-                          <div className="mt-0.5 text-[12px] text-crit-ink">{miss}</div>
+                          <div className="mt-0.5 text-[12px] text-ink-3">{miss}</div>
                         </Link>
                       </li>
                     ))}
