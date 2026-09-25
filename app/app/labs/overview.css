@@ -60,6 +60,9 @@
 .labs-actions { display:flex; align-items:center; gap:28px; margin:23px 0; flex-wrap:wrap; }
 .labs-primary-button { display:inline-flex; align-items:center; gap:20px; background:var(--accent); border:1px solid var(--accent); color:#06151d!important; border-radius:9px; padding:12px 20px; font-size:14px; font-weight:600; }
 .labs-primary-button:hover { background:#a0e5f7; }
+/* Tailwind accent buttons (bg-accent + text-white) must read as dark ink on the light Labs
+   cyan for AA contrast (white-on-cyan is 1.77:1). Global blue theme keeps its white text. */
+.labs-modern .bg-accent { color:#06151d !important; }
 .labs-actions .labs-run-control > button { background:none; border:0; border-radius:0; padding:2px 0; color:var(--ink); font-size:13px; border-bottom:1px solid #6fb4c7; }
 .labs-modern .labs-run-control form { max-width:calc(100vw - 64px); background:#1a2227; }
 .labs-modern .labs-run-control form button[type=submit] { color:#08161b; }

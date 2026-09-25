@@ -169,3 +169,22 @@ below happens on branch `dashboard/yc-polish` off updated main.
   image for assistive tech. Only instance in the app (grep-confirmed).
 - Re-audit: **all four categories 100, 0 failures.** Build green.
 - Next: PR `dashboard/yc-polish` → main (loading skeleton + a11y fix); then evaluate OG image.
+
+### Iter 10 — 2026-09-25 · PR #5 merged; research pass; a11y sweep finds a real contrast bug
+- PR #5 MERGED to main (`57ada52`). New branch `dashboard/yc-polish-2` off updated main.
+- **Research pass** (WebSearch, eval + fintech-dashboard best practices). Key principles and how
+  Limulus already meets them: "lead with the one number" ✓ (readiness verdict up top); "show what
+  competitors hide — violations alongside transactions" ✓ (findings + simulated exposure on-screen);
+  "trust is structural, honesty front and center" ✓ (n on every rate, sandbox labels, signed
+  provenance); "accessibility/compliance credentials as a primary trust signal" → drove the a11y
+  sweep below. Sources: W&B, MLflow, Azure AI Foundry, themasterly/foundey fintech-dashboard guides,
+  everything.design trust-signals. Net: the design is well-aligned; no rebuild warranted.
+- **a11y sweep** (Lighthouse desktop) across routes: `/labs` 100, `/labs/tests` 100,
+  `/labs/arena?tab=configurations` **96 — 1 real bug**: `bg-accent text-white` Tailwind buttons
+  render white on the light Labs cyan (`#72cfe9`), contrast **1.77:1** (fail). Exposed more widely
+  once the shell unification put every Labs route on the cyan theme.
+- **Fix** (`overview.css`): `.labs-modern .bg-accent { color:#06151d !important }` — dark ink on the
+  cyan accent, matching the existing `.labs-primary-button`/nav pattern. One rule fixes all six
+  Tailwind accent buttons (command-bar, ui.tsx Button, run-test) in the Labs theme; the global blue
+  theme (Production routes) keeps its white text. Re-audit: arena **100/0**. Build green.
+- Next: audit remaining routes (releases/policies/qualifications/agents) for a11y; PR polish-2 → main.
