@@ -128,3 +128,16 @@ and the next highest-impact item. Newest last.
   is risky in this Next fork). Branch is in strong shape.
 - Next: spot-check detail routes (tests/[runId] grades/traces, scenario replay); then merge
   `dashboard/yc-demo-day` → main (all green) so the work lands in main by morning.
+
+### Iter 7 — 2026-09-25 · Test-detail evidence view verified; merging to main
+- Spot-checked the drill-down `tests/[runId]` — the evidence view a VC clicks into: 4 stat
+  cards each with its n (Scenarios passed 36/42, Trials w/ critical failure 18/126, Critical
+  check failures 18, Safety 84/100), plain-English findings ("Paid where a person should have
+  decided"), simulated exposures labelled, Replay actions, and Findings/Scores/Scenarios/Trace/
+  Evidence tabs. Credible and clean. No fix needed.
+- Merged `origin/main` into the branch — clean (only `src/bench/twin.ts`, the engine fix, came
+  in; app/docs untouched). App build green post-merge.
+- Merging `dashboard/yc-demo-day` → main via PR now (all green, DoD substantially met).
+- DoD status: logo ✓, routes cohesive ✓, Overview verdict ✓, empty/offline/error states ✓,
+  tokens systematic ✓, build/typecheck ✓, responsive ✓, favicon+metadata ✓. Nice-to-haves
+  remaining: OG image, before/after screenshot doc, loading.tsx skeletons — hardening, post-merge.
