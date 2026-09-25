@@ -188,3 +188,14 @@ below happens on branch `dashboard/yc-polish` off updated main.
   Tailwind accent buttons (command-bar, ui.tsx Button, run-test) in the Labs theme; the global blue
   theme (Production routes) keeps its white text. Re-audit: arena **100/0**. Build green.
 - Next: audit remaining routes (releases/policies/qualifications/agents) for a11y; PR polish-2 → main.
+
+### Iter 11 — 2026-09-25 · Accessibility sweep complete (every route 100)
+- Audited the remaining routes with Lighthouse (desktop): `/labs/qualifications`, `/labs/policies`,
+  `/labs/agents`, `/labs/releases` — **all 100/100/100/100, 0 failures**. Combined with earlier
+  audits (`/labs`, `/labs/tests`, `/labs/arena`), the whole Labs surface is Lighthouse-perfect.
+  The iter-10 accent-button contrast bug was the only real issue found; no new issues here.
+- PR'ing `dashboard/yc-polish-2` (the contrast fix) → main.
+- **State: the dashboard is YC-demo-ready and fully accessible.** Core + all hardening merged
+  (PRs #4, #5) or in flight (contrast fix). Genuine high-value UI work is essentially exhausted;
+  remaining ideas (OG preview image) are nice-to-haves with real risk in this Next fork. Per the
+  brief, lengthening the loop cadence rather than manufacturing changes to a finished product.
