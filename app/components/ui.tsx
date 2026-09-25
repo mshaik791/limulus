@@ -154,12 +154,11 @@ export function Rate({ score, n, big = false }: { score: number | null; n: numbe
 }
 
 /** label · value · sub. The value is prominent; the detail is small and muted. */
-export function Metric({ label, value, sub, tone = "neutral", size = "md" }: { label: ReactNode; value: ReactNode; sub?: ReactNode; tone?: Tone; size?: "md" | "lg" }) {
-  const colour = tone === "crit" ? "text-crit-ink" : tone === "warn" ? "text-warn-ink" : tone === "good" ? "text-good-ink" : tone === "model" ? "text-model-ink" : "";
+export function Metric({ label, value, sub, size = "md" }: { label: ReactNode; value: ReactNode; sub?: ReactNode; tone?: Tone; size?: "md" | "lg" }) {
   return (
     <div>
       <div className="text-[12px] text-ink-3">{label}</div>
-      <div className={`metric mt-1 leading-none ${size === "lg" ? "text-[40px]" : "text-[28px]"} ${colour}`}>{value}</div>
+      <div className={`metric mt-1 leading-none text-ink ${size === "lg" ? "text-[40px]" : "text-[28px]"}`}>{value}</div>
       {sub && <div className="mt-1.5 text-[12px] text-ink-3">{sub}</div>}
     </div>
   );
