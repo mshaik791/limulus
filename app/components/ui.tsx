@@ -81,15 +81,17 @@ const toneClass: Record<Tone, string> = {
   crit: "bg-crit-soft text-crit-ink border-transparent",
   model: "bg-model-soft text-model-ink border-transparent",
 };
-const toneGlyph: Record<Tone, string> = { neutral: "·", accent: "●", good: "✓", warn: "!", crit: "✕", model: "◆" };
+const toneDot: Record<Tone, string> = { neutral: "var(--ink-3)", accent: "var(--accent)", good: "var(--good)", warn: "var(--warn)", crit: "var(--crit)", model: "var(--model)" };
+const toneBg: Record<Tone, string> = { neutral: "bg-surface-3", accent: "bg-accent-soft", good: "bg-good-soft", warn: "bg-warn-soft", crit: "bg-crit-soft", model: "bg-model-soft" };
 
-/** A word with its colour and a glyph, so grayscale still reads. */
+/** A status word with a small LED in its colour — quiet by default, so a screen full of them
+    reads as an instrument panel, not a bag of candy. Grayscale still parses via the word. */
 export function Pill({ tone = "neutral", children, mono = false, size = "sm" }: { tone?: Tone; children: ReactNode; mono?: boolean; size?: "sm" | "md" }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border font-medium leading-4 ${size === "md" ? "px-2.5 py-1 text-[12.5px]" : "px-2 py-[2px] text-[11.5px]"} ${toneClass[tone]} ${mono ? "mono" : ""}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border border-line-2 leading-4 text-ink-2 ${size === "md" ? "px-2.5 py-1 text-[12px]" : "px-2 py-[3px] text-[11px]"} ${mono ? "mono" : ""}`}
     >
-      <span aria-hidden className="text-[10px]">{toneGlyph[tone]}</span>
+      <span aria-hidden className="h-[5px] w-[5px] shrink-0 rounded-full" style={{ background: toneDot[tone] }} />
       {children}
     </span>
   );
@@ -119,11 +121,9 @@ export function StateBadge({ state, label, size = "md" }: { state: DecisionState
   const tone = stateTone[state];
   return (
     <span
-      className={`inline-flex items-center gap-2 rounded-[6px] border font-semibold tracking-[0.08em] ${size === "lg" ? "px-3 py-1.5 text-[13px]" : "px-2 py-1 text-[11px]"} ${toneClass[tone]} ${
-        state === "BLOCKED" || state === "FAIL" || state === "INCIDENT" ? "[box-shadow:var(--glow-crit)]" : state === "READY" || state === "PASS" || state === "RELEASE" ? "[box-shadow:var(--glow-good)]" : ""
-      }`}
+      className={`mono inline-flex items-center gap-2 rounded-[5px] border border-line-2 font-medium uppercase leading-none tracking-[0.13em] text-ink ${toneBg[tone]} ${size === "lg" ? "px-3 py-2 text-[11.5px]" : "px-2.5 py-1.5 text-[10px]"}`}
     >
-      <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${state === "RUNNING" ? "running" : ""}`} style={{ background: `var(--${tone === "neutral" ? "ink-3" : tone})` }} />
+      <span aria-hidden className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${state === "RUNNING" ? "running" : ""}`} style={{ background: `var(--${tone === "neutral" ? "ink-3" : tone})` }} />
       {label ?? state.replace("_", " ")}
     </span>
   );
@@ -159,7 +159,7 @@ export function Metric({ label, value, sub, tone = "neutral", size = "md" }: { l
   return (
     <div>
       <div className="text-[12px] text-ink-3">{label}</div>
-      <div className={`mt-1 font-semibold leading-none tracking-[-0.015em] tabular ${size === "lg" ? "text-[40px]" : "text-[28px]"} ${colour}`}>{value}</div>
+      <div className={`metric mt-1 leading-none ${size === "lg" ? "text-[40px]" : "text-[28px]"} ${colour}`}>{value}</div>
       {sub && <div className="mt-1.5 text-[12px] text-ink-3">{sub}</div>}
     </div>
   );
@@ -259,7 +259,7 @@ export function Hash({ value, n = 16 }: { value: string; n?: number }) {
 const btn = (tone: "neutral" | "accent" | "crit") =>
   `inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] border px-3 py-1.5 text-[13px] font-medium transition-colors disabled:opacity-50 ${
     tone === "accent"
-      ? "border-accent bg-accent text-white hover:brightness-110"
+      ? "border-accent bg-accent text-[#04141c] hover:brightness-105"
       : tone === "crit"
         ? "border-crit/40 bg-crit-soft text-crit-ink hover:border-crit"
         : "border-line-2 bg-surface-2 text-ink hover:border-accent/60"
