@@ -25,7 +25,7 @@ export default async function Shadow(props: PageProps<"/production">) {
     <>
       <PageHeader
         title="Shadow Mode"
-        subtitle="Observe real financial-agent decisions without blocking anything."
+        subtitle="What would Limulus have blocked? Real decisions, observed; nothing is held."
         actions={
           <form className="flex items-center gap-2 text-[12px]">
             <label htmlFor="org" className="text-ink-3">
@@ -38,15 +38,23 @@ export default async function Shadow(props: PageProps<"/production">) {
       />
 
       {summary.evaluated === 0 ? (
-        <div className="grid gap-4 xl:grid-cols-12">
-          <div className="xl:col-span-8">
-            <Card emphasis="accent">
-              <div className="eyebrow">How it works</div>
-              <div className="mt-3">
-                <ExecutionPath steps={[{ label: "Your agent", tone: "accent" }, { label: "Limulus shadow", sub: "re-decides, read-only", tone: "model" }, { label: "Your payment system", sub: "unchanged", tone: "good" }]} />
-              </div>
-              <p className="mt-3 text-[13px] text-ink-2">Limulus analyses each decision your system already made and records what the three-way match would have done. It never interferes: no transaction is blocked while Shadow Mode is enabled.</p>
-              <ol className="mt-5 grid gap-3 md:grid-cols-3">
+        <div className="mx-auto max-w-[760px]">
+          <Card className="px-2 py-4 text-center">
+            <p className="text-[18px] font-medium">Observe real agent decisions without blocking anything.</p>
+            <p className="mt-1 text-[13px] text-ink-3">Nothing observed yet for org <span className="mono">{org}</span>. No transaction is ever held while Shadow Mode is on.</p>
+            <div className="mx-auto mt-6 max-w-[560px]">
+              <ExecutionPath steps={[{ label: "Your agent", tone: "accent" }, { label: "Limulus shadow", sub: "re-decides, read-only", tone: "model" }, { label: "Your payment system", sub: "unchanged", tone: "good" }]} />
+            </div>
+            <div className="mt-6">
+              <LinkButton href="#connect" tone="accent">
+                Connect Production Agent
+              </LinkButton>
+            </div>
+          </Card>
+          <details id="connect" className="mt-4">
+            <summary className="cursor-pointer text-[13px] text-accent-ink">How to connect</summary>
+            <Card className="mt-3">
+              <ol className="grid gap-3 md:grid-cols-3">
                 {[
                   ["Connect the production agent", "Give each decision an agent id and an org, so disagreements land in the right place."],
                   ["Mirror the decision payloads", "Send the declaration, the payment order, the documents and what production did."],
@@ -59,8 +67,7 @@ export default async function Shadow(props: PageProps<"/production">) {
                   </li>
                 ))}
               </ol>
-              <details className="mt-5">
-                <summary className="cursor-pointer text-[13px] text-accent-ink">The call</summary>
+              <div className="mt-5 text-[12px] text-ink-3">The call</div>
                 <pre className="mono mt-2 rounded-[var(--radius-sm)] bg-sunken p-3 text-[11.5px] leading-relaxed text-ink-2">{`POST /v1/shadow/evaluate
 {
   "org": "${org}",
@@ -71,21 +78,9 @@ export default async function Shadow(props: PageProps<"/production">) {
   "documents": [ { "name": "…", "type": "invoice", "text": "…" } ],
   "production": { "outcome": "released", "reference": "pay_…" }
 }`}</pre>
-              </details>
+              <p className="mt-3 text-[12px] text-ink-3">Selftest orgs exist on this engine; try org <span className="mono">selftest-*</span> from the search.</p>
             </Card>
-          </div>
-          <div className="xl:col-span-4">
-            <Card className="h-full">
-              <div className="eyebrow">Nothing observed yet for org {org}</div>
-              <p className="mt-2 text-[14px] font-medium">Connect a production agent to see what Limulus would have released, held or escalated.</p>
-              <div className="mt-4">
-                <LinkButton href="/production" tone="accent">
-                  Connect Production Agent
-                </LinkButton>
-              </div>
-              <p className="mt-3 text-[12px] text-ink-3">The button in the command bar shows the same contract. Selftest orgs exist on this engine; try org <span className="mono">selftest-*</span> from the search.</p>
-            </Card>
-          </div>
+          </details>
         </div>
       ) : (
         <>

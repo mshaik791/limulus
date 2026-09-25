@@ -121,13 +121,13 @@ function convert(scenario: HardScenario): Scenario {
       amount: scenario.correctAmount,
       currency: "USD",
     },
-    rationale: scenario.what,
+    rationale: scenario.why,
     source: "Limulus hard scenario library, screened against live agents September 2026",
   };
 }
 
 export const hardPackId = "payments-hard-v1";
-export const hardPackVersion = "0.1.0";
+export const hardPackVersion = "0.1.1";
 
 /**
  * A conversion is only usable when the document actually names the invoice the

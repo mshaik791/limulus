@@ -34,7 +34,7 @@ export default async function GateDetail(props: PageProps<"/labs/releases/[id]">
 
   return (
     <>
-      <Breadcrumb items={[{ href: "/labs/releases", label: "Release Gates" }, { label: g.id }]} />
+      <Breadcrumb items={[{ href: "/labs/releases", label: "Releases" }, { label: g.id }]} />
       <PageHeader
         eyebrow={`Release gate · ${when(g.createdAt)}`}
         title={

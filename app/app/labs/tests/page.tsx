@@ -1,21 +1,23 @@
 import Link from "next/link";
-import { AlertOctagon, FlaskConical, PlayCircle, ShieldCheck } from "lucide-react";
-import { gates, labRuns } from "@/lib/api";
+import { candidates, compares, gates, labRuns, records, shadowRecords } from "@/lib/api";
+import { activity } from "@/lib/activity";
 import { safe } from "@/lib/safe";
-import { int, ms, when, withinDays } from "@/lib/format";
-import { agentDisplay, suiteName } from "@/lib/names";
-import { MetricCard } from "@/components/blocks";
+import { agentKey, readiness } from "@/lib/derive";
+import { ago, int, ms, when } from "@/lib/format";
+import { agentDisplay, agentTitle, agentVersionLabel, suiteName } from "@/lib/names";
+import { ActivityFeed } from "@/components/blocks";
 import { Card, EmptyState, EnvBar, Offline, PageHeader, Pill, Rate, StateBadge } from "@/components/ui";
 
-export const metadata = { title: "Test Runs" };
+export const metadata = { title: "Tests" };
 
 // Every Lab run, filterable. Suites and agents get their human names; the raw
 // identifiers stay in the tooltip and on the run page.
 
 export default async function TestRuns(props: PageProps<"/labs/tests">) {
   const search = await props.searchParams;
-  const [runs, gt] = await Promise.all([safe(labRuns()), safe(gates())]);
+  const [runs, gt, cmp, shadowRows, cands, chain] = await Promise.all([safe(labRuns()), safe(gates()), safe(compares()), safe(shadowRecords()), safe(candidates()), safe(records())]);
   if (!runs) return <Offline />;
+  const feed = activity({ runs, gates: gt ?? [], compares: cmp ?? [], shadow: shadowRows ?? [], candidates: cands ?? [], decisions: chain ?? [] }, 12);
   const f = { agent: str(search.agent), suite: str(search.suite), gate: str(search.gate), q: str(search.q).toLowerCase() };
   const gateByRun = new Map((gt ?? []).map((g) => [g.runId, g]));
 
@@ -26,25 +28,48 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
     .filter((r) => !f.gate || r.controls.mode === f.gate)
     .filter((r) => !f.q || `${r.id} ${r.agent.name} ${r.agent.version} ${r.suite.id}`.toLowerCase().includes(f.q));
 
-  const thisWeek = runs.filter((r) => withinDays(r.createdAt, 7));
-  const episodes = thisWeek.reduce((n, r) => n + r.suite.episodes, 0);
-  const safetyN = thisWeek.reduce((n, r) => n + r.axes.safety.sampleSize, 0);
-  const safetyMean = safetyN ? Math.round(thisWeek.reduce((n, r) => n + r.axes.safety.score * r.axes.safety.sampleSize, 0) / safetyN) : null;
-  const criticals = thisWeek.reduce((n, r) => n + r.axes.criticalViolations.length, 0);
+  // The headline is the latest run in view: its agent, result and status.
+  const last = rows[0];
+  const lastGate = last ? (gt ?? []).filter((g) => `${g.agent.name}@${g.agent.version}` === agentKey(last)).at(-1) : undefined;
+  const lastReady = last ? readiness(last, lastGate) : null;
   const agents = [...new Set(runs.map((r) => r.agent.name))];
   const suites = [...new Set(runs.map((r) => suiteName(r.suite.id).name))];
 
   return (
     <>
-      <PageHeader title="Test Runs" subtitle="Every Lab run on record. Each row is a signed record; open one for its grades and traces." />
+      <PageHeader title="Tests" subtitle="How did the agent perform? Every run is a signed record; open one for its grades and traces." />
       <EnvBar />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <MetricCard icon={PlayCircle} label="Runs this week" value={int(thisWeek.length)} sub={`${int(runs.length)} on record`} />
-        <MetricCard icon={FlaskConical} label="Scenarios executed this week" value={int(episodes)} sub="episodes graded" />
-        <MetricCard icon={ShieldCheck} label="Average safety this week" value={<Rate score={safetyMean} n={safetyN} />} sub="weighted by episodes" />
-        <MetricCard icon={AlertOctagon} label="Critical check failures this week" value={int(criticals)} tone={criticals ? "crit" : "good"} sub="simulated; episodes are counted on each run" />
-      </div>
+      {last && lastReady && (
+        <div className="mb-6 flex flex-wrap items-end gap-x-10 gap-y-4">
+          <div>
+            <div className="text-[12px] text-ink-3">Latest {f.agent || f.suite || f.gate || f.q ? "in this view" : "test"}</div>
+            <div className="mt-1 text-[20px] font-semibold leading-tight">
+              <Link href={`/labs/tests/${last.id}`}>{agentTitle(last)}</Link> <span className="text-[14px] font-normal text-ink-3">{suiteName(last.suite.id).name} · {ago(last.createdAt)}</span>
+            </div>
+          </div>
+          <div>
+            <div className="text-[12px] text-ink-3">Safety</div>
+            <div className="mt-1 text-[24px] font-semibold leading-none tabular">
+              <Rate score={last.axes.safety.score} n={last.axes.safety.sampleSize} />
+            </div>
+          </div>
+          <div>
+            <div className="text-[12px] text-ink-3">Critical findings</div>
+            <div className={`mt-1 text-[24px] font-semibold leading-none tabular ${last.axes.criticalViolations.length ? "text-crit-ink" : ""}`}>{int(last.axes.criticalViolations.length)}</div>
+          </div>
+          <div>
+            <div className="text-[12px] text-ink-3">Tests run</div>
+            <div className="mt-1 text-[24px] font-semibold leading-none tabular">{int(last.suite.episodes)}</div>
+          </div>
+          <div>
+            <div className="text-[12px] text-ink-3">Status</div>
+            <div className="mt-1.5">
+              <StateBadge state={lastReady.state} label={lastReady.state === "REVIEW" ? "REVIEW REQUIRED" : lastReady.state === "BLOCKED" ? "BLOCKED" : lastReady.state === "READY" ? "READY" : "NOT TESTED"} size="lg" />
+            </div>
+          </div>
+        </div>
+      )}
 
       <form className="mb-4 flex flex-wrap items-center gap-2 text-[13px]">
         <select name="agent" defaultValue={f.agent} aria-label="agent">
@@ -87,15 +112,15 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
             <table className="w-full whitespace-nowrap">
               <thead>
                 <tr>
-                  <th className="pl-6">run</th>
+                  <th className="pl-6">test</th>
                   <th>agent</th>
                   <th>suite</th>
                   <th className="text-right">safety</th>
-                  <th className="text-right">episodes</th>
-                  <th className="text-right">critical check failures</th>
+                  <th className="text-right">tests run</th>
+                  <th className="text-right">critical findings</th>
                   <th>gate</th>
-                  <th>release</th>
-                  <th className="pr-6 text-right">time</th>
+                  <th>status</th>
+                  <th className="pr-6 text-right">took</th>
                 </tr>
               </thead>
               <tbody>
@@ -109,11 +134,11 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
                         <Link href={`/labs/tests/${r.id}`} className="font-medium">
                           {when(r.createdAt)}
                         </Link>
-                        <div className="mono text-[11px] text-ink-3">{r.id}</div>
+                        <div className="text-[11px] text-ink-3">{ago(r.createdAt)}</div>
                       </td>
                       <td>
                         {agentDisplay(r.agent.name)}
-                        <div className="mono text-[11px] text-ink-3">{r.agent.name} v{r.agent.version}</div>
+                        <div className="text-[11px] text-ink-3" title={r.id}>{agentVersionLabel(r)}</div>
                       </td>
                       <td>
                         <span title={suite.raw}>{suite.name}</span>
@@ -140,6 +165,12 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
           </div>
         </Card>
       )}
+
+      <div className="mt-6">
+        <Card title="Activity" aside={`${int(feed.length)} most recent sealed records`}>
+          <ActivityFeed items={feed} empty="Nothing sealed yet." />
+        </Card>
+      </div>
     </>
   );
 }

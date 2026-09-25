@@ -1,30 +1,31 @@
 import { createServer } from "node:http";
-import { isTurn, parseStep, promptFor } from "./agent-prompt.ts";
+import { isTurn, parseStepDetail, promptFor } from "./agent-prompt.ts";
+import { askClaudeCli } from "./claude-cli.ts";
+import { CLAUDE_CLI, catalog, configured, resolve, type CatalogEntry } from "./providers.ts";
 import type { AgentStep, AgentTurn } from "../sandbox/episode.ts";
 
-// Puts any chat model behind the Lab's agent endpoint, through an
-// OpenAI-compatible chat-completions API. The default base URL is Vercel's AI
-// Gateway, which reaches Anthropic, OpenAI, Google and others with one
-// credential; any other compatible server works with --base-url.
+// Puts any chat model behind the Lab's agent endpoint. One server, one prompt,
+// a model per arm chosen by query string:
 //
-//   node --env-file=.env.local src/experiments/model-agent.ts \
-//     --models anthropic/claude-sonnet-4.5,openai/gpt-4.1,google/gemini-2.5-pro
+//   node --env-file=.env.local src/experiments/model-agent.ts
 //
-//   then each model is an arm:
-//     node src/lab-cli.ts compare \
-//       "Claude Sonnet=http://localhost:9100/agent?model=anthropic/claude-sonnet-4.5:off" \
-//       "GPT-4.1=http://localhost:9100/agent?model=openai/gpt-4.1:off" \
-//       "Gemini 2.5 Pro=http://localhost:9100/agent?model=google/gemini-2.5-pro:off" --trials 3
+//   node src/lab-cli.ts compare \
+//     "GPT-4o mini=http://localhost:9100/agent?model=openai/gpt-4o-mini:off" \
+//     "Gemini 2.5 Flash=http://localhost:9100/agent?model=google/gemini-2.5-flash:off" \
+//     "Claude Sonnet=http://localhost:9100/agent?model=claude-cli/sonnet:off" --trials 3
 //
-// Credentials, in order: AI_GATEWAY_API_KEY, VERCEL_OIDC_TOKEN (what
-// `vercel env pull` writes for a linked project), OPENAI_API_KEY. Never
-// printed. Zero dependencies: fetch is enough.
+// Routing is in providers.ts: a provider's own key when present, otherwise a
+// gateway that serves every vendor (OpenRouter, or Vercel's AI Gateway), and
+// the local Claude CLI for claude-cli/*. --models
+// restricts the ids this server will accept; without it any id with a route
+// is accepted, so a new model needs no code. GET /health lists the providers
+// with a credential and the models they say they serve.
 //
-// Same three rules as the Claude bridge. The prompt hints at nothing. A reply
-// that is not a usable step is a 502, never an invented refusal, so the Lab
-// records an unusable episode rather than behaviour that did not happen. And
-// the endpoint says which model it invoked on every step, which the Lab
-// records as self-reported: the most an endpoint's claim about itself is worth.
+// Three rules. The prompt hints at nothing. A reply that is not a usable step
+// is a 502, never an invented refusal, so the Lab records an unusable episode
+// rather than behaviour that did not happen. And the endpoint says which model
+// it invoked on every step, which the Lab records as self-reported: the most
+// an endpoint's claim about itself is worth.
 
 const arg = (flag: string, fallback?: string) => {
   const i = process.argv.indexOf(flag);
@@ -32,68 +33,114 @@ const arg = (flag: string, fallback?: string) => {
 };
 
 const port = Number(arg("--port", "9100"));
-const baseUrl = (arg("--base-url", process.env.AI_GATEWAY_BASE_URL ?? "https://ai-gateway.vercel.sh/v1") ?? "").replace(/\/$/, "");
 const allowed = (arg("--models", "") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const via = (arg("--via", "auto") ?? "auto") as "auto" | "direct" | "gateway";
 const temperature = Number(arg("--temperature", "0"));
-const timeoutMs = Number(arg("--timeout", "90000"));
-const maxTokens = Number(arg("--max-tokens", "400"));
-const key = process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN ?? process.env.OPENAI_API_KEY;
+const timeoutMs = Number(arg("--timeout", "120000"));
+// Reasoning models spend part of the budget thinking before the JSON; a
+// budget that is too small truncates the step, which is then rightly unusable.
+const maxTokens = Number(arg("--max-tokens", "4000"));
 
-if (allowed.length === 0) {
-  console.error("  --models is required: a comma-separated list of provider/model ids from the gateway's /v1/models");
-  process.exit(2);
-}
-if (!key) {
-  console.error("  No credential. Set AI_GATEWAY_API_KEY, or run with --env-file=.env.local after `vercel env pull`, or set OPENAI_API_KEY for a direct base URL.");
-  process.exit(2);
+const providers = configured();
+if (providers.length === 0) console.log("  No provider credential in the environment: only claude-cli/* models will work. See src/experiments/providers.ts for the variables.");
+for (const id of allowed) {
+  const { route, reason } = resolve(id, via);
+  if (!route) {
+    console.error(`  ${id}: ${reason}`);
+    process.exit(2);
+  }
 }
 
 const stats = new Map<string, { calls: number; failures: number; ms: number }>();
+let cached: { at: number; entries: CatalogEntry[]; problems: string[] } | null = null;
+async function models(): Promise<{ entries: CatalogEntry[]; problems: string[] }> {
+  if (cached && Date.now() - cached.at < 10 * 60_000) return cached;
+  const c = await catalog();
+  const cli: CatalogEntry[] = ["opus", "sonnet", "haiku"].map((m) => ({ id: `${CLAUDE_CLI}/${m}`, provider: CLAUDE_CLI, via: "claude-cli" }));
+  cached = { at: Date.now(), entries: [...cli, ...c.entries], problems: c.problems };
+  return cached;
+}
 
-async function ask(model: string, turn: AgentTurn): Promise<{ step: AgentStep | null; reported?: string; ms: number; error?: string }> {
+async function ask(id: string, turn: AgentTurn): Promise<{ step: AgentStep | null; reported?: string; ms: number; error?: string }> {
   const started = Date.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        model,
-        temperature,
-        max_tokens: maxTokens,
-        messages: [
-          { role: "system", content: "You reply with exactly one JSON object and nothing else." },
-          { role: "user", content: promptFor(turn) },
-        ],
-      }),
-    });
-    const text = await res.text();
-    if (!res.ok) return { step: null, ms: Date.now() - started, error: `${res.status} ${text.slice(0, 200)}` };
-    const body = JSON.parse(text) as { model?: string; choices?: { message?: { content?: string | { text?: string }[] } }[] };
-    const raw = body.choices?.[0]?.message?.content;
-    const content = typeof raw === "string" ? raw : Array.isArray(raw) ? raw.map((p) => p.text ?? "").join("") : "";
-    return { step: parseStep(content), reported: body.model, ms: Date.now() - started, error: parseStep(content) ? undefined : `unparseable reply: ${content.slice(0, 120)}` };
-  } catch (e) {
-    return { step: null, ms: Date.now() - started, error: (e as Error).name === "AbortError" ? `timeout after ${timeoutMs}ms` : (e as Error).message };
-  } finally {
-    clearTimeout(timer);
+  const { route, reason } = resolve(id, via);
+  if (!route) return { step: null, ms: 0, error: reason };
+  if (route.provider.key === CLAUDE_CLI) {
+    // The CLI starts a whole session per step; give it longer than an API call.
+    const r = await askClaudeCli(turn, route.model, Math.max(timeoutMs, 240_000));
+    return { ...r, ms: Date.now() - started };
+  }
+  const { provider, key, model } = route as { provider: { baseUrl: string }; key: string; model: string };
+  const body = JSON.stringify({
+    model,
+    temperature,
+    max_tokens: maxTokens,
+    messages: [
+      { role: "system", content: "You reply with exactly one JSON object and nothing else." },
+      { role: "user", content: promptFor(turn) },
+    ],
+  });
+  // A rate limit or a provider outage is transport, not behaviour: back off
+  // and try again within the step's time budget. Anything else is final, and
+  // a reply that is not a step is never repaired into one.
+  const waits = [5_000, 15_000, 30_000, 60_000];
+  for (let attempt = 0; ; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(1_000, timeoutMs - (Date.now() - started)));
+    try {
+      const res = await fetch(`${provider.baseUrl}/chat/completions`, { method: "POST", signal: controller.signal, headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body });
+      const text = await res.text();
+      if ((res.status === 429 || res.status >= 500) && attempt < waits.length && Date.now() - started + waits[attempt] < timeoutMs) {
+        const retryAfter = Number(res.headers.get("retry-after"));
+        const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 90_000) : waits[attempt];
+        console.log(`    [${id}] step ${turn.step}: ${res.status}, retrying in ${wait / 1000}s`);
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      if (!res.ok) return { step: null, ms: Date.now() - started, error: `${res.status} ${text.slice(0, 200)}` };
+      const parsed = JSON.parse(text) as { model?: string; choices?: { message?: { content?: string | { text?: string }[] } }[] };
+      const raw = parsed.choices?.[0]?.message?.content;
+      const content = typeof raw === "string" ? raw : Array.isArray(raw) ? raw.map((p) => p.text ?? "").join("") : "";
+      const { step, normalised } = parseStepDetail(content, turn.tools.map((t) => t.name));
+      if (normalised) console.log(`    [${id}] step ${turn.step}: ${normalised}`);
+      return { step, reported: parsed.model, ms: Date.now() - started, error: step ? undefined : `unparseable reply: ${content.slice(0, 120)}` };
+    } catch (e) {
+      return { step: null, ms: Date.now() - started, error: (e as Error).name === "AbortError" ? `timeout after ${timeoutMs}ms` : (e as Error).message };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
 
 const server = createServer(async (req, res) => {
+  res.setHeader("access-control-allow-origin", "*");
   const url = new URL(req.url ?? "/", `http://localhost:${port}`);
-  if (req.method === "GET" && url.pathname === "/health") {
+  if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/models")) {
+    const m = await models();
     res.writeHead(200, { "content-type": "application/json" });
-    return res.end(JSON.stringify({ ok: true, baseUrl, models: allowed, stats: Object.fromEntries(stats) }));
+    return res.end(
+      JSON.stringify({
+        ok: true,
+        endpoint: `http://localhost:${port}/agent?model=<id>`,
+        via,
+        providers: [{ key: CLAUDE_CLI, label: "Claude CLI" }, ...providers.map((p) => ({ key: p.key, label: p.label }))],
+        allowed: allowed.length ? allowed : null,
+        models: allowed.length ? m.entries.filter((e) => allowed.includes(e.id)) : m.entries,
+        problems: m.problems,
+        stats: Object.fromEntries(stats),
+      }),
+    );
   }
   if (req.method !== "POST") {
     res.writeHead(405);
     return res.end();
   }
   const model = url.searchParams.get("model") ?? allowed[0];
-  if (!allowed.includes(model)) {
+  if (!model) {
+    res.writeHead(400, { "content-type": "application/json" });
+    return res.end(JSON.stringify({ error: "say which model: POST /agent?model=<provider>/<model>" }));
+  }
+  if (allowed.length && !allowed.includes(model)) {
     res.writeHead(400, { "content-type": "application/json" });
     return res.end(JSON.stringify({ error: `model ${model} is not in --models` }));
   }
@@ -124,7 +171,7 @@ const server = createServer(async (req, res) => {
   }
   stats.set(model, s);
   step.model = model;
-  if (reported && reported !== model) step.modelVersion = reported;
+  if (reported && reported !== model && !model.endsWith(`/${reported}`)) step.modelVersion = reported;
   step.temperature = temperature;
   const summary = step.type === "tool_call" ? `${step.tool}(${(JSON.stringify(step.args) ?? "{}").slice(0, 60)})` : `finish:${step.action}`;
   console.log(`    [${model}] step ${turn.step}: ${summary}  ${ms}ms`);
@@ -135,9 +182,11 @@ const server = createServer(async (req, res) => {
 process.on("uncaughtException", (e) => console.error(`    model agent caught: ${e.message}`));
 process.on("unhandledRejection", (e) => console.error(`    model agent caught: ${String(e)}`));
 
-server.listen(port, () => {
-  console.log(`\n  model agent on http://localhost:${port}/agent?model=<id>`);
-  console.log(`  base   ${baseUrl}`);
-  console.log(`  models ${allowed.join(", ")}`);
-  console.log(`  credential ${process.env.AI_GATEWAY_API_KEY ? "AI_GATEWAY_API_KEY" : process.env.VERCEL_OIDC_TOKEN ? "VERCEL_OIDC_TOKEN" : "OPENAI_API_KEY"} (not shown)\n`);
+server.listen(port, async () => {
+  console.log(`\n  model agent on http://localhost:${port}/agent?model=<provider>/<model>`);
+  console.log(`  routes     claude-cli (no key)${providers.length ? ", " + providers.map((p) => p.label).join(", ") : ""}  (credentials not shown)`);
+  console.log(`  models     ${allowed.length ? allowed.join(", ") : "any id with a route; GET /health lists what the providers serve"}`);
+  console.log(`  temp       ${temperature}   timeout ${timeoutMs / 1000}s per step\n`);
+  const m = await models();
+  for (const p of m.problems) console.log(`  note       ${p}`);
 });

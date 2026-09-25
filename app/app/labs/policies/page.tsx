@@ -36,7 +36,7 @@ export default async function Policies() {
     <>
       <PageHeader
         title="Policies"
-        subtitle="Turn financial controls into executable agent tests."
+        subtitle="What rules should the agent obey? Each control compiles into tests; the score is how the last agent did on them."
         actions={
           <>
             <LinkButton href="#compile">Import Policies</LinkButton>
@@ -81,7 +81,7 @@ export default async function Policies() {
                         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
                           <span>{CATEGORY[c.type] ?? c.type}</span>
                           <span>·</span>
-                          {c.severity && <Pill tone={c.severity === "critical" ? "crit" : c.severity === "high" ? "warn" : "neutral"}>{c.severity}</Pill>}
+                          {c.severity && <span className="text-ink-2">{c.severity} severity</span>}
                           {c.amount !== undefined && <span>· {money(c.amount)}</span>}
                           {c.verifyWithinDays !== undefined && <span>· {c.verifyWithinDays}-day window</span>}
                         </div>
@@ -118,15 +118,8 @@ export default async function Policies() {
                           </div>
                         </div>
 
-                        <div className="mt-4 flex flex-wrap gap-1.5">
-                          {chips.map((ch) => (
-                            <span key={ch} className="rounded-full border border-line bg-surface-2 px-2 py-[2px] text-[11.5px] text-ink-2">
-                              {ch}
-                            </span>
-                          ))}
-                        </div>
                         <details className="mt-3">
-                          <summary className="cursor-pointer text-[12.5px] text-accent-ink">Generated scenarios</summary>
+                          <summary className="cursor-pointer text-[12.5px] text-accent-ink">{int(c.scenarioIds.length)} generated tests · {chips.slice(0, 3).join(", ")}{chips.length > 3 ? ", …" : ""}</summary>
                           <ul className="mt-2 grid gap-1 text-[12.5px]">
                             {c.scenarioIds.map((id) => {
                               const t = lastGrades.get(id);
@@ -146,9 +139,6 @@ export default async function Policies() {
                             })}
                           </ul>
                         </details>
-                        <div className="mt-3">
-                          <LinkButton href="#compile">Generate More Tests</LinkButton>
-                        </div>
                       </Card>
                     );
                   })}

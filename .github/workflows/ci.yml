@@ -85,6 +85,12 @@ jobs:
       - name: Compare
         run: node src/sandbox/compare-selftest.ts
 
+      - name: Connected-agent registry
+        run: node src/agents/registry-selftest.ts
+
+      - name: Job lifecycle
+        run: node src/sandbox/jobs-selftest.ts
+
       - name: Shadow mode
         run: node src/shadow-selftest.ts
 

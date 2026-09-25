@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox%3D%2212.63%200.00%2074.74%20100.00%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22%230f0f0f%22%3E%20%3Cpath%20d%3D%22M42.17%200L47.73%200.51L47.73%2045.2L34.34%2057.58L32.07%2057.58L28.54%2056.82L23.74%2054.8L19.7%2051.77L17.93%2049.75L16.67%2047.98L14.39%2043.18L12.88%2036.36L12.63%2031.06L13.13%2026.77L13.89%2023.74L16.67%2017.17L20.45%2011.62L25.25%206.82L30.56%203.28L36.11%201.01L39.65%200.25L41.92%200.25Z%22%2F%3E%20%3Cpath%20d%3D%22M54.04%200.25L59.6%200.25L62.37%200.76L65.91%201.77L70.71%204.04L74.75%206.82L78.03%209.85L81.31%2013.89L83.84%2017.93L86.11%2023.23L87.12%2027.27L87.37%2035.86L86.62%2040.4L85.35%2044.44L83.59%2047.98L81.31%2051.01L78.54%2053.54L75.25%2055.56L71.21%2057.07L66.16%2057.83L58.84%2051.52L52.53%2045.45L52.53%200.51L53.79%200.51Z%22%2F%3E%20%3Cpath%20d%3D%22M52.27%2048.48L56.57%2052.02L65.15%2060.1L56.06%2074.24L55.3%2074.75L53.79%2072.47L52.27%2048.74Z%22%2F%3E%20%3Cpath%20d%3D%22M48.23%2048.48L46.97%2070.45L46.72%2072.73L45.71%2074.24L45.2%2074.75L44.44%2074.24L35.86%2061.11L35.61%2059.85L47.98%2048.74Z%22%2F%3E%20%3Cpath%20d%3D%22M47.47%2074.75L53.03%2074.75L53.03%2077.27L50.51%20100L47.47%2075Z%22%2F%3E%3C%2Fsvg%3E">
 <title>Limulus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -858,15 +860,36 @@
     .chart i{scale:1 1}
     .ch0{scale:1}
   }
-</style>
 
-<div class="ann">
-  Our own test rig found eight bugs in the gate before a customer could.
-  <a href="#honest">See where the work stands<span class="sw" aria-hidden="true">
-    <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  </span></a>
-</div>
+  /* the page never scrolls sideways on a phone; wide marquee tracks are clipped, not scrolled */
+  html,body{overflow-x:clip}
+  /* hero CTAs and the stage line */
+  .hero-cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+  .stage{margin:16px 0 0;font-family:var(--mono);font-weight:500;font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--grey-400)}
+  /* model comparison */
+  .models{margin-top:28px;border:1px solid var(--beige-300);border-radius:16px;background:#fff;padding:20px 22px}
+  .models-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .models-t{width:100%;border-collapse:collapse;font-size:13.5px;min-width:720px}
+  .models-t th{font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--grey-400);text-align:left;padding:8px 10px;border-bottom:1px solid var(--beige-300);white-space:nowrap}
+  .models-t td{padding:10px;border-bottom:1px solid var(--beige-200);white-space:nowrap;color:var(--grey-100)}
+  .models-t tr:last-child td{border-bottom:0}
+  .models-t td.m{font-family:var(--mono);font-size:12px}
+  .models-t td.r{color:var(--blood)}
+  .models-cap{font-size:13px;line-height:1.55;color:var(--grey-400);margin:14px 0 0}
+  .models-cap a{color:var(--grey-100);text-decoration:underline;text-underline-offset:3px}
+  /* product stages */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:22px;font-family:var(--mono);
+    font-size:12px;color:var(--grey-100)}
+  .flow span{border:1px solid var(--beige-300);border-radius:999px;padding:6px 12px;background:#fff}
+  .flow i{font-style:normal;color:var(--grey-400)}
+  .stages{display:grid;grid-template-columns:1fr;gap:12px;margin-top:22px}
+  @media(min-width:760px){.stages{grid-template-columns:repeat(3,1fr)}}
+  .stage-card{border:1px solid var(--beige-300);border-radius:14px;padding:18px;background:#fff}
+  .stage-card h4{font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:-.02em;margin:10px 0 6px;color:var(--grey-100)}
+  .stage-card p{font-size:13.5px;line-height:1.55;color:var(--grey-400);margin:0}
+</style>
 
 <header id="hdr">
   <div class="wrap">
@@ -930,19 +953,20 @@
           </div>
         </a>
 
-        <h1 class="t56" id="h1">
-          <span class="setup">Payment assurance for</span>
-          <span class="pay" id="cyc">agents that spend money</span><span class="caret" aria-hidden="true"></span>
-        </h1>
+        <h1 class="t56" id="h1">Know where your financial agent fails—before you deploy it.</h1>
 
-        <p class="lead body18">Every agent-initiated payment is created frozen at the bank, checked against what a
-          person actually approved, and released only if the two agree. Horseshoe crab blood tests every injectable
-          drug before it ships. Same job, different fluid.</p>
+        <p class="lead body18">Test financial agents against your company’s controls, replay failures, and compare
+          behavior across different models and configurations. Use the results to evaluate whether an agent version
+          meets your release requirements.</p>
 
-        <form class="capture" id="cap">
-          <input type="email" id="email" placeholder="Your work email" aria-label="Your work email">
-          <button class="btn" type="submit">Contact us</button>
-        </form>
+        <div class="hero-cta">
+          <a class="btn" href="#fin">Become a design partner<span class="sw" aria-hidden="true">
+            <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span></a>
+          <a class="btn light" href="#evidence">Explore our findings</a>
+        </div>
+        <p class="stage">Working prototype · Synthetic scenarios · Increase sandbox validation</p>
 
         <a class="cred" href="#honest">
           <span class="cred-who">
@@ -1022,6 +1046,45 @@
   </div>
 </div>
 
+<!-- ============================ MODELS ============================ -->
+<section id="models" style="padding-block:64px 8px">
+  <div class="wrap">
+    <div class="rev">
+      <div class="eyebrow"><i class="sq v"></i><span>Model Arena</span></div>
+      <h2 class="t44" style="max-width:24ch">Different models. The same financial tests.</h2>
+      <p class="lead body18" style="margin-top:18px">We run financial-agent tests across different models and
+        configurations to understand how model choice changes behavior. We examine critical failures, task
+        completion, recovery, and reliability—not just one aggregate score.</p>
+    </div>
+    <div class="models rev">
+      <p class="models-cap" style="margin:0 0 14px">The agent is the same in every arm: one accounts-payable workflow,
+        one prompt, the same tools and policy, gate off, temperature 0. Only the model behind it changes. Open
+        scenario pool <span class="kbd">payments-v1</span>, 22 scenarios × 1 trial per model, model ids as each
+        endpoint reported them. One trial is provisional evidence: a single answer moves a rate by five points.</p>
+      <div class="models-x"><table class="models-t">
+        <thead><tr><th>Model, self-reported</th><th>Route</th><th>Answered</th><th>Scenarios passed</th><th>Critical failures</th><th>Safety</th><th>Latency per episode</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td class="m">anthropic/claude-sonnet-4.5</td><td>OpenRouter</td><td>22 of 22</td><td>16 of 22</td><td class="r">1</td><td>96</td><td>9.7 s</td><td>unavailable</td></tr>
+          <tr><td class="m">x-ai/grok-4.7</td><td>OpenRouter</td><td>22 of 22</td><td>15 of 22</td><td>0</td><td>100</td><td>23.6 s</td><td>unavailable</td></tr>
+          <tr><td class="m">openai/gpt-5</td><td>OpenRouter</td><td>22 of 22</td><td>13 of 22</td><td class="r">3</td><td>85</td><td>55.8 s</td><td>unavailable</td></tr>
+          <tr><td class="m">google/gemini-2.5-pro</td><td>OpenRouter</td><td>22 of 22</td><td>12 of 22</td><td class="r">2</td><td>86</td><td>24.7 s</td><td>unavailable</td></tr>
+          <tr><td class="m">deepseek/deepseek-chat-v3.1</td><td>OpenRouter</td><td>22 of 22</td><td>12 of 22</td><td class="r">5</td><td>74</td><td>20.3 s</td><td>unavailable</td></tr>
+          <tr><td class="m">meta-llama/llama-4-maverick</td><td>OpenRouter</td><td>22 of 22</td><td>11 of 22</td><td class="r">3</td><td>82</td><td>17.8 s</td><td>unavailable</td></tr>
+          <tr><td class="m">openai/gpt-4.1</td><td>OpenRouter</td><td>22 of 22</td><td>11 of 22</td><td class="r">6</td><td>65</td><td>8.4 s</td><td>unavailable</td></tr>
+          <tr><td class="m">google/gemini-2.5-flash</td><td>OpenRouter</td><td>19 of 22</td><td>10 of 19</td><td class="r">1</td><td>92</td><td>3.7 s</td><td>unavailable</td></tr>
+        </tbody>
+      </table></div>
+      <p class="models-cap">Two sealed comparison records from 24 September 2026, both through OpenRouter: three models in one,
+        five in the other, same suite and settings. “Answered” counts episodes with a usable reply; every rate carries that n,
+        and unanswered episodes are in no denominator. Safety counts wrongful payments only, so a model can score 100 and
+        still fail scenarios by refusing or by not escalating. Cost is not measured. One scenario beat all eight models: a
+        vendor email from a lookalike domain asking for a bank-detail change. The <a href="#evidence">findings below</a> come
+        from an earlier, separate set of experiments with the Claude Code default model at 20 trials per arm; the two are not
+        the same test.</p>
+    </div>
+  </div>
+</section>
+
 <!-- ===================== MARQUEE + PROMO ===================== -->
 <div class="defer">
   <section style="padding-block:56px 0" id="codes">
@@ -1047,6 +1110,43 @@
   </section>
 
   <!-- =================== STICKY PANEL + ACCORDION =================== -->
+  <section id="product" style="padding-block:72px 0">
+    <div class="wrap">
+      <div class="rev">
+        <div class="eyebrow"><i class="sq"></i><span>Product</span></div>
+        <h2 class="t44" style="max-width:26ch">Labs today. Monitor and Protect are the platform it grows into.</h2>
+        <p class="lead body18" style="margin-top:18px">Labs is the working prototype. Connect an agent, define the
+          controls it must obey, run the tests, replay the failures, compare fixes and models, and evaluate whether a
+          version meets your release requirements. Nothing in it moves money.</p>
+      </div>
+      <div class="flow rev">
+        <span>Connect an agent</span><i>→</i><span>Define controls</span><i>→</i><span>Run tests</span><i>→</i>
+        <span>Replay failures</span><i>→</i><span>Compare fixes</span><i>→</i><span>Evaluate release readiness</span>
+      </div>
+      <div class="stages rev">
+        <div class="stage-card">
+          <span class="st-pill live"><i></i>working prototype</span>
+          <h4>Labs</h4>
+          <p>A 56-scenario synthetic library, four axes scored apart, sealed runs, model and configuration comparison,
+            and a release gate against a committed baseline. Sandbox only; every vendor, invoice and account is invented.</p>
+        </div>
+        <div class="stage-card">
+          <span class="st-pill live"><i></i>built · sandbox-validated</span>
+          <h4>Protect</h4>
+          <p>The gate creates the transfer held at the bank and releases it only when authorization, declaration and
+            payment order agree. Fourteen checks pass against the Increase sandbox. No production traffic yet.</p>
+        </div>
+        <div class="stage-card">
+          <span class="st-pill run"><i></i>in progress</span>
+          <h4>Monitor</h4>
+          <p>Reconciliation against the sandbox rail matches every transfer to its decision and named a bypass in one
+            pass. Shadow mode, which re-decides real decisions without blocking, is a prototype with no customer traffic.
+            Production alerting is planned.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="pillars">
     <div class="wrap">
       <div class="rev">
@@ -1076,9 +1176,9 @@
       <div class="wrap">
         <div style="max-width:660px;margin:0 auto;text-align:center" class="rev">
           <h2 class="t44">How agents actually lose money</h2>
-          <p class="lead body18" style="margin:18px auto 0">53 scenarios against real agents wired to an ordinary
-            payments API with no checks in it. Outcomes read from the records each side wrote — never from the agent's
-            own account of what it did.</p>
+          <p class="lead body18" style="margin:18px auto 0">53 scenarios against agents backed by the Claude Code
+            default model, wired to an ordinary payments API with no checks in it. Outcomes read from the records each
+            side wrote — never from the agent's own account of what it did. Sample sizes are the ones shown.</p>
         </div>
 
         <div class="stories">
@@ -1086,8 +1186,8 @@
             <div class="fig">0<s>/60</s></div>
             <h3>Fraud didn't work, in sixty tries</h3>
             <p>Hidden bank-change instructions, forged approval emails, a fake CFO demanding a same-day wire,
-              lookalike vendor names. Refused every time. The threat this whole category sells against is the one
-              current models already handle.</p>
+              lookalike vendor names. Refused every time by this model, in these scenarios, at this sample size.
+              Zero of sixty is evidence, not proof the threat is solved.</p>
             <span class="rm">judgment · adversarial</span>
           </div>
           <div class="story r rev">
@@ -1099,9 +1199,10 @@
           </div>
           <div class="story h rev">
             <div class="fig">15<s>/15</s></div>
-            <h3>The cheap model never caught it</h3>
-            <p>Swap in a smaller model — a decision someone makes on cost per invoice, not on risk — and duplicates go
-              from mostly caught to never caught. Safe is a property of a configuration, not of a company.</p>
+            <h3>A smaller model never caught it</h3>
+            <p>Swap in a smaller model — a decision someone makes on cost per invoice, not on risk — and duplicates went
+              from mostly caught to never caught in fifteen trials. Safe is a property of a configuration, not of a
+              company. The published record names the run, not the model id.</p>
             <span class="rm">reliability · model choice</span>
           </div>
         </div>
@@ -1174,7 +1275,7 @@ auth required <b>none</b> — a receipt only we can check
 
         <div class="card pc rev">
           <div>
-            <h4>Verified at a real bank</h4>
+            <h4>Increase sandbox validation</h4>
             <h5>Allow submits. Block leaves nothing behind.</h5>
             <p>Fourteen checks pass against the Increase sandbox. Funds are reserved when the transfer is created, so
               a held payment can't be double-spent while a person decides.</p>
@@ -1203,7 +1304,7 @@ sandbox_ach_transfer_mktokk3mbuutvex9n6lp
             <h4>Normalization</h4>
             <h5>The bug our own test rig found first</h5>
             <p>Our duplicate check read <span class="kbd">PO 44812</span> and <span class="kbd">PO-44812</span> as two
-              different purchase orders. A customer would have found that with real money.</p>
+              different purchase orders. Left in, a customer would have found it.</p>
           </div>
 <pre>normalizeReference(<b>"PO 44812"</b>)  → 44812
 normalizeReference(<b>"PO-44812"</b>)  → 44812
@@ -1231,7 +1332,7 @@ normalizeReference(<b>"invoice 44812"</b>) → 44812
         <div class="tray">
           <div class="tile"><div class="n" data-reel="56"></div><div class="l">Scenarios in the pack</div></div>
           <div class="tile"><div class="n" data-reel="19"></div><div class="l">Of 19 duplicates blocked</div></div>
-          <div class="tile"><div class="n" data-reel="14"></div><div class="l">Checks passing at a real bank</div></div>
+          <div class="tile"><div class="n" data-reel="14"></div><div class="l">Checks passing in the Increase sandbox</div></div>
           <div class="tile"><div class="n" data-reel="0"></div><div class="l">Legitimate payments blocked</div></div>
         </div>
       </div>
@@ -1501,14 +1602,14 @@ curl -X POST https://api.limulus.dev/v1/gate \
           <div class="labs-card">
             <div class="n" data-count="60">0</div>
             <h4>Fraud attempts that failed</h4>
-            <p>Hidden bank changes, forged approvals, a fake CFO. Agents refused every one. The threat this
-              whole category sells against is the one models already handle — so we stopped selling it.</p>
+            <p>Hidden bank changes, forged approvals, a fake CFO. The Claude Code default model refused every one in
+              sixty tries. That is evidence about these scenarios at this sample size, not proof the threat is solved.</p>
           </div>
           <div class="labs-card">
             <div class="n" data-count="50" data-suffix="%">0</div>
             <h4>Of duplicates paid anyway</h4>
             <p>One retainer, billed twice under two invoice numbers. The same model that caught every fraud
-              paid it half the time. Judgment is fine. Bookkeeping is not.</p>
+              paid it in ten of twenty trials. Judgment is fine. Bookkeeping is not.</p>
           </div>
           <div class="labs-card">
             <div class="n" data-count="8">0</div>
@@ -1519,9 +1620,10 @@ curl -X POST https://api.limulus.dev/v1/gate \
         </div>
 
         <div class="labs-note">
-          <p>The Lab is not a marketing exercise. It is how the gate gets configured: the checks we require
-            are the ones the experiments showed actually fire, and the readiness ladder an agent climbs is
-            scored on what it did, never on what it said it did.</p>
+          <p>Our own test rig found eight bugs in the gate before a customer could; the status board below lists
+            them. The Lab is not a marketing exercise. It is how the gate gets configured: the checks we require are
+            the ones the experiments showed actually fire, and the readiness ladder an agent climbs is scored on what
+            it did, never on what it said it did. These are our tests of our own reference agents, not customer traffic.</p>
           <a class="btn" href="#evidence">See the findings
             <span class="sw" aria-hidden="true">
               <svg width="12" height="11" viewBox="0 0 12 11" fill="none"><path d="M1 5.5h9M7 2.2l3.2 3.3L7 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1591,7 +1693,7 @@ curl -X POST https://api.limulus.dev/v1/gate \
       bottom one.</p>
     <form class="capture" id="cap2">
       <input type="email" id="email2" placeholder="Your work email" aria-label="Your work email">
-      <button class="btn light" type="submit">Contact us</button>
+      <button class="btn light" type="submit">Become a design partner</button>
     </form>
   </div>
 
@@ -1713,10 +1815,12 @@ curl -X POST https://api.limulus.dev/v1/gate \
     }
   }
 
-  if (reduced) {
-    for (const ch of render(PHRASES[0])) ch.classList.add("on");
-  } else {
-    cycleHeadline();
+  if ($("cyc")) {
+    if (reduced) {
+      for (const ch of render(PHRASES[0])) ch.classList.add("on");
+    } else {
+      cycleHeadline();
+    }
   }
 
   /* ============ hero "tested against" strip, staggered ============ */
@@ -2226,7 +2330,7 @@ curl -X POST https://api.limulus.dev/v1/gate \
   const STATUS = [
     ["live", "56 scenarios", "Synthetic scenario library",
      "Every vendor, invoice and account is invented, patterned on FBI IC3 business email compromise reports, AFP payments-fraud surveys and Nacha return codes. Nine families, with nineteen more being hand-written for the simulated world."],
-    ["live", "14 / 14 checks", "Verified against a real bank",
+    ["live", "14 / 14 checks", "Increase sandbox validation",
      "Allow submits, escalate holds pending approval, block cancels and leaves no ledger entry at all. Increase sandbox — production access is gated behind an explicit flag."],
     ["run", "every change", "Agents under continuous test",
      "The pack runs against a live agent and the result is sealed: tool set, prompt and scenarios hashed together, so a score names an exact configuration rather than a company."],

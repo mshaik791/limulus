@@ -392,26 +392,29 @@ An arm can carry a label, `"<label>=<agent>:<mode>"`, which is what every screen
 how models are compared: one endpoint per model, the same prompt, tools, policy, gate and trials.
 
 ```bash
-# Anthropic, OpenAI, Google and others through one OpenAI-compatible endpoint (Vercel AI Gateway
-# by default; any compatible server with --base-url). Credential from AI_GATEWAY_API_KEY, or the
-# VERCEL_OIDC_TOKEN that `vercel env pull` writes to .env.local. Never printed.
-npm run model-agent -- --models anthropic/claude-sonnet-4.5,openai/gpt-4.1,google/gemini-2.5-pro
+# Any model, one server. Ids are "<vendor>/<model>". A vendor's own key is used when present
+# (OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, MISTRAL_API_KEY,
+# DEEPSEEK_API_KEY, GROQ_API_KEY); otherwise the id goes as written to a gateway that serves
+# every vendor: OpenRouter (OPENROUTER_API_KEY, one key for all of them) or Vercel's AI Gateway
+# (AI_GATEWAY_API_KEY, or the VERCEL_OIDC_TOKEN that `vercel env pull` writes). claude-cli/opus,
+# sonnet and haiku go through the local Claude CLI and need no key. Credentials are never printed.
+echo "OPENROUTER_API_KEY=…" >> .env.local        # gitignored
+npm run model-agent                              # GET /health lists what the providers serve
 node src/lab-cli.ts compare \
-  "Claude Sonnet=http://localhost:9100/agent?model=anthropic/claude-sonnet-4.5:off" \
   "GPT-4.1=http://localhost:9100/agent?model=openai/gpt-4.1:off" \
-  "Gemini 2.5 Pro=http://localhost:9100/agent?model=google/gemini-2.5-pro:off" --trials 3
+  "Gemini 2.5 Pro=http://localhost:9100/agent?model=google/gemini-2.5-pro:off" \
+  "Claude Sonnet=http://localhost:9100/agent?model=claude-cli/sonnet:off" --trials 3
 
-# Claude models through the local Claude CLI, one bridge per model, no API key
+# Or the smallest bridge: one Claude model per port through the Claude CLI
 node src/experiments/claude-bridge.ts --port 8901 --model opus --temperature 0
-node src/experiments/claude-bridge.ts --port 8902 --model sonnet --temperature 0
-node src/lab-cli.ts compare "Claude Opus=http://localhost:8901/agent:off" "Claude Sonnet=http://localhost:8902/agent:off"
 ```
 
-Both endpoints share one prompt (`src/experiments/agent-prompt.ts`) that names no scenario family
-and no expected answer, return 502 rather than an invented step when a model's reply is unusable,
-and report the model they invoked on every step. The Lab records that as self-reported, and a
-comparison whose arms report two or more distinct models is what the console's Model Arena shows
-under Models.
+The console's Model Arena reads the model agent's `/health` and offers the same models in its
+Compare Models form. Every route shares one prompt (`src/experiments/agent-prompt.ts`) that names
+no scenario family and no expected answer, returns 502 rather than an invented step when a
+model's reply is unusable, and reports the model it invoked on every step. The Lab records that as
+self-reported, and a comparison whose arms report two or more distinct models is what the Arena
+shows under Models.
 
 Every arm runs the identical pack and the record refuses to be read the wrong way: critical
 violations come first and the recommendation rule cannot see past them, every rate carries its n,
@@ -633,10 +636,27 @@ src/experiments/neutral-server.ts  an ordinary payment tool, for the control arm
 src/experiments/log.ts         findings, sealed and chained like decisions are
 src/experiments/log-cli.ts     seal a result, read them back, check the chain
 src/experiments/agent-prompt.ts  the one prompt every model-backed subject sees
-src/experiments/claude-bridge.ts a Claude model behind the Lab endpoint, via the Claude CLI
-src/experiments/model-agent.ts   any chat model behind the Lab endpoint, via an OpenAI-compatible API
+src/experiments/providers.ts     where a model id goes: vendor keys, OpenRouter, Vercel AI Gateway
+src/experiments/claude-cli.ts    one step from a Claude model through the local Claude CLI
+src/experiments/model-agent.ts   any chat model behind the Lab endpoint; /health lists the catalog
+src/experiments/claude-bridge.ts the smallest bridge: one Claude model per port
 public/index.html              interactive demo
 data/                          signing key, decision chain, reports (git-ignored)
+```
+
+## Connect your own agent
+
+The console registers a customer's agent without anyone editing source: **Labs → Agents →
+Connect agent**. An agent is an HTTP endpoint that speaks `limulus-turn-v1` (one turn in, one
+step out); the engine executes every tool in its simulated world, so your endpoint holds no
+tools and no run touches a rail. The exact contract, the sandbox boundary, the connection
+check, the job lifecycle and a no-model quickstart are in
+[docs/connect-your-agent.md](docs/connect-your-agent.md).
+
+```bash
+LIMULUS_ALLOW_PRIVATE_ENDPOINTS=1 node src/server.ts     # local engine may call localhost
+npm run fixture-agent -- --token my-test-token            # a scripted stand-in on :9200
+npm run e2e:onboarding                                    # the whole journey, separate processes
 ```
 
 ## Not built yet

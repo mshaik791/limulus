@@ -30,6 +30,8 @@ import { readGateRecords, verifyGateRecord } from "./bench/gate-record.ts";
 import { CONTROL_TYPES, parsePolicyProfile } from "./policy/controls.ts";
 import { parseScenario } from "./bench/scenario-file.ts";
 import { referenceToolAgents } from "./sandbox/agents.ts";
+import { checkConnection, createAgent, createVersion, getAgent, listAgents, listVersions, RegistryError, updateAgent } from "./agents/registry.ts";
+import { cancelJob, getJob, JobError, readJobs, reconcileJobs, submitJob } from "./sandbox/jobs.ts";
 import { checkScope, readQualifications, revokeQualification, verifyQualification } from "./qualification.ts";
 import { addEndpoint, emit, listEndpoints, readDeliveries, removeEndpoint } from "./webhooks.ts";
 import { actOnDecision, ApprovalError, pendingQueue, readApprovals, resolvedQueue } from "./approval.ts";
@@ -74,7 +76,7 @@ const server = createServer(async (req, res) => {
       res.writeHead(204, {
         "access-control-allow-origin": "*",
         "access-control-allow-headers": "content-type",
-        "access-control-allow-methods": "GET,POST,OPTIONS",
+        "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
       });
       return res.end();
     }
@@ -99,7 +101,7 @@ const server = createServer(async (req, res) => {
         : req.method === "POST"
           ? path.startsWith("/v1/settlements")
             ? "settlements:write"
-            : path.startsWith("/v1/bench") || path.startsWith("/v1/lab")
+            : path.startsWith("/v1/bench") || path.startsWith("/v1/lab") || path.startsWith("/v1/agents")
               ? "bench:run"
               : "decisions:write"
           : "read";
@@ -542,6 +544,94 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { count: episodes.length, episodes: episodes.slice(-50) });
     }
 
+    // ---- Jobs: a test run with a lifecycle ----------------------------------------
+    if (path === "/v1/lab/jobs" && req.method === "POST") {
+      const body = (await readBody(req)) as Record<string, unknown>;
+      // A retry after a lost response must not start a second suite.
+      const key = (req.headers["idempotency-key"] as string | undefined) ?? (typeof body.submissionKey === "string" ? body.submissionKey : undefined);
+      const prior = checkIdempotency(key, body);
+      if (prior.state === "conflict") return json(res, 409, { error: prior.message });
+      if (prior.state === "replay") {
+        res.setHeader("limulus-idempotent-replay", "true");
+        return json(res, prior.status, prior.response);
+      }
+      try {
+        const job = await submitJob(body as Parameters<typeof submitJob>[0]);
+        remember(key, body, 202, { job });
+        return json(res, 202, { job });
+      } catch (e) {
+        if (e instanceof JobError) return json(res, e.status, { error: e.message });
+        throw e;
+      }
+    }
+    if (path === "/v1/lab/jobs" && req.method === "GET") {
+      const jobs = readJobs();
+      return json(res, 200, { count: jobs.length, jobs: jobs.slice(-50) });
+    }
+    if (/^\/v1\/lab\/jobs\/[^/]+$/.test(path) && req.method === "GET") {
+      const job = getJob(path.split("/")[4]);
+      if (!job) return json(res, 404, { error: "no such job" });
+      return json(res, 200, { job });
+    }
+    if (/^\/v1\/lab\/jobs\/[^/]+\/cancel$/.test(path) && req.method === "POST") {
+      try {
+        return json(res, 200, { job: cancelJob(path.split("/")[4]) });
+      } catch (e) {
+        if (e instanceof JobError) return json(res, e.status, { error: e.message });
+        throw e;
+      }
+    }
+    // The starter suite a job can run, described from the pool itself.
+    if (path === "/v1/lab/suites" && req.method === "GET") {
+      const pack = await openPool();
+      const families = [...new Set(pack.flatMap((s) => (s.taxonomy ?? []).map((t) => t.split(".")[0])))];
+      return json(res, 200, {
+        suites: [{ id: "open-pool", name: "Financial Safety Suite", suiteId: "payments-v1", scenarioCount: pack.length, families, categories: [...new Set(pack.map((s) => s.category))], description: "The open scenario pool: approval boundaries, beneficiary changes, duplicates, uncertain payment state, injected instructions. Every vendor, invoice and account is invented; nothing moves money." }],
+      });
+    }
+
+    // ---- Connected agents: the registry ---------------------------------------
+    // Records only; credentials live in the secret store and never leave it.
+    if (path === "/v1/agents" && req.method === "GET") {
+      return json(res, 200, { agents: listAgents(), versions: listAgents().flatMap((a) => listVersions(a.id)) });
+    }
+    if (path === "/v1/agents" && req.method === "POST") {
+      const body = (await readBody(req)) as Parameters<typeof createAgent>[0];
+      try {
+        return json(res, 201, await createAgent(body));
+      } catch (e) {
+        if (e instanceof RegistryError) return json(res, e.status, { error: e.message });
+        throw e;
+      }
+    }
+    if (/^\/v1\/agents\/[^/]+$/.test(path) && (req.method === "GET" || req.method === "PATCH")) {
+      const id = path.split("/")[3];
+      try {
+        if (req.method === "PATCH") return json(res, 200, { agent: await updateAgent(id, (await readBody(req)) as Parameters<typeof updateAgent>[1]) });
+        const agent = getAgent(id);
+        if (!agent) return json(res, 404, { error: "no such agent" });
+        const versions = listVersions(id);
+        const runs = readLabRuns()
+          .filter((r) => r.agent.registry?.agentId === id)
+          .slice(-25)
+          .map(({ grades, ...rest }) => ({ ...rest, episodes: grades.length }));
+        return json(res, 200, { agent, versions, runs });
+      } catch (e) {
+        if (e instanceof RegistryError) return json(res, e.status, { error: e.message });
+        throw e;
+      }
+    }
+    if (/^\/v1\/agents\/[^/]+\/(versions|check)$/.test(path) && req.method === "POST") {
+      const [, , , id, action] = path.split("/");
+      try {
+        if (action === "versions") return json(res, 201, { version: createVersion(id, (await readBody(req)) as Parameters<typeof createVersion>[1]) });
+        return json(res, 200, await checkConnection(id));
+      } catch (e) {
+        if (e instanceof RegistryError) return json(res, e.status, { error: e.message });
+        throw e;
+      }
+    }
+
     if (path === "/v1/lab/agents") {
       return json(
         res,
@@ -948,6 +1038,9 @@ const server = createServer(async (req, res) => {
     return json(res, 500, { error: (error as Error).message });
   }
 });
+
+// Jobs the log says were queued or running belonged to a process that is gone.
+for (const j of reconcileJobs()) console.log(`  job ${j.id} marked interrupted: the engine restarted before it finished`);
 
 server.listen(port, () => {
   console.log(`Limulus gateway on http://localhost:${port}`);
