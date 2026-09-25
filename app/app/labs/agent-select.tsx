@@ -1,22 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 
-// The agent under evaluation. A native select, so it works without a click
-// handler chain; changing it re-reads the page for that agent.
-
-export function AgentSelect({ value, options }: { value: string; options: { key: string; label: string }[] }) {
+export function AgentSelect({ value, name, options }: { value: string; name: string; options: { key: string; label: string; demo: boolean }[] }) {
   const router = useRouter();
-  return (
-    <label className="flex items-center gap-3 text-[13px]">
-      <span className="text-ink-3">Agent</span>
-      <select value={value} onChange={(e) => router.push(`/labs?agent=${encodeURIComponent(e.target.value)}`)} aria-label="agent under evaluation" className="min-w-[260px] text-[14px] font-medium">
-        {options.map((o) => (
-          <option key={o.key} value={o.key}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+  return <div className="labs-agent-select">
+    <h1>{name}</h1><ChevronDown size={25} aria-hidden="true" />
+    <select value={value} onChange={(e) => router.push(`/labs?agent=${encodeURIComponent(e.target.value)}`)} aria-label="Agent under evaluation">
+      {[false, true].map((demo) => {
+        const group = options.filter((o) => o.demo === demo);
+        return group.length ? <optgroup key={String(demo)} label={demo ? "Demo agents" : "Connected agents"}>
+          {group.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </optgroup> : null;
+      })}
+    </select>
+  </div>;
 }

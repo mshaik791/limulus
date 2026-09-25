@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { overviewIdentity } from "../../../../agent-identity";
 import { ApiError, episodes, labRun, scenario as loadScenario, type Scenario, type Violation } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { trajectory } from "@/lib/derive";
@@ -55,6 +56,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
     );
   }
 
+  const identity = overviewIdentity(run);
   const findingsBySeq: Record<number, Violation[]> = {};
   for (const v of grade.violations) if (v.evidence) (findingsBySeq[v.evidence.seq] ??= []).push(v);
   const steps = trajectory(trace, grade.violations);
@@ -65,7 +67,9 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
   const vendor = scenario?.authorization.approvedVendors[0];
   const invoice = scenario?.authorization.approvedInvoices.find((i) => scenario!.task.includes(i.invoiceId)) ?? scenario?.authorization.approvedInvoices[0];
 
-  const result = critical
+  const result = grade.unusable
+    ? { state: "REVIEW" as const, title: "Unusable trial", body: "The agent did not provide a usable response. This trial is excluded from the scores; inspect the recorded trace for details." }
+    : critical
     ? { state: "FAIL" as const, title: "Critical failure", body: paid > 0 && paidTo ? `Simulated execution: the agent would have released ${money(paid)} to ${paidTo.payeeName} ****${paidTo.payeeAccountLast4}. ${grade.violations.find((v) => v.severity === "critical")?.detail ?? ""}` : grade.violations.find((v) => v.severity === "critical")?.detail ?? "" }
     : grade.effective !== grade.expected || grade.violations.length
       ? { state: "REVIEW" as const, title: "Finding", body: grade.violations[0]?.detail ?? `The correct action was ${grade.expected}; the agent did ${grade.effective}.` }
@@ -86,7 +90,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <span>
-              {agentDisplay(run.agent.name)} <span className="mono text-ink-3">{agentRaw(run.agent.name, run.agent.version)}</span> · trial {grade.trial} of {grades.length}
+              {identity.name} · {identity.version} · {identity.detail} · trial {grade.trial} of {grades.length}
             </span>
             {grades.length > 1 && (
               <span className="inline-flex gap-1">
@@ -112,28 +116,12 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
       />
       <EnvBar />
 
-      <Card title="Execution map" aside="how authorization, evidence, policy and simulated execution connected · nothing here moved money" emphasis={critical ? "crit" : undefined} className="mb-4">
-        {(() => {
-          const g = buildGraph(run.agent, scenario, trace, grade.violations, critical);
-          return <ExecutionGraph nodes={g.nodes} edges={g.edges} height={260} />;
-        })()}
-        <div className="mt-3 flex flex-wrap gap-4 text-[11.5px] text-ink-3">
-          <span>
-            <span className="mr-1.5 inline-block h-[2px] w-4 bg-cyan align-middle" />
-            normal flow
-          </span>
-          <span>
-            <span className="mr-1.5 inline-block h-[2px] w-4 bg-crit align-middle" />
-            risky flow
-          </span>
-          <span>
-            <span className="mr-1.5 inline-block h-[10px] w-[10px] rounded-full border border-crit align-middle" />
-            simulated rail not reached
-          </span>
-        </div>
-      </Card>
-
-      <div className="grid gap-4 xl:grid-cols-[280px_1fr_300px]">
+      <div className={`replay-verdict ${critical ? "has-critical" : ""}`}>
+        <StateBadge state={result.state} label={result.title.toUpperCase()} />
+        <p>{result.body}</p>
+        <span>Expected <b>{grade.expected}</b> · Recorded <b>{grade.effective}</b></span>
+      </div>
+      <div className="replay-workspace">
         {/* ---- left: context -------------------------------------------------- */}
         <div className="grid content-start gap-4">
           <Card title="Scenario context">
@@ -193,7 +181,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
 
         {/* ---- centre: execution timeline ---------------------------------- */}
         <Card title="Execution timeline" aside={`${int(trace.calls.length)} calls · ${ms(trace.durationMs)}`}>
-          <Scrubber calls={trace.calls} findingsBySeq={findingsBySeq} steps={steps} />
+          <Scrubber key={trace.episodeId} calls={trace.calls} findingsBySeq={findingsBySeq} steps={steps} />
           <div className="mt-5 grid gap-3 border-t border-line pt-4 text-[13px] md:grid-cols-2">
             <div>
               <div className="text-[11px] uppercase tracking-[0.06em] text-ink-3">agent&apos;s stated reason · recorded, never trusted</div>
@@ -216,16 +204,17 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
 
         {/* ---- right: evaluation ------------------------------------------- */}
         <div className="grid content-start gap-4">
-          <Card title="Limulus evaluation" aside={`${int(grade.violations.length)} findings`}>
+          <Card title="Evaluation findings" aside={`${int(grade.violations.length)} findings`}>
             <ul className="grid gap-1.5">
               {CHECKLIST.map((c) => {
                 const hit = c.codes.filter((code) => codes.has(code));
                 const worstSev = hit.length ? (grade.violations.filter((v) => hit.includes(v.code)).some((v) => v.severity === "critical") ? "critical" : "high") : null;
                 return (
                   <li key={c.label} className="grid grid-cols-[18px_1fr] items-baseline gap-2 text-[13px]">
-                    <span aria-hidden className={`font-semibold ${worstSev === "critical" ? "text-crit-ink" : worstSev ? "text-warn-ink" : "text-good-ink"}`}>{worstSev === "critical" ? "✕" : worstSev ? "!" : "✓"}</span>
+                    <span aria-hidden className={`font-semibold ${worstSev === "critical" ? "text-crit-ink" : worstSev ? "text-warn-ink" : "text-ink-3"}`}>{worstSev === "critical" ? "✕" : worstSev ? "!" : "—"}</span>
                     <span>
                       <span className={worstSev ? "text-ink" : "text-ink-2"}>{c.label}</span>
+                      {!hit.length && <span className="block text-[11px] text-ink-3">No finding recorded</span>}
                       {hit.length > 0 && <span className="mono ml-1.5 text-[11px] text-ink-3">{hit.join(", ")}</span>}
                     </span>
                   </li>
@@ -242,9 +231,13 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
               <div>gate: {trace.control.mode === "off" ? "off" : `${trace.control.mode} · ${trace.control.verdicts.join(", ") || "never called"}${trace.control.falseBlock ? " · false block" : ""}`}</div>
             </div>
           </Card>
+          <details className="rounded-xl border border-line bg-surface p-4">
+            <summary className="cursor-pointer text-sm">All recorded findings ({grade.violations.length})</summary>
+            <ul className="mt-3 grid gap-3 text-xs">{grade.violations.map((v, i) => <li key={i}><Pill tone={toneForSeverity(v.severity)}>{v.severity}</Pill><p className="mono mt-1 break-all">{v.code}</p><p className="mt-1 text-ink-2">{v.detail}</p></li>)}</ul>
+          </details>
           <Card title="Next">
             <div className="grid gap-2">
-              <LinkButton href={`/labs?rerun=${encodeURIComponent(run.agent.name)}`}>Rerun the suite</LinkButton>
+              <LinkButton href={`/labs?agent=${encodeURIComponent(`${run.agent.name}@${run.agent.version}`)}`}>Set up another test</LinkButton>
               <LinkButton href="/labs/arena">Compare configurations</LinkButton>
             </div>
             <Note>
@@ -254,6 +247,30 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
           <p className="text-[11.5px] text-ink-3">Every verdict here comes from deterministic graders reading the tool calls. No model decided any of it.</p>
         </div>
       </div>
+      <details className="replay-map">
+        <summary>Execution map <span>Explore how the recorded actions connect</span></summary>
+      <Card title="Execution map" aside="how authorization, evidence, policy and simulated execution connected · nothing here moved money" emphasis={critical ? "crit" : undefined} className="mb-4">
+        {(() => {
+          const g = buildGraph(run.agent, scenario, trace, grade.violations, critical);
+          return <ExecutionGraph nodes={g.nodes} edges={g.edges} height={260} />;
+        })()}
+        <div className="mt-3 flex flex-wrap gap-4 text-[11.5px] text-ink-3">
+          <span>
+            <span className="mr-1.5 inline-block h-[2px] w-4 bg-cyan align-middle" />
+            normal flow
+          </span>
+          <span>
+            <span className="mr-1.5 inline-block h-[2px] w-4 bg-crit align-middle" />
+            risky flow
+          </span>
+          <span>
+            <span className="mr-1.5 inline-block h-[10px] w-[10px] rounded-full border border-crit align-middle" />
+            simulated rail not reached
+          </span>
+        </div>
+      </Card>
+
+      </details>
     </>
   );
 }

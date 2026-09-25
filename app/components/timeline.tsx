@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ToolCall, Violation } from "@/lib/api";
 import type { TrajectoryStep } from "@/lib/derive";
 import { ms } from "@/lib/format";
@@ -42,24 +42,20 @@ export function Scrubber({ calls, findingsBySeq, steps }: { calls: ToolCall[]; f
   const firstFail = steps.findIndex((s) => s.status === "fail");
   const [idx, setIdx] = useState(firstFail >= 0 ? firstFail : calls.length - 1);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") setIdx((i) => Math.min(calls.length - 1, i + 1));
-      if (e.key === "ArrowLeft") setIdx((i) => Math.max(0, i - 1));
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [calls.length]);
-
   if (calls.length === 0) return <p className="text-[13px] text-ink-3">The agent made no tool calls.</p>;
   const call = calls[idx];
   const step = steps[idx];
   const findings = findingsBySeq[call.seq] ?? [];
 
   return (
-    <div className="grid gap-5">
-      <ol className="relative grid grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-1">
-        <div aria-hidden className="absolute left-3 right-3 top-[9px] h-px bg-line" />
+    <div className="grid gap-5 replay-scrubber" tabIndex={0} aria-label="Execution timeline; use arrow keys to move between calls" onKeyDown={(e) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        setIdx((i) => Math.max(0, Math.min(calls.length - 1, i + (e.key === "ArrowRight" ? 1 : -1))));
+      }
+    }}>
+      <ol className="replay-steps">
         {steps.map((s, i) => (
           <li key={i} className="relative">
             <button type="button" onClick={() => setIdx(i)} className="group flex w-full flex-col items-center gap-1.5 text-center" aria-current={i === idx}>
@@ -106,17 +102,17 @@ export function Scrubber({ calls, findingsBySeq, steps }: { calls: ToolCall[]; f
           </ul>
         )}
       </div>
-      <p className="text-[11px] text-ink-3">← → to step. The highlighted step is the first one the graders anchored a critical finding to.</p>
+      <p className="text-[11px] text-ink-3">Focus the timeline and use ← → to step. Replay opens at the first critical finding, or the final call if none was recorded.</p>
     </div>
   );
 }
 
 function Json({ label, value }: { label: string; value: unknown }) {
-  const text = JSON.stringify(value, null, 1)?.replace(/\n\s*/g, " ") ?? "";
+  const text = JSON.stringify(value, null, 2) ?? "";
   return (
     <div className="min-w-0">
       <div className="mb-1 text-[10.5px] uppercase tracking-[0.06em] text-ink-3">{label}</div>
-      <pre className="whitespace-pre-wrap break-all rounded-[var(--radius-sm)] bg-sunken px-2.5 py-2 text-[11.5px] leading-snug text-ink-2">{text.length > 900 ? `${text.slice(0, 900)}…` : text}</pre>
+      <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-[var(--radius-sm)] bg-sunken px-2.5 py-2 text-[11.5px] leading-snug text-ink-2">{text}</pre>
     </div>
   );
 }

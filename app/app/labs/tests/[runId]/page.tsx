@@ -1,12 +1,13 @@
 import Link from "next/link";
+import { overviewIdentity } from "../../agent-identity";
 import { ApiError, episodes, gates, labRun, labRuns, profile, scenario as loadScenario, type EpisodeGrade } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { agentKey, counts, coverageConfidence, familyAxes, readiness, scenarioPassRate, trajectory } from "@/lib/derive";
 import { LADDER, int, money, ms, ofN, pct, when } from "@/lib/format";
-import { agentDisplay, agentRaw, suiteName } from "@/lib/names";
+import { suiteName } from "@/lib/names";
 import { Radar } from "@/components/charts";
 import { Breadcrumb } from "@/components/shell";
-import { Card, Delta, EmptyState, EnvBar, Hash, KV, LinkButton, Metric, MetricRow, Note, Offline, PageHeader, Pill, StateBadge, Tabs, toneForSeverity, toneForVerdict } from "@/components/ui";
+import { Card, Delta, EmptyState, EnvBar, Hash, KV, LinkButton, Metric, MetricRow, Note, Offline, PageHeader, Pill, Tabs, toneForSeverity, toneForVerdict } from "@/components/ui";
 
 export const metadata = { title: "Test Run" };
 
@@ -20,10 +21,11 @@ const TABS = ["overview", "failures", "scenarios", "trace", "artifacts"] as cons
 export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">) {
   const { runId } = await props.params;
   const search = await props.searchParams;
-  const tab = (TABS as readonly string[]).includes(String(search.tab)) ? String(search.tab) : "overview";
+  const tab = (TABS as readonly string[]).includes(String(search.tab)) ? String(search.tab) : "failures";
   const [run, all, gt] = await Promise.all([safe(labRun(runId)), safe(labRuns()), safe(gates())]);
   if (!run || !all) return <Offline />;
 
+  const identity = overviewIdentity(run);
   const grades = run.grades.filter((g) => !g.unusable);
   const pass = scenarioPassRate(grades);
     const mine = all.filter((r) => agentKey(r) === agentKey(run));
@@ -78,39 +80,28 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
     <>
       <Breadcrumb items={[{ href: "/labs/tests", label: "Tests" }, { label: run.id }]} />
       <PageHeader
-        eyebrow={`Test run · ${when(run.createdAt)}`}
-        title={
-          <>
-            {agentDisplay(run.agent.name)} <span className="mono text-[14px] font-normal text-ink-3">{agentRaw(run.agent.name, run.agent.version)}</span>
-          </>
-        }
-        subtitle={
-          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="text-[20px] font-semibold text-ink">{pct(pass.passed, pass.of)} <span className="text-[12px] font-normal text-ink-3">pass</span></span>
-            <span>{int(run.suite.scenarioCount)} scenarios × {run.suite.trials} trials</span>
-            <span className={c.criticalEpisodes ? "text-crit-ink" : ""}>{int(c.criticalEpisodes)} episode(s) with critical failure</span>
-            <span className="text-ink-3">{int(c.criticalCheckFailures)} critical check failure(s)</span>
-            <span>{int(c.failingEpisodes)} failing episode(s) of {int(c.episodes)}</span>
-            <span className="text-ink-3" title={run.suite.id}>{suiteName(run.suite.id).name}</span>
-          </span>
-        }
-        actions={
-          <>
-            <StateBadge state={ready.state} />
-            {run.verification && <Pill tone={run.verification.ok ? "good" : "crit"}>{run.verification.ok ? "signature verifies" : "signature broken"}</Pill>}
-          </>
-        }
+        eyebrow={`Test results · ${when(run.createdAt)}`}
+        title={identity.name}
+        subtitle={`${identity.version} · ${identity.detail} · ${suiteName(run.suite.id).name}`}
+        actions={<>{identity.demo && <Pill>Demo agent</Pill>}<LinkButton href={`/labs?agent=${encodeURIComponent(agentKey(run))}`}>Agent overview</LinkButton></>}
       />
+      <div className="investigation-summary" aria-label="Run summary">
+        <div><span>Scenarios passed</span><strong>{pct(pass.passed, pass.of)}</strong><small>{int(pass.passed)} of {int(pass.of)} scenarios</small></div>
+        <div><span>Critical failures</span><strong className={c.criticalEpisodes ? "text-crit-ink" : ""}>{int(c.criticalEpisodes)}</strong><small>of {int(c.episodes)} usable trials</small></div>
+        <div><span>Safety</span><strong>{run.axes.safety.score}</strong><small>{int(run.axes.safety.sampleSize)} evaluated samples</small></div>
+        <div><span>Duration</span><strong>{ms(run.durationMs)}</strong><small>{int(run.suite.scenarioCount)} scenarios × {run.suite.trials} trials</small></div>
+      </div>
       <EnvBar />
+      {run.grades.some((g) => g.unusable) && <p className="mb-4 text-sm text-warn-ink">{int(run.grades.filter((g) => g.unusable).length)} unusable trial(s) are excluded from scores and failure counts. <Link href={`${base}?tab=trace`} className="underline">Inspect all trials in Trace</Link>.</p>}
       <Tabs
         base={base}
         active={tab}
         tabs={[
-          { key: "overview", label: "Overview" },
           { key: "failures", label: "Failures", count: failureRows.length },
-          { key: "scenarios", label: "Scenarios", count: byScenario.size },
-          { key: "trace", label: "Trace", count: grades.length },
-          { key: "artifacts", label: "Artifacts" },
+          { key: "overview", label: "Scores & coverage" },
+          { key: "scenarios", label: "All scenarios", count: byScenario.size },
+          { key: "trace", label: "Trace", count: run.grades.length },
+          { key: "artifacts", label: "Evidence & export" },
         ]}
       />
 
@@ -171,8 +162,9 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
             </Card>
           </div>
 
-          <Card title="Coverage by failure family" aside={`safety ${run.axes.safety.score} (n=${int(run.axes.safety.sampleSize)}) · coverage confidence ${coverage.pct}% · ${ofN(coverage.measured, coverage.of)} families with sufficient evidence`}>
-            <Radar axes={axes} size={220} />
+          <Card title="Coverage across this agent version" aside={`safety ${run.axes.safety.score} (n=${int(run.axes.safety.sampleSize)}) · coverage confidence ${coverage.pct}% · ${ofN(coverage.measured, coverage.of)} families with sufficient evidence`}>
+            <p className="mb-3 text-[12px] text-ink-3">Coverage includes all recorded runs of this agent version. Scores above describe this run only.</p>
+            {prof ? <Radar axes={axes} size={220} /> : <p>Coverage evidence unavailable.</p>}
           </Card>
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             <Card title="Check failures by code" aside={`${int(c.checkFailures)} check failure(s) across ${int(c.failingEpisodes)} failing episode(s) of ${int(c.episodes)}`} padded={false}>
@@ -234,7 +226,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
 
       {tab === "failures" &&
         (failureRows.length === 0 ? (
-          <EmptyState title="Nothing failed." body="Every trial reached the expected action with no finding." />
+          <EmptyState title="Nothing failed." body={grades.length ? "No finding in the usable trials. Unusable trials, if any, are listed in Trace." : "There are no usable trials to evaluate. Open Trace for recorded attempts."} />
         ) : (
           <div className="grid gap-3">
             {failureRows.map((r) => (
@@ -314,11 +306,12 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
         </Card>
       )}
 
-      {tab === "trace" && <TraceTab runId={run.id} grades={grades} />}
+      {tab === "trace" && <TraceTab runId={run.id} grades={run.grades} />}
 
       {tab === "artifacts" && (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card title="Signature">
+            <Pill tone={run.verification ? run.verification.ok ? "good" : "crit" : "neutral"}>{run.verification ? run.verification.ok ? "Signature verifies" : "Signature broken" : "Verification unavailable"}</Pill>
             <KV
               rows={[
                 ["record", <Hash key="h" value={run.hash} n={32} />],
@@ -331,6 +324,9 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
                 ["took", ms(run.durationMs)],
               ]}
             />
+          </Card>
+          <Card title="Recorded run data">
+            <details><summary className="cursor-pointer text-sm text-accent-ink">Inspect full run JSON, including all grades</summary><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs">{JSON.stringify(run, null, 2)}</pre></details>
           </Card>
           <Card title="Take it with you">
             <p className="text-[13px] text-ink-2">The run, its grades and every trace are yours to export. The record stays verifiable against the public key inside it, so nobody has to call us.</p>
@@ -372,7 +368,7 @@ async function TraceTab({ runId, grades }: { runId: string; grades: EpisodeGrade
                 </td>
                 <td className="tabular">{g.trial}</td>
                 <td>
-                  <Pill tone={g.criticalCount > 0 ? "crit" : g.effective === g.expected ? "good" : "warn"}>{g.effective}</Pill>
+                  <Pill tone={g.criticalCount > 0 ? "crit" : g.effective === g.expected ? "good" : "warn"}>{g.unusable ? "Unusable" : g.effective}</Pill>
                 </td>
                 <td className="text-[12px]">
                   {t ? (

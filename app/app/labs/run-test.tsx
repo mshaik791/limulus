@@ -9,37 +9,37 @@ import { Button } from "@/components/ui";
 // Connect Agent shows the contract, because connecting is an endpoint, not a
 // form: the harness POSTs turns to it and never holds a key.
 
-export function RunTest({ agents, show = ["connect", "run"], runLabel = "Run Simulation", quiet = false }: { agents: { key: string; name: string; version: string }[]; show?: ("connect" | "run")[]; runLabel?: string; quiet?: boolean }) {
+export function RunTest({ agents, show = ["connect", "run"], runLabel = "Run Simulation", quiet = false, defaultAgent = "careful", defaultEndpoint = "" }: { defaultAgent?: string; defaultEndpoint?: string; agents: { key: string; name: string; version: string }[]; show?: ("connect" | "run")[]; runLabel?: string; quiet?: boolean }) {
   const [open, setOpen] = useState<"run" | "connect" | null>(null);
   return (
-    <div className="relative flex items-center gap-2">
+    <div className="labs-run-control relative flex items-center gap-2" onKeyDown={(e) => { if (e.key === "Escape") setOpen(null); }}>
       {show.includes("connect") && (
         <button type="button" onClick={() => setOpen(open === "connect" ? null : "connect")} className="rounded-[var(--radius-sm)] border border-line-2 bg-surface-2 px-3 py-1.5 text-[13px] font-medium hover:border-line-hover">
           Connect Agent
         </button>
       )}
       {show.includes("run") && (
-        <button type="button" onClick={() => setOpen(open === "run" ? null : "run")} className={quiet ? "rounded-[var(--radius-sm)] border border-line-2 bg-surface-2 px-3 py-1.5 text-[13px] font-medium hover:border-line-hover" : "rounded-[var(--radius-sm)] border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:brightness-110"}>
+        <button type="button" aria-expanded={open === "run"} onClick={() => setOpen(open === "run" ? null : "run")} className={quiet ? "rounded-[var(--radius-sm)] border border-line-2 bg-surface-2 px-3 py-1.5 text-[13px] font-medium hover:border-line-hover" : "rounded-[var(--radius-sm)] border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:brightness-110"}>
           {runLabel}
         </button>
       )}
 
       {open === "run" && (
         <form action={runTestAction} className={`absolute ${quiet ? "left-0" : "right-0"} top-[calc(100%+8px)] z-20 w-[360px] rounded-[var(--radius)] border border-line-2 bg-surface p-4 text-[13px] shadow-2xl`}>
-          <div className="mb-3 text-[14px] font-medium">Run a test</div>
+          <div className="mb-3 flex items-center justify-between text-[14px] font-medium">Run a test<button type="button" aria-label="Close run form" onClick={() => setOpen(null)} className="px-2 text-ink-2">×</button></div>
           <label className="mb-2 grid gap-1">
-            <span className="text-ink-3">reference agent</span>
-            <select name="agent" defaultValue="careful">
+            <span className="text-ink-3">Demo agent (scripted)</span>
+            <select name="agent" defaultValue={defaultAgent}>
               {agents.map((a) => (
                 <option key={a.key} value={a.key}>
-                  {a.name} v{a.version}
+                  {a.key === "careful" ? "Payment demo — Careful" : a.key === "naive" ? "Payment demo — Naive" : a.name} · v{a.version}
                 </option>
               ))}
             </select>
           </label>
           <label className="mb-2 grid gap-1">
             <span className="text-ink-3">or your agent&apos;s endpoint</span>
-            <input name="endpoint" placeholder="http://localhost:9000/agent" className="mono" />
+            <input name="endpoint" defaultValue={defaultEndpoint} placeholder="http://localhost:9000/agent" className="mono" />
           </label>
           <label className="mb-3 grid grid-cols-[1fr_80px] items-center gap-2">
             <span className="text-ink-3">trials per scenario</span>
@@ -52,7 +52,7 @@ export function RunTest({ agents, show = ["connect", "run"], runLabel = "Run Sim
 
       {open === "connect" && (
         <div className="absolute right-0 top-[calc(100%+8px)] z-20 w-[460px] rounded-[var(--radius)] border border-line-2 bg-surface p-4 text-[13px] shadow-2xl">
-          <div className="mb-2 text-[14px] font-medium">Connect an agent</div>
+          <div className="mb-2 flex items-center justify-between text-[14px] font-medium">Connect an agent<button type="button" aria-label="Close connection details" onClick={() => setOpen(null)} className="px-2 text-ink-2">×</button></div>
           <p className="text-ink-2">
             An agent is an HTTP endpoint. Each step, the harness POSTs the task, the authorization, the documents, the tools and the history so far, and your agent replies with one step:
           </p>

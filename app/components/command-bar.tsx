@@ -16,7 +16,7 @@ import { isLabsPath } from "./sidebar";
 
 type Hit = { kind: string; label: string; sub?: string; href: string };
 
-export function CommandBar({ agents, engineOk, sandbox }: { agents: { key: string; name: string; version: string }[]; engineOk: boolean; sandbox: boolean }) {
+export function CommandBar({ agents, engineOk, sandbox, compact = false }: { compact?: boolean; agents: { key: string; name: string; version: string }[]; engineOk: boolean; sandbox: boolean }) {
   const path = usePathname();
   const labs = isLabsPath(path);
   const [open, setOpen] = useState(false);
@@ -68,10 +68,16 @@ export function CommandBar({ agents, engineOk, sandbox }: { agents: { key: strin
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-[52px] items-center gap-3 border-b border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] px-6 backdrop-blur">
-      <div className="relative w-full max-w-[560px]">
+    <header className={`${compact ? "labs-command " : ""}sticky top-0 z-30 flex h-[52px] items-center gap-3 border-b border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] px-6 backdrop-blur`}>
+      {compact && <>
+        <Link href="/" className="labs-brand" aria-label="Limulus home"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M4 26V14a11 11 0 0 1 22 0v12M11 26V15a4 4 0 0 1 8 0v11" fill="none" stroke="currentColor" strokeWidth="2.5" /></svg><span>LIMULUS</span></Link>
+        <nav className="labs-primary-nav" aria-label="Primary"><Link href="/">Home</Link><Link href="/labs" aria-current="page">Test</Link><Link href="/production" title="Observe in Shadow Mode">Monitor</Link><Link href="/decisions" title="Transaction decisions and controls">Protect</Link></nav>
+      </>}
+      <div className={compact ? "labs-search relative" : "relative w-full max-w-[560px]"}>
         <button
           type="button"
+          aria-label="Search agents, tests, incidents and transactions"
+          aria-expanded={open}
           onClick={() => {
             setOpen(true);
             setTimeout(() => input.current?.focus(), 0);
@@ -114,7 +120,7 @@ export function CommandBar({ agents, engineOk, sandbox }: { agents: { key: strin
       </div>
       {open && <button type="button" aria-label="close search" onClick={() => setOpen(false)} className="fixed inset-0 z-[-1] cursor-default" />}
 
-      <div className="ml-auto flex items-center gap-2">
+      {compact ? <details className="labs-more"><summary aria-label="More navigation">More</summary><nav aria-label="Additional pages"><Link href="/labs/policies">Policies</Link><Link href="/labs/qualifications">Assurance checks</Link><Link href="/incidents">Incidents</Link><Link href="/evidence">Evidence</Link><Link href="https://github.com/mshaik791/limulus#readme" target="_blank">Documentation ↗</Link></nav></details> : <div className="ml-auto flex items-center gap-2">
         <span className="rounded-[6px] border border-line px-2 py-1 text-[11px] text-ink-2">
           <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle ${sandbox ? "bg-warn" : "bg-good"}`} />
           {sandbox ? "Sandbox" : "Production rail"}
@@ -171,7 +177,7 @@ export function CommandBar({ agents, engineOk, sandbox }: { agents: { key: strin
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </header>
   );
 }
