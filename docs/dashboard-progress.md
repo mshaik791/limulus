@@ -13,9 +13,12 @@ and the next highest-impact item. Newest last.
       hierarchy, the safety/coverage/what-to-fix story, evidence links.
 - [ ] **Research pass**: 3–5 best-in-class eval/observability/fintech-compliance dashboards +
       the ICP companies; capture patterns + source links here before deep restyling.
-- [~] **Route sweep**: agents ✓, arena ✓, releases ✓, qualifications ✓ (screenshotted).
-      Remaining: tests (+detail/scenarios), policies, `*/new`, plus per-page spacing polish
-      (Agents/Connected-agents card has excess vertical whitespace).
+- [x] **Route sweep** (primary): overview, agents, tests, arena, releases, policies,
+      qualifications, production — all screenshotted, cohesive, professional. Remaining detail
+      routes (tests/[runId], scenarios, agents/[agentId], */new) to spot-check later.
+- [x] **Design-system audit**: no hard-coded hex in components — all 65 hex are token
+      *definitions* in globals.css (global blue theme) + overview.css (`.labs-modern` scoped
+      cyan Labs theme). Sound. Shell unification made the whole Labs section share the cyan theme.
 - [x] **Shell consistency (was hidden, high-impact)**: unified all `/labs/*` routes onto the
       modern top-nav shell (arena/releases/policies/qualifications were on the old left-sidebar).
 - [ ] **Responsive**: 1280 → large display, no overflow/clipping.
@@ -84,3 +87,18 @@ and the next highest-impact item. Newest last.
   dev to avoid two processes on `.next`, then restarted dev on :3001).
 - Next: `/labs/tests` (+ detail/scenarios) & `/labs/policies` screenshots; then per-page spacing
   polish and the design-system token audit.
+
+### Iter 4 — 2026-09-25 · Route sweep complete, token audit, nav DRY'd to one source
+- Screenshotted the last primary routes (`/labs/tests`, `/labs/policies`) — both strong and now
+  cohesive in the unified shell. Full primary sweep done; the dashboard is genuinely solid.
+- **Token audit:** `.labs-modern` in overview.css deliberately scopes its own token layer (cyan
+  accent `#72cfe9`, near-black bg) vs the global blue theme — the 65 "hex hits" are token
+  definitions, not scattered literals. No violation. Confirms iter-3 also unified Labs colour.
+- **Correctness check on iter-3:** verified no double-nav — every page that renders its own
+  `<LabsNav>` (agents*, tests/new, jobs/*) is an onboarding route the shell intentionally skips.
+- **Refactor (DRY):** the sub-tab row was defined twice (shell-frame inline nav + `LabsNav` in
+  labs-ui). Made `labs-ui` the single source: exported `LABS_TABS` + `activeLabsTab(pathname)`,
+  and the shell now renders `<LabsNav>` too. Removed the now-unused `Link` import from the shell.
+  Guarantees onboarding and content navs can't drift. Build green; arena verified unchanged.
+- Next: spot-check detail routes (tests/[runId], scenarios, agents/[agentId]); responsive pass
+  at 1280; then a branded favicon + shared-link metadata for the demo.
