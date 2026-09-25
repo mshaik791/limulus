@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { agents, jobs, labRuns, referenceAgents, type AgentRecord, type VersionRecord } from "@/lib/api";
+import { agents, jobs, labRuns, referenceAgents, type AgentRecord } from "@/lib/api";
 import { safe } from "@/lib/safe";
 import { CONNECTION_LABEL, CONNECTION_TONE, JOB_LABEL, isActive } from "@/lib/onboarding";
 import { ago, int } from "@/lib/format";
@@ -14,7 +14,8 @@ export const metadata = { title: "Agents" };
 // established, and what to do next. Demos apart, smaller once a real agent
 // exists.
 
-const isFixture = (a: AgentRecord, v?: VersionRecord) => /^fixture\//.test(a.connection.lastCheck?.reported?.model ?? v?.declared?.model ?? "");
+// The check reply's own declaration; a model string never decides this.
+const isFixture = (a: AgentRecord) => a.connection.lastCheck?.reported?.fixture === true;
 
 export default async function Agents(props: PageProps<"/labs/agents">) {
   const search = await props.searchParams;
@@ -50,7 +51,7 @@ export default async function Agents(props: PageProps<"/labs/agents">) {
             const latestRun = [...runs].reverse().find((r) => r.agent.registry?.agentId === a.id);
             const job = active.find((j) => j.request.agentId === a.id);
             const model = latestVersion?.declared?.model ?? a.connection.lastCheck?.reported?.model;
-            const fixture = isFixture(a, latestVersion);
+            const fixture = isFixture(a);
             const runVersion = latestRun ? (versions.find((v) => v.id === latestRun.agent.registry?.versionId)?.label ?? latestRun.agent.version) : null;
             return (
               <li key={a.id}>
@@ -59,7 +60,7 @@ export default async function Agents(props: PageProps<"/labs/agents">) {
                   {fixture && <span className="labs-chip">Test fixture</span>}
                   {!a.enabled && <span className="labs-chip">Disabled</span>}
                 </div>
-                <div className="labs-muted">{a.workflow}{fixture ? " · a scripted stand-in, not a model-powered agent" : ` · ${model ? modelDisplay(model) : "Model not reported"}`}</div>
+                <div className="labs-muted">{a.workflow ? `${a.workflow} · ` : ""}{fixture ? "a scripted stand-in, not a model-powered agent" : model ? `${modelDisplay(model)} · ${latestVersion?.declared?.model ? "declared by you" : "self-reported by the endpoint"}` : "Model not reported"}</div>
                 <div className="labs-agent-facts">
                   <span><b>Connection:</b> <StatePill tone={CONNECTION_TONE[a.connection.state]}>{CONNECTION_LABEL[a.connection.state]}</StatePill></span>
                   <span><b>Version:</b> {latestVersion?.label ?? "—"}{versions.length > 1 ? <span className="labs-muted"> · {int(versions.length)} versions</span> : null}</span>

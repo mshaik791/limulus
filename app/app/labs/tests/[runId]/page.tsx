@@ -2,8 +2,9 @@ import Link from "next/link";
 import { overviewIdentity } from "../../agent-identity";
 import { ApiError, episodes, gates, labRun, labRuns, profile, scenario as loadScenario, type EpisodeGrade } from "@/lib/api";
 import { safe } from "@/lib/safe";
-import { agentKey, counts, coverageConfidence, familyAxes, readiness, scenarioPassRate, trajectory } from "@/lib/derive";
+import { agentKey, counts, coverageConfidence, familyAxes, readiness, trajectory } from "@/lib/derive";
 import { LADDER, int, money, ms, ofN, pct, when } from "@/lib/format";
+import { findingGroups, findingName, runCounts } from "@/lib/findings";
 import { suiteName } from "@/lib/names";
 import { Radar } from "@/components/charts";
 import { Breadcrumb } from "@/components/shell";
@@ -11,10 +12,12 @@ import { Card, Delta, EmptyState, EnvBar, Hash, KV, LinkButton, Metric, MetricRo
 
 export const metadata = { title: "Test Run" };
 
-// A financial-agent debugger. Overview says how it did and against what;
-// Failures lists what went wrong, worst first; Scenarios is one row per
-// scenario with a dot per trial; Trace lists every episode; Artifacts is the
-// signature and how to verify it without us.
+// A financial-agent debugger. Findings lists what went wrong, worst first,
+// then what passed but still carries a finding; Overview says how it did and
+// against what; Scenarios is one row per scenario with a dot per trial; Trace
+// lists every trial; Artifacts is the signature and how to verify it without
+// us. Every count comes from lib/findings so the same predicate produces the
+// badge, the cards and the list.
 
 const TABS = ["overview", "failures", "scenarios", "trace", "artifacts"] as const;
 
@@ -27,7 +30,6 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
 
   const identity = overviewIdentity(run);
   const grades = run.grades.filter((g) => !g.unusable);
-  const pass = scenarioPassRate(grades);
     const mine = all.filter((r) => agentKey(r) === agentKey(run));
   const idx = mine.findIndex((r) => r.id === run.id);
   const previous = idx > 0 ? mine[idx - 1] : undefined;
@@ -37,27 +39,18 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
   const coverage = coverageConfidence(axes);
   const c = counts(grades);
   const ready = readiness(run, gate, grades, axes);
-
-  // Failures grouped per scenario, worst first, with the variant count.
+  const n = runCounts(run.grades);
+  const groups = findingGroups(run.grades);
+  const findingRows = [...groups.failed, ...groups.passedWithFindings];
   const byScenario = new Map<string, EpisodeGrade[]>();
   for (const g of grades) byScenario.set(g.scenarioId, [...(byScenario.get(g.scenarioId) ?? []), g]);
-  const failureRows = [...byScenario]
-    .map(([sid, gs]) => {
-      const crit = gs.reduce((n, g) => n + g.criticalCount, 0);
-      const failedTrials = gs.filter((g) => g.criticalCount > 0 || g.effective !== g.expected).length;
-      const top = gs.flatMap((g) => g.violations).sort((a, b) => sev(b.severity) - sev(a.severity))[0];
-      const exposure = gs.reduce((n, g) => n + (g.criticalCount > 0 ? (g.paidAmount ?? 0) : 0), 0);
-      return { sid, gs, crit, failedTrials, top, exposure, worst: gs.find((g) => g.criticalCount > 0) ?? gs.find((g) => g.effective !== g.expected) ?? gs[0] };
-    })
-    .filter((r) => r.failedTrials > 0 || r.top)
-    .sort((a, b) => b.crit - a.crit || sev(b.top?.severity ?? "") - sev(a.top?.severity ?? "") || b.failedTrials - a.failedTrials);
 
   const titles = new Map<string, string>();
   if (tab === "failures" || tab === "overview") {
     await Promise.all(
-      failureRows.slice(0, 12).map(async (r) => {
+      findingRows.map(async (r) => {
         try {
-          titles.set(r.sid, (await loadScenario(r.sid)).title);
+          titles.set(r.scenarioId, (await loadScenario(r.scenarioId)).title);
         } catch (e) {
           if (!(e instanceof ApiError)) throw e;
         }
@@ -73,6 +66,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
     byCode.set(v.code, e);
   }
   const codes = [...byCode].sort((a, b) => sev(b[1].severity) - sev(a[1].severity) || b[1].count - a[1].count);
+  const unusable = n.unusableTrials;
   const rung = LADDER.indexOf(run.axes.level);
   const base = `/labs/tests/${run.id}`;
 
@@ -80,24 +74,24 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
     <>
       <Breadcrumb items={[{ href: "/labs/tests", label: "Tests" }, { label: run.id }]} />
       <PageHeader
-        eyebrow={`Test results · ${when(run.createdAt)}`}
+        eyebrow={`Test results · ${when(run.createdAt)} · took ${ms(run.durationMs)}`}
         title={identity.name}
         subtitle={`${identity.version} · ${identity.detail} · ${suiteName(run.suite.id).name}`}
-        actions={<>{identity.demo && <Pill>Demo agent</Pill>}{run.agent.registry && <LinkButton href={`/labs/agents/${encodeURIComponent(run.agent.registry.agentId)}`}>Connected agent</LinkButton>}<LinkButton href={`/labs?agent=${encodeURIComponent(agentKey(run))}`}>Agent overview</LinkButton></>}
+        actions={<>{identity.demo && <Pill>Demo agent</Pill>}{identity.fixture && <Pill tone="warn">Test fixture</Pill>}{run.agent.registry && <LinkButton href={`/labs/agents/${encodeURIComponent(run.agent.registry.agentId)}`}>Connected agent</LinkButton>}<LinkButton href={`/labs?agent=${encodeURIComponent(agentKey(run))}`}>Agent overview</LinkButton></>}
       />
       <div className="investigation-summary" aria-label="Run summary">
-        <div><span>Scenarios passed</span><strong>{pct(pass.passed, pass.of)}</strong><small>{int(pass.passed)} of {int(pass.of)} scenarios</small></div>
-        <div><span>Critical failures</span><strong className={c.criticalEpisodes ? "text-crit-ink" : ""}>{int(c.criticalEpisodes)}</strong><small>of {int(c.episodes)} usable trials</small></div>
-        <div><span>Safety</span><strong>{run.axes.safety.score}</strong><small>{int(run.axes.safety.sampleSize)} evaluated samples</small></div>
-        <div><span>Duration</span><strong>{ms(run.durationMs)}</strong><small>{int(run.suite.scenarioCount)} scenarios × {run.suite.trials} trials</small></div>
+        <div><span>Scenarios passed</span><strong>{int(n.scenariosPassed)}<small className="investigation-of"> of {int(n.scenarios)}</small></strong><small>{pct(n.scenariosPassed, n.scenarios)} · a scenario passes when every usable trial took the expected action with no critical failure{n.scenariosPassedWithFindings ? `; ${int(n.scenariosPassedWithFindings)} passed with a lesser finding` : ""}</small></div>
+        <div><span>Trials with a critical failure</span><strong className={n.trialsWithCritical ? "text-crit-ink" : ""}>{int(n.trialsWithCritical)}<small className="investigation-of"> of {int(n.usableTrials)}</small></strong><small>usable trials · {int(n.scenarios)} scenarios × {int(run.suite.trials)} repeat{run.suite.trials === 1 ? "" : "s"}{unusable ? ` · ${int(unusable)} unusable, excluded` : ""}</small></div>
+        <div><span>Critical check failures</span><strong className={n.criticalCheckFailures ? "text-crit-ink" : ""}>{int(n.criticalCheckFailures)}</strong><small>individual checks failed; one trial can fail several</small></div>
+        <div><span>Safety</span><strong>{run.axes.safety.score}<small className="investigation-of"> / 100</small></strong><small>share of usable trials with no critical failure, weighted by severity · from {int(run.axes.safety.sampleSize)} usable trials</small></div>
       </div>
       <EnvBar />
-      {run.grades.some((g) => g.unusable) && <p className="mb-4 text-sm text-warn-ink">{int(run.grades.filter((g) => g.unusable).length)} unusable trial(s) are excluded from scores and failure counts. <Link href={`${base}?tab=trace`} className="underline">Inspect all trials in Trace</Link>.</p>}
+      {unusable > 0 && <p className="mb-4 text-sm text-warn-ink">{int(unusable)} of {int(n.trials)} trials were unusable (the endpoint never answered) and are in no count above. <Link href={`${base}?tab=trace`} className="underline">Inspect all trials in Trace</Link>.</p>}
       <Tabs
         base={base}
         active={tab}
         tabs={[
-          { key: "failures", label: "Failures", count: failureRows.length },
+          { key: "failures", label: "Findings", count: findingRows.length },
           { key: "overview", label: "Scores & coverage" },
           { key: "scenarios", label: "All scenarios", count: byScenario.size },
           { key: "trace", label: "Trace", count: run.grades.length },
@@ -167,16 +161,16 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
             {prof ? <Radar axes={axes} size={220} /> : <p>Coverage evidence unavailable.</p>}
           </Card>
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <Card title="Check failures by code" aside={`${int(c.checkFailures)} check failure(s) across ${int(c.failingEpisodes)} failing episode(s) of ${int(c.episodes)}`} padded={false}>
+            <Card title="Check failures by finding" aside={`${int(c.checkFailures)} check failure(s) across ${int(c.failingEpisodes)} failing trial(s) of ${int(c.episodes)}`} padded={false}>
               {codes.length === 0 ? (
                 <div className="p-5">
-                  <EmptyState title="No check failure in any episode." />
+                  <EmptyState title="No check failure in any trial." />
                 </div>
               ) : (
                 <table className="w-full">
                   <thead>
                     <tr>
-                      <th className="pl-5">code</th>
+                      <th className="pl-5">finding</th>
                       <th>severity</th>
                       <th className="text-right">count</th>
                       <th className="pr-5">scenarios</th>
@@ -185,7 +179,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
                   <tbody>
                     {codes.map(([code, e]) => (
                       <tr key={code}>
-                        <td className="mono pl-5">{code}</td>
+                        <td className="pl-5">{findingName(code)}<span className="mono block text-[11px] text-ink-3">{code}</span></td>
                         <td>
                           <Pill tone={toneForSeverity(e.severity)}>{e.severity}</Pill>
                         </td>
@@ -197,23 +191,23 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
                 </table>
               )}
             </Card>
-            <Card title="Critical failures" aside={`${int(failureRows.filter((r) => r.crit > 0).length)} scenario(s) · ${int(c.criticalEpisodes)} episode(s)`}>
-              {failureRows.filter((r) => r.crit > 0).length === 0 ? (
-                <p className="text-[13px] text-ink-3">None. See Failures for non-critical findings.</p>
+            <Card title="Critical failures" aside={`${int(groups.failed.filter((r) => r.criticalCheckFailures > 0).length)} scenario(s) · ${int(n.trialsWithCritical)} trial(s)`}>
+              {groups.failed.filter((r) => r.criticalCheckFailures > 0).length === 0 ? (
+                <p className="text-[13px] text-ink-3">None. See Findings for lesser findings.</p>
               ) : (
                 <ul className="grid gap-2">
-                  {failureRows
-                    .filter((r) => r.crit > 0)
+                  {groups.failed
+                    .filter((r) => r.criticalCheckFailures > 0)
                     .slice(0, 5)
                     .map((r) => (
-                      <li key={r.sid} className="rounded-[var(--radius-sm)] border border-crit/30 bg-crit-soft/40 px-3 py-2">
+                      <li key={r.scenarioId} className="rounded-[var(--radius-sm)] border border-crit/30 bg-crit-soft/40 px-3 py-2">
                         <div className="flex items-center justify-between gap-2">
-                          <Link href={`${base}/scenarios/${r.sid}?trial=${r.worst.trial}`} className="text-[13px] font-medium">
-                            {titles.get(r.sid) ?? r.sid}
+                          <Link href={`${base}/scenarios/${r.scenarioId}?trial=${r.worst.trial}`} className="text-[13px] font-medium">
+                            {titles.get(r.scenarioId) ?? r.scenarioId}
                           </Link>
-                          <span className="text-[12px] tabular text-ink-3">{ofN(r.failedTrials, r.gs.length)} trials failed</span>
+                          <span className="text-[12px] tabular text-ink-3">{ofN(r.failedTrials, r.trials.length)} trials failed</span>
                         </div>
-                        <div className="mt-0.5 text-[12px] text-ink-2">{r.top?.detail}</div>
+                        <div className="mt-0.5 text-[12px] text-ink-2">{r.top ? findingName(r.top.code) : ""}</div>
                         {r.exposure > 0 && <div className="mt-0.5 text-[12px] text-crit-ink">{money(r.exposure)} simulated exposure</div>}
                       </li>
                     ))}
@@ -225,35 +219,18 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
       )}
 
       {tab === "failures" &&
-        (failureRows.length === 0 ? (
+        (findingRows.length === 0 ? (
           <EmptyState title="Nothing failed." body={grades.length ? "No finding in the usable trials. Unusable trials, if any, are listed in Trace." : "There are no usable trials to evaluate. Open Trace for recorded attempts."} />
         ) : (
           <div className="grid gap-3">
-            {failureRows.map((r) => (
-              <Card key={r.sid} emphasis={r.crit > 0 ? "crit" : undefined}>
-                <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-                  <div>
-                    <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <span className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${r.crit > 0 ? "text-crit-ink" : r.top?.severity === "high" ? "text-warn-ink" : "text-ink-3"}`}>{r.crit > 0 ? "critical" : r.top?.severity ?? "failed"}</span>
-                      <span className="mono text-[12px] text-ink-3">{r.sid}</span>
-                      <Pill tone={toneForVerdict(r.gs[0].expected)}>expected {r.gs[0].expected}</Pill>
-                    </div>
-                    <div className="text-[16px] font-semibold">{titles.get(r.sid) ?? r.sid}</div>
-                    <p className="mt-1 text-[13px] text-ink-2">{r.top?.detail ?? `Did ${r.worst.effective}.`}</p>
-                    <div className="mt-2 flex flex-wrap gap-3 text-[12px] text-ink-3">
-                      <span className="tabular">{ofN(r.failedTrials, r.gs.length)} trials failed</span>
-                      {r.exposure > 0 && <span className="text-crit-ink">{money(r.exposure)} simulated exposure</span>}
-                      <span>{[...new Set(r.gs.flatMap((g) => g.violations.map((v) => v.code)))].join(", ")}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <LinkButton href={`${base}/scenarios/${r.sid}?trial=${r.worst.trial}`} tone={r.crit > 0 ? "crit" : "neutral"}>
-                      Replay
-                    </LinkButton>
-                  </div>
-                </div>
-              </Card>
-            ))}
+            <p className="text-[12.5px] text-ink-3">{int(groups.failed.length)} scenario(s) failed: a wrong action or a critical check failure in at least one usable trial.{groups.passedWithFindings.length > 0 ? ` ${int(groups.passedWithFindings.length)} passed but carry a lesser finding; they count as passed everywhere else and are listed below so nothing recorded is hidden.` : ""}</p>
+            {groups.failed.map((r) => <FindingCard key={r.scenarioId} r={r} base={base} title={titles.get(r.scenarioId)} />)}
+            {groups.passedWithFindings.length > 0 && (
+              <>
+                <h2 className="mt-4 text-[13px] font-semibold uppercase tracking-[0.06em] text-ink-3">Passed with findings · {int(groups.passedWithFindings.length)}</h2>
+                {groups.passedWithFindings.map((r) => <FindingCard key={r.scenarioId} r={r} base={base} title={titles.get(r.scenarioId)} passed />)}
+              </>
+            )}
           </div>
         ))}
 
@@ -395,3 +372,43 @@ async function TraceTab({ runId, grades }: { runId: string; grades: EpisodeGrade
 }
 
 const sev = (s: string) => (s === "critical" ? 3 : s === "high" ? 2 : s === "medium" ? 1 : 0);
+
+// One scenario's findings: the worst finding by name, the grader's own
+// sentence under it, the counts in words, and the codes behind a disclosure.
+function FindingCard({ r, base, title, passed }: { r: ReturnType<typeof findingGroups<EpisodeGrade>>["failed"][number]; base: string; title?: string; passed?: boolean }) {
+  const crit = r.criticalCheckFailures > 0;
+  const codeList = [...new Set(r.trials.flatMap((g) => g.violations.map((v) => v.code)))];
+  return (
+    <Card emphasis={crit ? "crit" : undefined}>
+      <div className="grid gap-4 md:grid-cols-[1fr_auto]">
+        <div>
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${crit ? "text-crit-ink" : r.top?.severity === "high" ? "text-warn-ink" : "text-ink-3"}`}>{passed ? `passed · ${r.top?.severity ?? ""} finding` : crit ? "critical" : r.top?.severity ?? "wrong action"}</span>
+            <span className="mono text-[12px] text-ink-3">{r.scenarioId}</span>
+            <Pill tone={toneForVerdict(r.trials[0].expected)}>expected {r.trials[0].expected}</Pill>
+            {r.worst.effective !== r.worst.expected && <Pill tone="warn">did {r.worst.effective}</Pill>}
+          </div>
+          <div className="text-[16px] font-semibold">{title ?? r.scenarioId}</div>
+          <p className="mt-1 text-[13px] text-ink">{r.top ? findingName(r.top.code) : `Did ${r.worst.effective} where ${r.worst.expected} was expected.`}</p>
+          {r.top?.detail && r.top.detail !== r.top.code && <p className="mt-0.5 text-[12.5px] text-ink-2">{r.top.detail}</p>}
+          <div className="mt-2 flex flex-wrap gap-3 text-[12px] text-ink-3">
+            <span className="tabular">{passed ? `${int(r.trials.length)} trial${r.trials.length === 1 ? "" : "s"} passed` : `${ofN(r.failedTrials, r.trials.length)} trials failed`}</span>
+            {crit && <span className="tabular text-crit-ink">{int(r.criticalCheckFailures)} critical check failure{r.criticalCheckFailures === 1 ? "" : "s"}</span>}
+            {r.exposure > 0 && <span className="text-crit-ink">{money(r.exposure)} simulated exposure</span>}
+          </div>
+          {codeList.length > 0 && (
+            <details className="mt-2 text-[12px] text-ink-3">
+              <summary className="cursor-pointer">{int(codeList.length)} finding type{codeList.length === 1 ? "" : "s"} recorded</summary>
+              <ul className="mt-1 grid gap-0.5">{codeList.map((code) => <li key={code}>{findingName(code)} <span className="mono">{code}</span></li>)}</ul>
+            </details>
+          )}
+        </div>
+        <div className="flex items-start gap-2">
+          <LinkButton href={`${base}/scenarios/${r.scenarioId}?trial=${r.worst.trial}`} tone={crit ? "crit" : "neutral"}>
+            Replay
+          </LinkButton>
+        </div>
+      </div>
+    </Card>
+  );
+}

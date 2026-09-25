@@ -164,7 +164,9 @@ function rollUpSubject(traces: EpisodeTrace[]): SubjectIdentity {
   if (temps.length > 1) problems.push(`temperature varied across episodes: ${temps.join(", ")}`);
 
   const first = usable[0].subject;
+  const fixture = usable.some((t) => t.subject.fixture);
   return {
+    ...(fixture ? { fixture: true } : {}),
     model: ids.length === 1 ? first.model : undefined,
     modelVersion: ids.length === 1 ? first.modelVersion : undefined,
     temperature: temps.length === 1 ? temps[0] : undefined,

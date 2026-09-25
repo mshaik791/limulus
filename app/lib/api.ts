@@ -85,7 +85,7 @@ export type EpisodeGrade = {
   unusable?: boolean;
 };
 
-export type SubjectIdentity = { model?: string; modelVersion?: string; temperature?: number; source: "configured" | "self-reported" | "unknown"; inconsistent?: string[] };
+export type SubjectIdentity = { model?: string; modelVersion?: string; temperature?: number; source: "configured" | "self-reported" | "unknown"; fixture?: boolean; inconsistent?: string[] };
 
 export type LabRunAgent = { name: string; version: string; endpoint: string; promptHash?: string; toolConfigHash: string; subject: SubjectIdentity; registry?: { agentId: string; versionId: string } };
 
@@ -423,7 +423,7 @@ export const reviewShadow = (id: string, verdict: string, note: string) => post<
 // arrives here: a connection carries a secret reference, nothing more.
 
 export type ConnectionState = "not_checked" | "checking" | "connected" | "auth_failed" | "unreachable" | "incompatible" | "disabled";
-export type ConnectionCheck = { state: Exclude<ConnectionState, "not_checked" | "checking" | "disabled">; at: string; detail: string; latencyMs: number; reported?: { model?: string; modelVersion?: string } };
+export type ConnectionCheck = { state: Exclude<ConnectionState, "not_checked" | "checking" | "disabled">; at: string; detail: string; latencyMs: number; reported?: { model?: string; modelVersion?: string; fixture?: boolean } };
 export type AgentRecord = {
   id: string;
   workspace: string;

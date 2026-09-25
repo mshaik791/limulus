@@ -6,16 +6,17 @@ import { trajectory } from "@/lib/derive";
 import { buildGraph } from "@/lib/graph";
 import { ExecutionGraph } from "@/components/blocks";
 import { int, money, ms } from "@/lib/format";
-import { agentDisplay, agentRaw } from "@/lib/names";
+import { findingName, hasRationale } from "@/lib/findings";
 import { Scrubber } from "@/components/timeline";
 import { Breadcrumb } from "@/components/shell";
 import { Card, EmptyState, EnvBar, KV, LinkButton, Note, Offline, PageHeader, Pill, StateBadge, toneForSeverity, toneForVerdict } from "@/components/ui";
 
 export const metadata = { title: "Scenario Replay" };
 
-// The signature screen. Left: the scenario context. Centre: the execution
-// timeline, scrubbable. Right: the evaluation as a checklist, each line
-// decided by the grader codes it maps to, and the result with the amount.
+// The signature screen. One verdict at the top, stated once. Left: the
+// scenario context. Centre: the execution timeline, scrubbable, one step per
+// recorded call. Right: the evaluation as a checklist, each line decided by
+// the grader codes it maps to, named in words with the code beside it.
 
 const CHECKLIST: { label: string; codes: string[] }[] = [
   { label: "Authorization", codes: ["exceeded_limit", "exceeded_daily_limit", "amount_exceeds_approval", "paid_unapproved_invoice", "proceeded_without_escalation"] },
@@ -90,8 +91,10 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <span>
-              {identity.name} · {identity.version} · {identity.detail} · trial {grade.trial} of {grades.length}
+              {identity.name} · {identity.version} · trial {grade.trial} of {grades.length}
             </span>
+            {identity.fixture && <Pill tone="warn">Test fixture</Pill>}
+            {identity.demo && <Pill>Demo agent</Pill>}
             {grades.length > 1 && (
               <span className="inline-flex gap-1">
                 {grades.map((g) => (
@@ -133,8 +136,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
                   ["invoice", invoice ? <span key="i" className="mono">{invoice.invoiceId}{invoice.poId ? ` · ${invoice.poId}` : ""}</span> : "none approved"],
                   ["amount", invoice ? money(invoice.amount, scenario.authorization.currency) : scenario.truth?.amount ? money(scenario.truth.amount, scenario.truth.currency) : "–"],
                   ["limit", money(scenario.authorization.limitPerPayment, scenario.authorization.currency) + (scenario.authorization.limitPerDay ? ` · ${money(scenario.authorization.limitPerDay, scenario.authorization.currency)} per day` : "")],
-                  ["agent", <span key="a">{agentDisplay(run.agent.name)} <span className="mono text-ink-3">{agentRaw(run.agent.name, run.agent.version)}</span></span>],
-                  ["model", run.agent.subject.model ?? <span key="m" className="text-ink-3">not reported</span>],
+                  ["behind the endpoint", identity.detail],
                   ["policy", <span key="p" className="mono">{scenario.authorization.policyVersion}</span>],
                   ...(scenario.railEvents?.length ? ([["rail will", <span key="r" className="mono">{scenario.railEvents.map((e) => e.type).join(", ")}</span>]] as [string, React.ReactNode][]) : []),
                 ]}
@@ -146,8 +148,8 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
               <div className="mt-4 border-t border-line pt-3 text-[13px]">
                 <div className="text-[11px] uppercase tracking-[0.06em] text-ink-3">task</div>
                 <p className="mt-1">{scenario.task}</p>
-                <div className="mt-3 text-[11px] uppercase tracking-[0.06em] text-ink-3">why {scenario.expected} is correct</div>
-                <p className="mt-1 text-ink-2">{scenario.rationale}</p>
+                <div className="mt-3 text-[11px] uppercase tracking-[0.06em] text-ink-3">expected action: {scenario.expected}</div>
+                {hasRationale(scenario) ? <p className="mt-1 text-ink-2">{scenario.rationale}</p> : <p className="mt-1 text-ink-3">No rationale recorded for this scenario. The expected action comes from the scenario file; the authorization above is the evidence for it.</p>}
                 {scenario.compiledFrom && (
                   <p className="mt-3 text-[12px] text-ink-3">
                     Compiled from control <span className="mono">{scenario.compiledFrom.controlId}</span>, case <span className="mono">{scenario.compiledFrom.case}</span>.
@@ -215,18 +217,14 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
                     <span>
                       <span className={worstSev ? "text-ink" : "text-ink-2"}>{c.label}</span>
                       {!hit.length && <span className="block text-[11px] text-ink-3">No finding recorded</span>}
-                      {hit.length > 0 && <span className="mono ml-1.5 text-[11px] text-ink-3">{hit.join(", ")}</span>}
+                      {hit.map((code) => <span key={code} className="block text-[12px] text-ink-2">{findingName(code)} <span className="mono text-[11px] text-ink-3">{code}</span></span>)}
                     </span>
                   </li>
                 );
               })}
             </ul>
-            <div className={`mt-4 rounded-[var(--radius-sm)] border p-3 ${result.state === "FAIL" ? "border-crit/40 bg-crit-soft" : result.state === "REVIEW" ? "border-warn/40 bg-warn-soft" : "border-good/40 bg-good-soft"}`}>
-              <StateBadge state={result.state} label={result.title.toUpperCase()} />
-              <p className="mt-2 text-[13px]">{result.body}</p>
-            </div>
-            <div className="mt-3 grid gap-1 text-[12px] text-ink-3">
-              <div>completed the task: {grade.completedTask ? "yes" : "no"}</div>
+            <div className="mt-4 grid gap-1 border-t border-line pt-3 text-[12px] text-ink-3">
+              <div>legitimate task completed: {grade.expected === "proceed" ? (grade.completedTask ? "yes" : "no") : `not applicable, the correct action was to ${grade.expected}`}</div>
               <div>recovered: {grade.recovered === null ? "no fault to recover from" : grade.recovered ? "yes" : "no"}</div>
               <div>gate: {trace.control.mode === "off" ? "off" : `${trace.control.mode} · ${trace.control.verdicts.join(", ") || "never called"}${trace.control.falseBlock ? " · false block" : ""}`}</div>
             </div>
@@ -251,7 +249,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
         <summary>Execution map <span>Explore how the recorded actions connect</span></summary>
       <Card title="Execution map" aside="how authorization, evidence, policy and simulated execution connected · nothing here moved money" emphasis={critical ? "crit" : undefined} className="mb-4">
         {(() => {
-          const g = buildGraph(run.agent, scenario, trace, grade.violations, critical);
+          const g = buildGraph(run.agent, scenario, trace, grade.violations, critical, { name: identity.name, version: identity.version, fixture: identity.fixture });
           return <ExecutionGraph nodes={g.nodes} edges={g.edges} height={260} />;
         })()}
         <div className="mt-3 flex flex-wrap gap-4 text-[11.5px] text-ink-3">

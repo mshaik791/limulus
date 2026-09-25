@@ -58,7 +58,8 @@ const server = createServer(async (req, res) => {
   const mode = url.searchParams.get("mode") ?? "ok";
   const reply = (step: unknown) => {
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ ...(step as object), model: `fixture/${mode}` }));
+    // Explicit provenance: this is a stand-in, and "mode" names its behaviour, not a model.
+    res.end(JSON.stringify({ ...(step as object), model: `fixture/${mode}`, fixture: true }));
   };
   const label = turn.check ? "connection check" : `step ${turn.step}`;
   switch (mode) {

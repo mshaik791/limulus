@@ -7,6 +7,7 @@ import { int } from "@/lib/format";
 import { Note, Offline } from "@/components/ui";
 import { LabsNav, StatePill } from "../../labs-ui";
 import { submitJobAction } from "./actions";
+import { RunSize } from "./run-size";
 
 export const metadata = { title: "New test" };
 
@@ -93,9 +94,8 @@ export default async function NewTest(props: PageProps<"/labs/tests/new">) {
               <option value="enforced">Enforced: the rail holds every order until the gate allows it</option>
             </select>
           </label>
-          <label><span>Repeats per scenario</span><input name="trials" type="number" min={1} max={30} defaultValue={1} /><small>1 is a first look; 3 shows consistency; 30 is the floor for a qualification.</small></label>
+          <RunSize scenarioCount={suite.scenarioCount} />
         </div>
-        <p className="labs-total">Expected trials: <strong>{int(suite.scenarioCount)} × repeats</strong>. Each trial is one full episode against your endpoint, so a model-backed agent takes minutes; the run continues if you leave the page.</p>
         <p className="labs-muted">If your endpoint calls a paid model, its provider bills you per step. The Lab does not estimate that cost.</p>
         <div className="labs-actions">
           <button type="submit" className="labs-primary-button" disabled={!demo && !agent && enabledAgents.length === 0}>{agent && !version ? "Choose a version first" : "Start test"}</button>
@@ -105,7 +105,7 @@ export default async function NewTest(props: PageProps<"/labs/tests/new">) {
       <aside className="labs-panel labs-aside">
         <h2>What happens next</h2>
         <ol className="labs-steps">
-          <li>The job is queued and starts within seconds; progress shows real completed counts.</li>
+          <li>The job is queued and starts when a worker is available; progress shows real completed counts.</li>
           <li>Each scenario runs as one episode: the engine sends turns, your endpoint proposes actions, the simulated world executes them.</li>
           <li>Deterministic graders read what the agent did. A reply the engine cannot parse is an unusable trial and stays out of every rate.</li>
           <li>The finished run is sealed and signed, then opened for you: failures first, then every scenario, traces and evidence.</li>

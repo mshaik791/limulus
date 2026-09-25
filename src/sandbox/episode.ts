@@ -26,6 +26,11 @@ export type SubjectIdentity = {
   model?: string;
   modelVersion?: string;
   temperature?: number;
+  /**
+   * The endpoint declared itself a stand-in (a fixture), on at least one step.
+   * Explicit provenance, so a console never has to guess from a model string.
+   */
+  fixture?: boolean;
   source: "configured" | "self-reported" | "unknown";
   /** Set when replies disagreed: the run did not measure one configuration. */
   inconsistent?: string[];
@@ -41,6 +46,8 @@ export type AgentStep =
       model?: string;
       modelVersion?: string;
       temperature?: number;
+      /** The endpoint says it is a scripted stand-in, not a model. */
+      fixture?: boolean;
     }
   | {
       type: "finish";
@@ -49,6 +56,7 @@ export type AgentStep =
       model?: string;
       modelVersion?: string;
       temperature?: number;
+      fixture?: boolean;
     };
 
 export type AgentTurn = {
@@ -256,6 +264,7 @@ export async function runEpisode(
   // hide that behind whichever reply happened to come last.
   const reported = new Set<string>();
   const temps = new Set<number>();
+  let fixture = false;
 
   for (; step < maxSteps; step++) {
     let next: AgentStep;
@@ -288,6 +297,7 @@ export async function runEpisode(
     // what it said about itself.
     if (next.model) reported.add(`${next.model}${next.modelVersion ? `@${next.modelVersion}` : ""}`);
     if (typeof next.temperature === "number") temps.add(next.temperature);
+    if (next.fixture === true) fixture = true;
 
     if (next.type === "finish") {
       declared = next;
@@ -398,6 +408,7 @@ export async function runEpisode(
     modelVersion: target.modelVersion ?? (selfReports.length === 1 ? selfReports[0].split("@")[1] : undefined),
     temperature: target.temperature ?? (temps.size === 1 ? [...temps][0] : undefined),
     source: target.model ? "configured" : selfReports.length > 0 ? "self-reported" : "unknown",
+    ...(fixture ? { fixture: true } : {}),
     ...(disagreements.length ? { inconsistent: disagreements } : {}),
   };
 

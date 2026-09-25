@@ -37,7 +37,7 @@ export type CheckResult = {
   detail: string;
   latencyMs: number;
   /** What the endpoint said about itself in the check reply, if anything. */
-  reported?: { model?: string; modelVersion?: string };
+  reported?: { model?: string; modelVersion?: string; fixture?: boolean };
 };
 
 export type Connection = {
@@ -311,7 +311,7 @@ export async function probeConnection(c: Connection): Promise<CheckResult> {
     return { state: "incompatible", at, detail: `the reply was not JSON: ${snippet(text)}`, latencyMs };
   }
   if (!isStep(parsed)) return { state: "incompatible", at, detail: `the reply was JSON but not a step: ${snippet(text)}`, latencyMs };
-  const reported = parsed.model ? { model: parsed.model, ...(parsed.modelVersion ? { modelVersion: parsed.modelVersion } : {}) } : undefined;
+  const reported = parsed.model || parsed.fixture ? { ...(parsed.model ? { model: parsed.model } : {}), ...(parsed.modelVersion ? { modelVersion: parsed.modelVersion } : {}), ...(parsed.fixture === true ? { fixture: true } : {}) } : undefined;
   return { state: "connected", at, detail: `replied with a ${parsed.type === "tool_call" ? `tool_call (${parsed.tool})` : `finish (${parsed.action})`}`, latencyMs, ...(reported ? { reported } : {}) };
 }
 

@@ -28,7 +28,9 @@ export function agentDisplay(name: string | undefined): string {
   return name;
 }
 
-export const agentRaw = (name: string, version?: string) => `${name}${version ? ` v${version}` : ""}`;
+/** A version label as recorded: customer labels are shown as written; a bare semver gets a v. */
+export const versionLabel = (version?: string) => (!version || version === "external" ? "" : /^v/i.test(version) || !/^\d/.test(version) ? version : `v${version}`);
+export const agentRaw = (name: string, version?: string) => `${name}${versionLabel(version) ? ` ${versionLabel(version)}` : ""}`;
 
 /** "AP Agent — Careful v0.3.2", or the model behind an external endpoint; never a host and port as the headline. */
 export function agentTitle(r: { agent: { name: string; version: string; subject?: { model?: string } } }): string {

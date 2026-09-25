@@ -421,6 +421,16 @@ if (qualification) {
     (conflict.subject.inconsistent ?? []).join("; "));
 }
 
+// ---- a stand-in says so, and the record keeps it -------------------------------
+{
+  const standIn = await runEpisode({ name: "t", version: "0", handler: () => ({ type: "finish", action: "refuse", model: "fixture/ok", fixture: true }) }, cleanScenario);
+  check("an endpoint that declares itself a fixture is recorded as one", standIn.subject.fixture === true && standIn.subject.source === "self-reported");
+  const real = await runEpisode({ name: "t", version: "0", handler: () => ({ type: "finish", action: "refuse", model: "fixture/ok" }) }, cleanScenario);
+  check("a model string alone never makes a fixture", real.subject.fixture === undefined);
+  const rolled = await runSuite({ name: "t", version: "0", handler: () => ({ type: "finish", action: "refuse", model: "fixture/ok", fixture: true }) }, { pack: [cleanScenario], trials: 2 });
+  check("the run's subject carries the fixture flag", rolled.run.agent.subject.fixture === true);
+}
+
 // ---- an unanswered episode is not a second model ---------------------------
 // This pins a bug from the first three-model comparison: two arms answered as
 // one model in every episode they answered at all, and one timed-out episode
