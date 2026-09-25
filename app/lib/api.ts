@@ -87,7 +87,7 @@ export type EpisodeGrade = {
 
 export type SubjectIdentity = { model?: string; modelVersion?: string; temperature?: number; source: "configured" | "self-reported" | "unknown"; inconsistent?: string[] };
 
-export type LabRunAgent = { name: string; version: string; endpoint: string; promptHash?: string; toolConfigHash: string; subject: SubjectIdentity };
+export type LabRunAgent = { name: string; version: string; endpoint: string; promptHash?: string; toolConfigHash: string; subject: SubjectIdentity; registry?: { agentId: string; versionId: string } };
 
 export type LabRunBase = {
   kind: "limulus.labrun.v1";
@@ -417,3 +417,52 @@ export const compilePolicy = (profile: unknown, asOf?: string) =>
 export const runLab = (body: { agent?: string; endpoint?: string; version?: string; trials: number }) => post<{ run: LabRun }>("/v1/lab/runs", body);
 export const decideCandidate = (id: string, decision: "approve" | "reject", reason?: string) => post<unknown>(`/v1/monitor/candidates/${id}/${decision}`, { reason });
 export const reviewShadow = (id: string, verdict: string, note: string) => post<ShadowRecord>(`/v1/shadow/${id}/review`, { verdict, note });
+
+// ---- connected agents and jobs -------------------------------------------------
+// Mirrors src/agents/registry.ts and src/sandbox/jobs.ts. No credential ever
+// arrives here: a connection carries a secret reference, nothing more.
+
+export type ConnectionState = "not_checked" | "checking" | "connected" | "auth_failed" | "unreachable" | "incompatible" | "disabled";
+export type ConnectionCheck = { state: Exclude<ConnectionState, "not_checked" | "checking" | "disabled">; at: string; detail: string; latencyMs: number; reported?: { model?: string; modelVersion?: string } };
+export type AgentRecord = {
+  id: string;
+  workspace: string;
+  name: string;
+  workflow: string;
+  connection: { endpoint: string; protocol: string; auth?: { header: string; scheme: string; secretId: string }; state: ConnectionState; lastCheck?: ConnectionCheck };
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+export type VersionRecord = { id: string; agentId: string; label: string; endpoint: string; declared?: { model?: string; modelVersion?: string; temperature?: number; note?: string }; createdAt: string };
+export type JobState = "queued" | "running" | "completed" | "failed" | "interrupted";
+export type Job = {
+  id: string;
+  state: JobState;
+  request: { agentId?: string; versionId?: string; demo?: "careful" | "naive"; trials: number; controls: ControlMode; suite: "open-pool" };
+  subject: { name: string; version: string; endpoint?: string };
+  suite: { id: string; scenarioCount: number; trials: number; total: number };
+  progress: { completed: number; total: number; unusable: number; scenarioId?: string };
+  runId?: string;
+  error?: { kind: "refused" | "pool" | "transport" | "engine" | "cancelled" | "restart"; message: string };
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+};
+export type Suite = { id: "open-pool"; name: string; suiteId: string; scenarioCount: number; families: string[]; categories: string[]; description: string };
+
+export const agents = () => get<{ agents: AgentRecord[]; versions: VersionRecord[] }>("/v1/agents");
+export const agent = (id: string) => get<{ agent: AgentRecord; versions: VersionRecord[]; runs: LabRunSummary[] }>(`/v1/agents/${encodeURIComponent(id)}`);
+export const createAgent = (body: { name: string; workflow: string; endpoint: string; auth?: { header: "authorization" | "x-api-key"; scheme: "bearer" | "raw"; value: string }; version: { label: string; model?: string; modelVersion?: string; temperature?: number; note?: string } }) =>
+  post<{ agent: AgentRecord; version: VersionRecord }>("/v1/agents", body);
+export const updateAgent = (id: string, patch: { name?: string; workflow?: string; enabled?: boolean; endpoint?: string; auth?: { header: "authorization" | "x-api-key"; scheme: "bearer" | "raw"; value: string } | null }) =>
+  call<{ agent: AgentRecord }>(`/v1/agents/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
+export const checkAgent = (id: string) => post<{ agent: AgentRecord; result: ConnectionCheck }>(`/v1/agents/${encodeURIComponent(id)}/check`, {});
+export const createVersion = (id: string, body: { label: string; model?: string; modelVersion?: string; temperature?: number; note?: string }) => post<{ version: VersionRecord }>(`/v1/agents/${encodeURIComponent(id)}/versions`, body);
+export const submitJob = (body: { agentId?: string; versionId?: string; demo?: "careful" | "naive"; trials: number; controls: ControlMode; suite: "open-pool" }, submissionKey: string) =>
+  call<{ job: Job }>("/v1/lab/jobs", { method: "POST", body: JSON.stringify(body), headers: { "idempotency-key": submissionKey } });
+export const jobs = async () => list<Job>(await get("/v1/lab/jobs"), "jobs");
+export const job = (id: string) => get<{ job: Job }>(`/v1/lab/jobs/${encodeURIComponent(id)}`);
+export const cancelJob = (id: string) => post<{ job: Job }>(`/v1/lab/jobs/${encodeURIComponent(id)}/cancel`, {});
+export const suites = async () => list<Suite>(await get("/v1/lab/suites"), "suites");

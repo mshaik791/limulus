@@ -20,7 +20,9 @@ import type { Scenario } from "../bench/types.ts";
 // call by call — a report that cannot be audited is just an assertion.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(here, "..", "..", "data");
+// LIMULUS_DATA_DIR isolates an engine's records; an end-to-end run in its own
+// process must not seal fixture runs into the shared log.
+const dataDir = process.env.LIMULUS_DATA_DIR ?? join(here, "..", "..", "data");
 const runsPath = join(dataDir, "lab-runs.jsonl");
 const tracesPath = join(dataDir, "episodes.jsonl");
 

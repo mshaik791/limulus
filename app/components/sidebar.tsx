@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, AlertTriangle, Eye, FileLock2, GitCompare, LayoutGrid, PlayCircle, Shield, ShieldCheck, FileText } from "lucide-react";
+import { Activity, AlertTriangle, Bot, Eye, FileLock2, GitCompare, LayoutGrid, PlayCircle, Shield, ShieldCheck, FileText } from "lucide-react";
 import type { ComponentType } from "react";
 
 type Item = { href: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }>; group?: string };
 
 export const LABS_NAV: Item[] = [
   { href: "/labs", label: "Overview", icon: LayoutGrid },
+  { href: "/labs/agents", label: "Agents", icon: Bot },
   { href: "/labs/tests", label: "Tests", icon: PlayCircle },
   { href: "/labs/arena", label: "Model Arena", icon: GitCompare },
   { href: "/labs/releases", label: "Releases", icon: ShieldCheck },

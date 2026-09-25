@@ -83,7 +83,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
         eyebrow={`Test results · ${when(run.createdAt)}`}
         title={identity.name}
         subtitle={`${identity.version} · ${identity.detail} · ${suiteName(run.suite.id).name}`}
-        actions={<>{identity.demo && <Pill>Demo agent</Pill>}<LinkButton href={`/labs?agent=${encodeURIComponent(agentKey(run))}`}>Agent overview</LinkButton></>}
+        actions={<>{identity.demo && <Pill>Demo agent</Pill>}{run.agent.registry && <LinkButton href={`/labs/agents/${encodeURIComponent(run.agent.registry.agentId)}`}>Connected agent</LinkButton>}<LinkButton href={`/labs?agent=${encodeURIComponent(agentKey(run))}`}>Agent overview</LinkButton></>}
       />
       <div className="investigation-summary" aria-label="Run summary">
         <div><span>Scenarios passed</span><strong>{pct(pass.passed, pass.of)}</strong><small>{int(pass.passed)} of {int(pass.of)} scenarios</small></div>

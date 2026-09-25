@@ -16,13 +16,14 @@ export function ShellFrame({ children, engine, agents, sandbox, rail }: {
   rail: string;
 }) {
   const pathname = usePathname();
-  const investigation = pathname === "/labs/tests" || pathname.startsWith("/labs/tests/");
-  const overview = pathname === "/labs" || investigation;
+  const investigation = pathname === "/labs/tests" || pathname.startsWith("/labs/tests/") || pathname.startsWith("/labs/jobs/");
+  const onboarding = pathname.startsWith("/labs/agents") || pathname === "/labs/tests/new" || pathname.startsWith("/labs/jobs/");
+  const overview = pathname === "/labs" || investigation || onboarding;
   if (overview) return <div className="labs-modern">
     <CommandBar agents={agents} engineOk={Boolean(engine?.ok)} sandbox={sandbox} compact />
-    <main id="main-content" className={`labs-main${investigation ? " labs-investigation" : ""}`}>
-      {investigation && <nav className="labs-tabs investigation-nav" aria-label="Labs navigation">
-        <Link href="/labs">Overview</Link><Link href="/labs/tests" aria-current="page">Tests</Link><Link href="/labs/arena">Compare models</Link><Link href="/labs/releases">Releases</Link>
+    <main id="main-content" className={`labs-main${investigation || onboarding ? " labs-investigation" : ""}`}>
+      {investigation && !onboarding && <nav className="labs-tabs investigation-nav" aria-label="Labs navigation">
+        <Link href="/labs">Overview</Link><Link href="/labs/agents">Agents</Link><Link href="/labs/tests" aria-current="page">Tests</Link><Link href="/labs/arena">Compare models</Link><Link href="/labs/releases">Releases</Link>
       </nav>}
       {children}
     </main>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, Check, Minus, X } from "lucide-react";
-import { gates, labRun, labRuns, profile, referenceAgents, type GateRecord, type LabRunSummary } from "@/lib/api";
+import { agents as loadAgents, gates, jobs as loadJobs, labRun, labRuns, profile, referenceAgents, type GateRecord, type LabRunSummary } from "@/lib/api";
+import { nextStep } from "@/lib/onboarding";
 import { safe } from "@/lib/safe";
 import { CONFIG } from "@/lib/config";
 import { FAMILIES, agentKey, counts, coverageConfidence, failingByFamily, familyAxes, readiness } from "@/lib/derive";
@@ -16,19 +17,24 @@ const HEADINGS = { READY: "Ready to deploy", REVIEW: "Review required", BLOCKED:
 
 export default async function LabsOverview(props: PageProps<"/labs">) {
   const search = await props.searchParams;
-  const [runs, gateRecords, agents] = await Promise.all([safe(labRuns()), safe(gates()), safe(referenceAgents())]);
+  const [runs, gateRecords, agents, registry, jobList] = await Promise.all([safe(labRuns()), safe(gates()), safe(referenceAgents()), safe(loadAgents()), safe(loadJobs())]);
   if (!runs) return <Offline />;
+  // The customer journey's next action, from the registry and the job log.
+  const step = registry ? nextStep({ agents: registry.agents, versions: registry.versions, jobs: jobList ?? [], runs }) : null;
   const error = typeof search.error === "string" ? search.error : null;
   const latestByAgent = new Map<string, LabRunSummary>();
   for (const r of [...runs].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))) latestByAgent.set(agentKey(r), r);
   const choices = [...latestByAgent.values()].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   const wanted = typeof search.agent === "string" ? search.agent : "";
-  const latest = choices.find((r) => agentKey(r) === wanted) ?? choices.find((r) => !/selftest|^custom:/.test(r.suite.id) && r.agent.name !== "t") ?? choices[0];
+  // By default, the most recently tested agent that is registered here; then any real suite; then anything.
+  const registered = new Set((registry?.agents ?? []).map((a) => a.id));
+  const latest = choices.find((r) => agentKey(r) === wanted) ?? choices.find((r) => r.agent.registry && registered.has(r.agent.registry.agentId)) ?? choices.find((r) => !/selftest|^custom:/.test(r.suite.id) && r.agent.name !== "t") ?? choices[0];
   if (!latest) return <>
     <Context />
     <section className="labs-hero"><h1>Test before you trust.</h1><p>Evaluate your financial agent before deployment.</p><Arches /></section>
     {error && <Note tone="crit">The engine refused the run: {error}</Note>}
-    <section className="labs-panel labs-empty"><h2>Start with your first test.</h2><p>Connect your agent or explore a scripted payment demo. Every test runs in a simulated environment; no money moves.</p><RunTest agents={agents ?? []} runLabel="Run a test" /></section>
+    {step && <NextStepStrip step={step} />}
+    <section className="labs-panel labs-empty"><h2>Start with your first test.</h2><p>Connect your agent or explore a scripted payment demo. Every test runs in a simulated environment; no money moves.</p><div className="labs-actions"><Link href="/labs/agents/new" className="labs-primary-button">Connect agent<ArrowUpRight size={18} aria-hidden="true" /></Link><Link href="/labs/tests/new?demo=careful" className="labs-text-link">Run a demo test<ArrowUpRight size={15} aria-hidden="true" /></Link></div></section>
   </>;
 
   const [full, prof] = await Promise.all([safe(labRun(latest.id)), safe(profile(latest.agent.name, latest.agent.version))]);
@@ -66,7 +72,8 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
       <p>{identity.detail}<span className="labs-hero-tagline">Test before you trust.</span></p>
       <Arches />
     </section>
-    <nav className="labs-tabs" aria-label="Test navigation"><Link href={`/labs?agent=${encodeURIComponent(agentKey(latest))}`} aria-current="page">Overview</Link><Link href="/labs/tests">Test history</Link><Link href="/labs/arena">Compare models</Link><Link href={release}>Release requirements</Link></nav>
+    <nav className="labs-tabs" aria-label="Test navigation"><Link href={`/labs?agent=${encodeURIComponent(agentKey(latest))}`} aria-current="page">Overview</Link><Link href="/labs/agents">Agents</Link><Link href="/labs/tests">Test history</Link><Link href="/labs/arena">Compare models</Link><Link href={release}>Release requirements</Link></nav>
+    {step && <NextStepStrip step={step} />}
     <div className="labs-test-context"><span className="labs-eyebrow">Latest test</span><Link href={run}>{suiteName(latest.suite.id).name}</Link><span>· {identity.version} · {int(c.episodes)} usable tests · {ago(latest.createdAt)}</span></div>
 
     <div className="labs-decision-grid">
@@ -112,6 +119,10 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
     </section>
     <footer className="labs-footnote">Test results are simulated. Coverage uses this version’s test history; readiness uses the configured release requirements. <Link href="/labs/qualifications">Assurance checks ↗</Link><span className="labs-connect"><RunTest agents={agents ?? []} show={["connect"]} /></span></footer>
   </>;
+}
+
+function NextStepStrip({ step }: { step: NonNullable<ReturnType<typeof nextStep>> }) {
+  return <section className={`labs-next is-${step.key}`} aria-label="Next step"><div><strong>{step.title}</strong><p>{step.body}</p></div><Link href={step.href} className="labs-primary-button">{step.cta}<ArrowUpRight size={18} aria-hidden="true" /></Link></section>;
 }
 
 function Context() { return <div className="labs-context"><span>Local workspace <span aria-hidden="true">/</span> Test</span><span>Sandbox · No real money moves</span></div>; }
