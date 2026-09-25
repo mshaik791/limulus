@@ -10,12 +10,15 @@ import { int } from "@/lib/format";
 
 export type Tone = "neutral" | "accent" | "good" | "warn" | "crit" | "model";
 
+// No coloured rings. A card earns attention through its title, position and
+// content — never a green/amber/red halo. Emphasis is kept in the API but is
+// intentionally inert; hierarchy is typographic, not chromatic.
 const glow: Record<Tone, string> = {
   neutral: "",
-  accent: "[box-shadow:var(--glow-accent)]",
-  good: "[box-shadow:var(--glow-good)]",
-  warn: "[box-shadow:var(--glow-warn)]",
-  crit: "[box-shadow:var(--glow-crit)]",
+  accent: "",
+  good: "",
+  warn: "",
+  crit: "",
   model: "",
 };
 
@@ -65,7 +68,7 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
 export function EnvBar({ children }: { children?: ReactNode }) {
   return (
     <div className="mb-6 flex items-center gap-3 border-y border-line py-2 text-[12px] text-ink-2">
-      <span className="rounded-[4px] bg-warn-soft px-1.5 py-[1px] text-[10.5px] font-semibold tracking-[0.08em] text-warn-ink">SANDBOX</span>
+      <span className="rounded-[4px] border border-line bg-surface-2 px-1.5 py-[1px] text-[10.5px] font-semibold tracking-[0.08em] text-ink-2">SANDBOX</span>
       <span>{children ?? "No real payment rail calls. All financial outcomes shown here are simulated."}</span>
     </div>
   );
@@ -73,22 +76,26 @@ export function EnvBar({ children }: { children?: ReactNode }) {
 
 // ---- state --------------------------------------------------------------------
 
+// Path steps read as one calm sequence, not a traffic light. Monochrome
+// surfaces; only the brand accent (hemolymph) is allowed to tint, and only its ink.
 const toneClass: Record<Tone, string> = {
-  neutral: "bg-surface-3 text-ink-2 border-line-2",
-  accent: "bg-accent-soft text-accent-ink border-transparent",
-  good: "bg-good-soft text-good-ink border-transparent",
-  warn: "bg-warn-soft text-warn-ink border-transparent",
-  crit: "bg-crit-soft text-crit-ink border-transparent",
-  model: "bg-model-soft text-model-ink border-transparent",
+  neutral: "bg-surface-2 text-ink-2 border-line",
+  accent: "bg-surface-2 text-accent-ink border-line",
+  good: "bg-surface-2 text-ink-2 border-line",
+  warn: "bg-surface-2 text-ink-2 border-line",
+  crit: "bg-surface-2 text-ink border-line-2",
+  model: "bg-surface-2 text-ink-2 border-line",
 };
-// A soft, quiet status tag — a subtle tint and its word, the way a real product shows state.
+// Monochrome status tags. No traffic-light green/red/amber — the word carries the meaning,
+// not the colour. Only genuine problems get a whisper of emphasis (brighter ink). The single
+// brand accent (hemolymph) is reserved for the accent tone, never for routine status.
 const tagStyle: Record<Tone, string> = {
-  neutral: "bg-surface-3 text-ink-2",
-  accent: "bg-accent-soft text-accent-ink",
-  good: "bg-good-soft text-good-ink",
-  warn: "bg-warn-soft text-warn-ink",
-  crit: "bg-crit-soft text-crit-ink",
-  model: "bg-model-soft text-model-ink",
+  neutral: "bg-surface-2 text-ink-2 border border-line",
+  accent: "bg-surface-2 text-accent-ink border border-line",
+  good: "bg-surface-2 text-ink-2 border border-line",
+  warn: "bg-surface-2 text-ink-2 border border-line",
+  crit: "bg-surface-2 text-ink border border-line-2",
+  model: "bg-surface-2 text-ink-2 border border-line",
 };
 
 /** A status word in a soft tag — the tint carries the state, the word carries the meaning. */
