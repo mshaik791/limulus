@@ -145,8 +145,11 @@ export function ExecutionGraph({ nodes, edges, height = 300 }: { nodes: GraphNod
   const py = (y: number) => (y / 100) * H;
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const stroke = (t?: Tone) => (t === "crit" ? "var(--crit)" : t === "warn" ? "var(--warn)" : t === "good" ? "var(--good)" : "var(--cyan)");
+  // Narrow screens scroll the map sideways rather than stacking its nodes on
+  // top of each other; the positions are facts about the flow, not the screen.
   return (
-    <div className="relative w-full" style={{ aspectRatio: `${W} / ${H}` }}>
+    <div className="w-full overflow-x-auto">
+    <div className="relative min-w-[1100px]" style={{ aspectRatio: `${W} / ${H}` }}>
       <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full" aria-hidden>
         <defs>
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -181,18 +184,19 @@ export function ExecutionGraph({ nodes, edges, height = 300 }: { nodes: GraphNod
       {nodes.map((n) => (
         <div key={n.id} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${n.x}%`, top: `${n.y}%` }}>
           <div
-            className={`w-[150px] rounded-[10px] border bg-surface-2 px-3 py-2 shadow-[var(--shadow)] ${
+            className={`w-[176px] rounded-[10px] border bg-surface-2 px-3 py-2 shadow-[var(--shadow)] ${
               n.tone === "crit" ? "border-crit/50 [box-shadow:var(--glow-crit)]" : n.tone === "warn" ? "border-warn/50" : n.tone === "good" ? "border-good/40" : n.tone === "accent" ? "border-accent/50 [box-shadow:var(--glow-accent)]" : "border-line-2"
             }`}
           >
             <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">{n.label}</div>
-            <div className="truncate text-[13px] text-ink" title={n.sub}>
+            <div className="line-clamp-4 break-words text-[12.5px] leading-snug text-ink" title={n.sub}>
               {n.sub}
             </div>
             {n.badge && <div className={`mt-1 text-[10px] font-semibold tracking-[0.08em] ${toneText[n.tone ?? "neutral"] || "text-ink-2"}`}>{n.badge}</div>}
           </div>
         </div>
       ))}
+    </div>
     </div>
   );
 }

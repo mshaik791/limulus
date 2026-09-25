@@ -17,6 +17,7 @@ export function buildGraph(agent: { name: string; version: string }, scenario: S
   const pay = attempts.at(-1);
   const lookup = trace.calls.find((x) => x.tool === "lookup_vendor");
   const taskInvoice = scenario?.task.match(/INV-[\w-]+/)?.[0];
+  const docInvoice = scenario?.documents.map((d) => `${d.text} ${d.hiddenText ?? ""}`.match(/INV-[\w-]+/)?.[0]).find(Boolean);
   const proposedInvoice = pay ? String(pay.args.invoiceId ?? "") : "";
   const invoiceId = taskInvoice ?? proposedInvoice;
   const approved = scenario?.authorization.approvedInvoices.find((i) => i.invoiceId === invoiceId);
@@ -39,17 +40,25 @@ export function buildGraph(agent: { name: string; version: string }, scenario: S
   const escalated = trace.calls.some((x) => x.tool === "request_human_approval");
   const amount = pay ? `${String(pay.args.currency ?? "USD")} ${Number(pay.args.amount ?? 0).toLocaleString()}` : "";
 
-  // Three different conditions, three different words: the task named no
-  // invoice; the task named one that is not on the approved list; the agent
-  // proposed a payment without naming any invoice.
-  const invoiceSub = taskInvoice ?? (proposedInvoice ? `${proposedInvoice} (from the payment, not the task)` : "no invoice named in the task");
+  // Different conditions, different words: the task named an invoice; the
+  // payment named one the task did not; the payment omitted the invoice id
+  // although a document carries one; no invoice anywhere.
+  const invoiceSub = taskInvoice
+    ? taskInvoice
+    : pay && !proposedInvoice
+      ? `No invoice id on the payment${docInvoice ? ` · document: ${docInvoice}` : ""}`
+      : proposedInvoice
+        ? `${proposedInvoice} · from the payment, not the task`
+        : docInvoice
+          ? `${docInvoice} in the document · none in the task`
+          : "No invoice named in the task or documents";
   const approvalSub = approved ? `${approved.invoiceId} by ${approved.approvedBy}` : escalated ? "asked a person" : !scenario ? "not shown (scenario held out)" : invoiceId ? `${invoiceId} not on the approved list` : "no invoice to approve";
   const approvalBadge = approvalRisk ? (codes.has("amount_exceeds_approval") ? "ABOVE APPROVED AMOUNT" : "PAID WITHOUT APPROVAL") : escalated ? "ESCALATED" : undefined;
   const who: { name: string; version: string; fixture?: boolean } = subject ?? agent;
 
   const nodes: GraphNode[] = [
     { id: "agent", label: who.fixture ? "Test fixture" : "Financial agent", sub: who.name, tone: "accent", x: 8, y: 50, badge: who.version },
-    { id: "invoice", label: "Invoice", sub: invoiceSub, x: 29, y: 24, tone: docSaysOtherAccount ? "warn" : undefined, badge: docSaysOtherAccount ? "NEW ACCOUNT IN DOCUMENT" : undefined },
+    { id: "invoice", label: "Invoice", sub: invoiceSub, x: 29, y: 24, tone: docSaysOtherAccount ? "warn" : pay && !proposedInvoice ? "warn" : undefined, badge: docSaysOtherAccount ? "NEW ACCOUNT IN DOCUMENT" : pay && !proposedInvoice ? "PAYMENT OMITTED INVOICE ID" : undefined },
     { id: "policy", label: "Policy", sub: scenario ? `${scenario.authorization.policyVersion} · limit ${money(scenario.authorization.limitPerPayment, scenario.authorization.currency)}${scenario.authorization.limitPerDay ? ` · day ${money(scenario.authorization.limitPerDay, scenario.authorization.currency)}` : ""}` : "limits not shown (scenario held out)", x: 29, y: 76, tone: limitRisk ? "crit" : undefined, badge: limitRisk ? (codes.has("exceeded_daily_limit") ? "DAILY CEILING EXCEEDED" : "LIMIT EXCEEDED") : undefined },
     { id: "vendor", label: "Vendor", sub: vendorName, x: 50, y: 24 },
     { id: "approval", label: "Approval", sub: approvalSub, x: 50, y: 76, tone: approvalRisk ? "crit" : escalated ? "good" : undefined, badge: approvalBadge },

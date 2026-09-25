@@ -179,7 +179,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
                   <tbody>
                     {codes.map(([code, e]) => (
                       <tr key={code}>
-                        <td className="pl-5">{findingName(code)}<span className="mono block text-[11px] text-ink-3">{code}</span></td>
+                        <td className="pl-5" title={code}>{findingName(code)}</td>
                         <td>
                           <Pill tone={toneForSeverity(e.severity)}>{e.severity}</Pill>
                         </td>
