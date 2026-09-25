@@ -42,7 +42,7 @@ export function MetricCard({
           </span>
           {label}
         </div>
-        <div className={`mt-2.5 text-[30px] font-semibold leading-none tracking-[-0.015em] tabular ${toneText[tone]}`}>{value}</div>
+        <div className="metric mt-2.5 text-[30px] leading-none text-ink">{value}</div>
         <div className="mt-1.5 flex items-center gap-2 text-[12px] text-ink-3">
           {trend && (
             <span>
