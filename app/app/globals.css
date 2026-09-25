@@ -8,7 +8,7 @@
   screen means exactly one thing: look here, something failed.
 */
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
 
   --bg: #f7f8fa;
   --sidebar: #fbfcfd;
@@ -60,6 +60,61 @@
   --glow-warn: none;
   --glow-accent: none;
   --glow-model: none;
+}
+
+/*
+  Night mode follows the OS, the way Chrome and Claude do. Same system, same
+  rules — dot + word status, silent success, hairline structure — on a calm
+  near-black ledger. Only the token values change; the logo is a currentColor
+  mask, so the mark flips to white on its own.
+*/
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1116;
+    --sidebar: #12151b;
+    --surface: #151a21;
+    --surface-2: #1b212a;
+    --surface-3: #232a34;
+    --sunken: #0b0e12;
+    --line: rgba(160, 175, 200, 0.12);
+    --line-2: rgba(160, 175, 200, 0.20);
+    --line-hover: rgba(160, 175, 200, 0.34);
+
+    --ink: #e8ecf1;
+    --ink-2: #a2abba;
+    --ink-3: #8b95a7;
+
+    /* Hemolymph on the dark ground. Fills stay deep enough to carry white
+       button text at AA; text accents use the brighter ink variant. */
+    --accent: #1f7aa8;
+    --accent-ink: #7cc1e4;
+    --accent-soft: rgba(63, 157, 204, 0.12);
+    --cyan: #1f7aa8;
+    --cyan-soft: rgba(63, 157, 204, 0.09);
+
+    --good: #3fa47f;
+    --good-ink: #6cc39f;
+    --good-soft: rgba(63, 164, 127, 0.10);
+    --warn: #c9993f;
+    --warn-ink: #dcb46a;
+    --warn-soft: rgba(201, 153, 63, 0.10);
+    --crit: #d05a6b;
+    --crit-ink: #e4879a;
+    --crit-soft: rgba(208, 90, 107, 0.10);
+    --model: #8a7ce0;
+    --model-ink: #b0a5ec;
+    --model-soft: rgba(138, 124, 224, 0.10);
+
+    --arm-1: #3f9dcc; /* chart series may stay brighter than the fill accent */
+    --arm-2: #cf8b55;
+    --arm-3: #3fa47f;
+    --arm-4: #c9993f;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  }
+  tbody tr.row-link:hover td {
+    background: rgba(63, 157, 204, 0.06);
+  }
 }
 
 @theme inline {
