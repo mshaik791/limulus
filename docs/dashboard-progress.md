@@ -13,8 +13,11 @@ and the next highest-impact item. Newest last.
       hierarchy, the safety/coverage/what-to-fix story, evidence links.
 - [ ] **Research pass**: 3–5 best-in-class eval/observability/fintech-compliance dashboards +
       the ICP companies; capture patterns + source links here before deep restyling.
-- [ ] **Route sweep**: agents, tests (+detail/scenarios), arena, releases, policies,
-      qualifications, `*/new` — cohesive, no rough spacing, designed empty/loading/error states.
+- [~] **Route sweep**: agents ✓, arena ✓, releases ✓, qualifications ✓ (screenshotted).
+      Remaining: tests (+detail/scenarios), policies, `*/new`, plus per-page spacing polish
+      (Agents/Connected-agents card has excess vertical whitespace).
+- [x] **Shell consistency (was hidden, high-impact)**: unified all `/labs/*` routes onto the
+      modern top-nav shell (arena/releases/policies/qualifications were on the old left-sidebar).
 - [ ] **Responsive**: 1280 → large display, no overflow/clipping.
 - [ ] **Verification harness**: `next dev` + DevTools MCP screenshots per route; build + lint.
 - [ ] **Before/after**: capture screenshots a VC could skim.
@@ -65,3 +68,19 @@ and the next highest-impact item. Newest last.
   (agents/tests/arena/releases/policies/qualifications + detail/new) for spacing/state polish;
   (3) design-system audit (confirm tokens cover type scale/spacing/elevation; no hard-coded hex).
 - Next: route sweep screenshots → prioritize → design-system audit + Overview hierarchy.
+
+### Iter 3 — 2026-09-25 · Unified the Labs navigation shell (top-nav everywhere)
+- **Finding:** `/labs` + `/labs/agents` used the modern top-nav shell, but `/labs/arena`,
+  `/labs/releases`, `/labs/policies`, `/labs/qualifications` fell back to the OLD left-sidebar
+  shell — so clicking Overview → Compare models swapped the entire nav chrome. Reads as
+  unfinished; bad for a demo. `shell-frame.tsx` was newly added → this was a mid-migration.
+- **Fix (`app/components/shell-frame.tsx`):** every `/labs/*` route now uses the modern shell;
+  the classic sidebar is Production-mode only (`/production`, `/decisions`, …). Deep Labs routes
+  get the shared 5-tab sub-nav (Overview/Agents/Tests/Compare models/Releases). Also fixed a
+  latent bug: the sub-tab nav hardcoded `aria-current` on "Tests" — now computed from pathname,
+  so the active tab highlights correctly on every route. Factored the tabs into `LABS_TABS`.
+- **Verified:** arena, releases, qualifications screenshotted in the unified shell — correct
+  active-tab highlight, no layout breakage, console clean. Full `npm run build` green (stopped
+  dev to avoid two processes on `.next`, then restarted dev on :3001).
+- Next: `/labs/tests` (+ detail/scenarios) & `/labs/policies` screenshots; then per-page spacing
+  polish and the design-system token audit.
