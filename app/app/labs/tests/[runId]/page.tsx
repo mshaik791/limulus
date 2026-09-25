@@ -58,13 +58,23 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
     );
   }
 
-  const byCode = new Map<string, { severity: string; count: number; scenarios: Set<string> }>();
+  // One code can be graded at different severities in different scenarios
+  // (three cents over is not the same as a wrong total). The table shows the
+  // worst recorded and says when a lesser one also occurred.
+  const byCode = new Map<string, { severity: string; severities: Set<string>; count: number; scenarios: Set<string> }>();
   for (const g of grades) for (const v of g.violations) {
-    const e = byCode.get(v.code) ?? { severity: v.severity, count: 0, scenarios: new Set<string>() };
+    const e = byCode.get(v.code) ?? { severity: v.severity, severities: new Set<string>(), count: 0, scenarios: new Set<string>() };
     e.count++;
     e.scenarios.add(g.scenarioId);
+    e.severities.add(v.severity);
+    if (sev(v.severity) > sev(e.severity)) e.severity = v.severity;
     byCode.set(v.code, e);
   }
+  // Escalations the grader deliberately leaves unflagged: the scenario expected
+  // a refusal, the agent asked a person, nothing was paid. They are listed as
+  // wrong actions because the expected action was not taken, and counted here
+  // so the reader can see how much of the failure list is caution.
+  const cautiousEscalations = groups.failed.filter((r) => r.trials.every((g) => g.expected === "refuse" && g.effective === "ask" && g.violations.length === 0 && !(g.paidAmount ?? 0))).length;
   const codes = [...byCode].sort((a, b) => sev(b[1].severity) - sev(a[1].severity) || b[1].count - a[1].count);
   const unusable = n.unusableTrials;
   const rung = LADDER.indexOf(run.axes.level);
@@ -182,6 +192,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
                         <td className="pl-5" title={code}>{findingName(code)}</td>
                         <td>
                           <Pill tone={toneForSeverity(e.severity)}>{e.severity}</Pill>
+                          {e.severities.size > 1 && <span className="ml-1.5 text-[11px] text-ink-3">also {[...e.severities].filter((s) => s !== e.severity).join(", ")}</span>}
                         </td>
                         <td className="text-right tabular">{int(e.count)}</td>
                         <td className="pr-5 text-[12px] text-ink-3">{int(e.scenarios.size)}</td>
@@ -223,7 +234,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
           <EmptyState title="Nothing failed." body={grades.length ? "No finding in the usable trials. Unusable trials, if any, are listed in Trace." : "There are no usable trials to evaluate. Open Trace for recorded attempts."} />
         ) : (
           <div className="grid gap-3">
-            <p className="text-[12.5px] text-ink-3">{int(groups.failed.length)} scenario(s) failed: a wrong action or a critical check failure in at least one usable trial.{groups.passedWithFindings.length > 0 ? ` ${int(groups.passedWithFindings.length)} passed but carry a lesser finding; they count as passed everywhere else and are listed below so nothing recorded is hidden.` : ""}</p>
+            <p className="text-[12.5px] text-ink-3">{int(groups.failed.length)} scenario(s) failed: a wrong action or a critical check failure in at least one usable trial.{cautiousEscalations > 0 ? ` ${int(cautiousEscalations)} of them are escalations where a refusal was expected: the agent asked a person and paid nothing, which the grader records as caution, not a violation.` : ""}{groups.passedWithFindings.length > 0 ? ` ${int(groups.passedWithFindings.length)} passed but carry a lesser finding; they count as passed everywhere else and are listed below so nothing recorded is hidden.` : ""}</p>
             {groups.failed.map((r) => <FindingCard key={r.scenarioId} r={r} base={base} title={titles.get(r.scenarioId)} />)}
             {groups.passedWithFindings.length > 0 && (
               <>
@@ -389,7 +400,7 @@ function FindingCard({ r, base, title, passed }: { r: ReturnType<typeof findingG
             {r.worst.effective !== r.worst.expected && <Pill tone="warn">did {r.worst.effective}</Pill>}
           </div>
           <div className="text-[16px] font-semibold">{title ?? r.scenarioId}</div>
-          <p className="mt-1 text-[13px] text-ink">{r.top ? findingName(r.top.code) : `Did ${r.worst.effective} where ${r.worst.expected} was expected.`}</p>
+          <p className="mt-1 text-[13px] text-ink">{r.top ? findingName(r.top.code) : r.worst.effective === "ask" && r.worst.expected === "refuse" ? "Asked a person where a refusal was expected; nothing was paid" : `Did ${r.worst.effective} where ${r.worst.expected} was expected.`}</p>
           {r.top?.detail && r.top.detail !== r.top.code && <p className="mt-0.5 text-[12.5px] text-ink-2">{r.top.detail}</p>}
           <div className="mt-2 flex flex-wrap gap-3 text-[12px] text-ink-3">
             <span className="tabular">{passed ? `${int(r.trials.length)} trial${r.trials.length === 1 ? "" : "s"} passed` : `${ofN(r.failedTrials, r.trials.length)} trials failed`}</span>
