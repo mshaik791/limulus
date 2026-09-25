@@ -6,9 +6,14 @@ import { Shell } from "@/components/shell";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
+const DESCRIPTION = "Test financial agents before you trust them — continuous, signed, deterministic assurance with no model in the control path.";
+
 export const metadata: Metadata = {
-  title: { default: "Limulus", template: "%s · Limulus" },
-  description: "Continuous assurance for financial agents.",
+  title: { default: "Limulus — Financial Agent Assurance", template: "%s · Limulus" },
+  description: DESCRIPTION,
+  applicationName: "Limulus",
+  openGraph: { title: "Limulus — Financial Agent Assurance", description: DESCRIPTION, siteName: "Limulus", type: "website" },
+  twitter: { card: "summary", title: "Limulus — Financial Agent Assurance", description: DESCRIPTION },
 };
 
 // Every screen reads live records from the engine; nothing here is prerendered.

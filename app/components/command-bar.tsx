@@ -7,6 +7,7 @@ import { useFormStatus } from "react-dom";
 import { BookOpen, Search } from "lucide-react";
 import { runTestAction } from "@/app/labs/actions";
 import { isLabsPath } from "./sidebar";
+import { LimulusMark } from "./logo";
 
 // The command bar: search everything the engine has sealed, and the one action
 // that matters in this mode. Nothing here is decorative: there is no bell with
@@ -70,7 +71,7 @@ export function CommandBar({ agents, engineOk, sandbox, compact = false }: { com
   return (
     <header className={`${compact ? "labs-command " : ""}sticky top-0 z-30 flex h-[52px] items-center gap-3 border-b border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] px-6 backdrop-blur`}>
       {compact && <>
-        <Link href="/" className="labs-brand" aria-label="Limulus home"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M4 26V14a11 11 0 0 1 22 0v12M11 26V15a4 4 0 0 1 8 0v11" fill="none" stroke="currentColor" strokeWidth="2.5" /></svg><span>LIMULUS</span></Link>
+        <Link href="/" className="labs-brand" aria-label="Limulus home"><LimulusMark size={26} /><span>LIMULUS</span></Link>
         <nav className="labs-primary-nav" aria-label="Primary"><Link href="/">Home</Link><Link href="/labs" aria-current="page">Test</Link><Link href="/production" title="Observe in Shadow Mode">Monitor</Link><Link href="/decisions" title="Transaction decisions and controls">Protect</Link></nav>
       </>}
       <div className={compact ? "labs-search relative" : "relative w-full max-w-[560px]"}>
