@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Circle, FlaskConical, GitCompare, ShieldAlert, ShieldCheck } from "lucide-react";
 import { ago } from "@/lib/format";
-import { Sparkline } from "./charts";
 import { Delta, LinkButton, type Tone } from "./ui";
 
 // Larger composed blocks: metric cards, the activity feed, recommended
@@ -12,19 +11,19 @@ import { Delta, LinkButton, type Tone } from "./ui";
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 
 const toneText: Record<Tone, string> = { neutral: "", accent: "text-accent-ink", good: "text-good-ink", warn: "text-warn-ink", crit: "text-crit-ink", model: "text-model-ink" };
-const toneBg: Record<Tone, string> = { neutral: "bg-surface-3 text-ink-2", accent: "bg-accent-soft text-accent-ink", good: "bg-good-soft text-good-ink", warn: "bg-warn-soft text-warn-ink", crit: "bg-crit-soft text-crit-ink", model: "bg-model-soft text-model-ink" };
 
+/** A summary stat: label over an ink figure, plain text — the Mercury pattern.
+    No tile border, no icon chip, no sparkline; the grid's own rhythm is the
+    structure. Icon/tone/spark props are retained so call sites keep compiling
+    while pages migrate, but they no longer render. */
 export function MetricCard({
-  icon: I,
   label,
   value,
   sub,
   trend,
-  spark,
-  tone = "neutral",
   href,
 }: {
-  icon: Icon;
+  icon?: Icon;
   label: string;
   value: ReactNode;
   sub?: ReactNode;
@@ -34,33 +33,21 @@ export function MetricCard({
   href?: string;
 }) {
   const body = (
-    <div className="flex h-full items-start justify-between gap-3 rounded-[var(--radius)] border border-line bg-surface px-5 py-4 shadow-[var(--shadow)] transition-colors hover:border-line-hover">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 text-[12px] text-ink-3">
-          <span className={`inline-flex h-6 w-6 items-center justify-center rounded-[6px] ${toneBg[tone === "neutral" ? "accent" : tone]}`}>
-            <I size={13} strokeWidth={1.75} />
+    <div className="min-w-0">
+      <div className="text-[12px] text-ink-3">{label}</div>
+      <div className="metric mt-1 text-[24px] leading-none text-ink">{value}</div>
+      <div className="mt-1 flex items-center gap-2 text-[12px] text-ink-3">
+        {trend && (
+          <span>
+            <Delta value={trend.value} upIsGood={trend.upIsGood} suffix={trend.suffix} /> {trend.label}
           </span>
-          {label}
-        </div>
-        <div className="metric mt-2.5 text-[30px] leading-none text-ink">{value}</div>
-        <div className="mt-1.5 flex items-center gap-2 text-[12px] text-ink-3">
-          {trend && (
-            <span>
-              <Delta value={trend.value} upIsGood={trend.upIsGood} suffix={trend.suffix} /> {trend.label}
-            </span>
-          )}
-          {sub}
-        </div>
+        )}
+        {sub}
       </div>
-      {spark && spark.length > 1 && (
-        <div className="shrink-0 pt-1">
-          <Sparkline values={spark} width={84} height={30} />
-        </div>
-      )}
     </div>
   );
   return href ? (
-    <Link href={href} className="block h-full">
+    <Link href={href} className="block h-full rounded-[var(--radius-sm)] transition-colors hover:bg-surface-2">
       {body}
     </Link>
   ) : (
@@ -83,9 +70,7 @@ export function ActivityFeed({ items, empty }: { items: ActivityItem[]; empty?: 
         return (
           <li key={i} className="rise min-w-0" style={{ animationDelay: `${i * 30}ms` }}>
             <Link href={it.href} className="flex min-w-0 items-start gap-3 overflow-hidden rounded-[var(--radius-sm)] px-2 py-2 transition-colors hover:bg-surface-2">
-              <span className={`mt-[1px] inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${toneBg[it.tone]}`}>
-                <I size={13} strokeWidth={1.75} />
-              </span>
+              <I size={14} strokeWidth={1.75} className={`mt-[3px] shrink-0 ${it.tone === "crit" ? "text-crit" : "text-ink-3"}`} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] text-ink">{it.title}</span>
                 {it.sub && <span className="block truncate text-[12px] text-ink-3">{it.sub}</span>}
@@ -144,7 +129,8 @@ export function ExecutionGraph({ nodes, edges, height = 300 }: { nodes: GraphNod
   const px = (x: number) => (x / 100) * W;
   const py = (y: number) => (y / 100) * H;
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const stroke = (t?: Tone) => (t === "crit" ? "var(--crit)" : t === "warn" ? "var(--warn)" : t === "good" ? "var(--good)" : "var(--cyan)");
+  // Edges are neutral; the anomaly channel (crit) is the only coloured path.
+  const stroke = (t?: Tone) => (t === "crit" ? "var(--crit)" : "var(--line-hover)");
   // Narrow screens scroll the map sideways rather than stacking its nodes on
   // top of each other; the positions are facts about the flow, not the screen.
   return (
@@ -183,11 +169,7 @@ export function ExecutionGraph({ nodes, edges, height = 300 }: { nodes: GraphNod
       </svg>
       {nodes.map((n) => (
         <div key={n.id} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${n.x}%`, top: `${n.y}%` }}>
-          <div
-            className={`w-[176px] rounded-[10px] border bg-surface-2 px-3 py-2 shadow-[var(--shadow)] ${
-              n.tone === "crit" ? "border-crit/50 [box-shadow:var(--glow-crit)]" : n.tone === "warn" ? "border-warn/50" : n.tone === "good" ? "border-good/40" : n.tone === "accent" ? "border-accent/50 [box-shadow:var(--glow-accent)]" : "border-line-2"
-            }`}
-          >
+          <div className={`w-[176px] rounded-[var(--radius)] border bg-surface px-3 py-2 shadow-[var(--shadow)] ${n.tone === "crit" ? "border-crit/50" : "border-line-2"}`}>
             <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">{n.label}</div>
             <div className="line-clamp-4 break-words text-[12.5px] leading-snug text-ink" title={n.sub}>
               {n.sub}

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { BookOpen, Search } from "lucide-react";
 import { runTestAction } from "@/app/labs/actions";
-import { isLabsPath } from "./sidebar";
+import { SECTIONS, activeSection } from "@/app/labs/labs-ui";
 import { LimulusMark } from "./logo";
 
 // The command bar: search everything the engine has sealed, and the one action
@@ -17,9 +17,12 @@ import { LimulusMark } from "./logo";
 
 type Hit = { kind: string; label: string; sub?: string; href: string };
 
-export function CommandBar({ agents, engineOk, sandbox, compact = false }: { compact?: boolean; agents: { key: string; name: string; version: string }[]; engineOk: boolean; sandbox: boolean }) {
+export function CommandBar({ agents, engineOk, sandbox }: { compact?: boolean; agents: { key: string; name: string; version: string }[]; engineOk: boolean; sandbox: boolean }) {
   const path = usePathname();
-  const labs = isLabsPath(path);
+  const section = activeSection(path);
+  // Test and Qualify work the sandbox, so the standing action is running a
+  // simulation; Monitor and Protect face production, so it is connecting an agent.
+  const labs = section.key === "test" || section.key === "qualify";
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<"run" | "connect" | null>(null);
   const [q, setQ] = useState("");
@@ -69,12 +72,14 @@ export function CommandBar({ agents, engineOk, sandbox, compact = false }: { com
   };
 
   return (
-    <header className={`${compact ? "labs-command " : ""}sticky top-0 z-30 flex h-[52px] items-center gap-3 border-b border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] px-6 backdrop-blur`}>
-      {compact && <>
-        <Link href="/" className="labs-brand" aria-label="Limulus home"><LimulusMark size={26} /><span>LIMULUS</span></Link>
-        <nav className="labs-primary-nav" aria-label="Primary"><Link href="/">Home</Link><Link href="/labs" aria-current="page">Test</Link><Link href="/production" title="Observe in Shadow Mode">Monitor</Link><Link href="/decisions" title="Transaction decisions and controls">Protect</Link></nav>
-      </>}
-      <div className={compact ? "labs-search relative" : "relative w-full max-w-[560px]"}>
+    <header className="labs-command sticky top-0 z-30 flex h-[52px] items-center gap-3 border-b border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] px-6 backdrop-blur">
+      <Link href="/" className="labs-brand" aria-label="Limulus home"><LimulusMark size={26} /><span>LIMULUS</span></Link>
+      <nav className="labs-primary-nav" aria-label="Primary">
+        {SECTIONS.map((s) => (
+          <Link key={s.key} href={s.href} title={s.hint} aria-current={section.key === s.key ? "page" : undefined}>{s.label}</Link>
+        ))}
+      </nav>
+      <div className="labs-search relative">
         <button
           type="button"
           aria-label="Search agents, tests, incidents and transactions"
@@ -121,7 +126,7 @@ export function CommandBar({ agents, engineOk, sandbox, compact = false }: { com
       </div>
       {open && <button type="button" aria-label="close search" onClick={() => setOpen(false)} className="fixed inset-0 z-[-1] cursor-default" />}
 
-      {compact ? <details className="labs-more"><summary aria-label="More navigation">More</summary><nav aria-label="Additional pages"><Link href="/labs/policies">Policies</Link><Link href="/labs/qualifications">Assurance checks</Link><Link href="/incidents">Incidents</Link><Link href="/evidence">Evidence</Link><Link href="https://github.com/mshaik791/limulus#readme" target="_blank">Documentation ↗</Link></nav></details> : <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-2">
         <span className="rounded-[6px] border border-line px-2 py-1 text-[11px] text-ink-2">
           <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle ${sandbox ? "bg-warn" : "bg-good"}`} />
           {sandbox ? "Sandbox" : "Production rail"}
@@ -178,7 +183,7 @@ export function CommandBar({ agents, engineOk, sandbox, compact = false }: { com
             </div>
           )}
         </div>
-      </div>}
+      </div>
     </header>
   );
 }

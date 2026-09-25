@@ -139,7 +139,7 @@ export default async function AssuranceChecks() {
                     <td className="text-[12.5px] text-ink-2">{q.level}</td>
                     <td className="text-[12px]">
                       {q.binding.workflow} · {q.binding.rail} · payees {q.binding.payeeScope}
-                      {q.scopeNarrowing?.length ? <div className="text-warn-ink">narrowed: {q.scopeNarrowing.map((n) => `${n.dimension} ${n.from} → ${n.to}`).join("; ")}</div> : null}
+                      {q.scopeNarrowing?.length ? <div className="text-ink-3"><span className="text-warn-ink">narrowed</span> · {q.scopeNarrowing.map((n) => `${n.dimension} ${n.from} → ${n.to}`).join("; ")}</div> : null}
                     </td>
                     <td className="text-right tabular">{money(q.binding.amountLimit, q.binding.currency)}</td>
                     <td className="text-right tabular">{q.scores.safety}</td>

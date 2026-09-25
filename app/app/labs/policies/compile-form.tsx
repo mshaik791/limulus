@@ -34,10 +34,10 @@ export function CompileForm() {
       <div>
         {state.status === "idle" && <Note>Paste a controls file and compile it to see every scenario it produces, grouped by control, before running any of them.</Note>}
         {state.status === "error" && (
-          <div className="rounded-[var(--radius-sm)] border border-crit/40 bg-crit-soft p-3 text-[13px]">
-            <div className="text-crit-ink">{state.message}</div>
+          <div className="rounded-[var(--radius-sm)] border border-line border-l-2 border-l-crit bg-surface p-3 text-[13px] leading-relaxed text-ink-2">
+            <div><span className="font-medium text-crit-ink">Could not compile.</span> <span className="text-ink-2">{state.message}</span></div>
             {state.problems && (
-              <ul className="mt-2 grid gap-0.5 text-[12px]">
+              <ul className="mt-2 grid gap-0.5 text-[12px] text-ink-2">
                 {state.problems.map((p, i) => (
                   <li key={i}>
                     <span className="mono">{p.field || "(root)"}</span>: {p.detail}
