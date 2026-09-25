@@ -27,7 +27,7 @@
 .labs-main { max-width:1600px; margin:auto; }
 .labs-context { display:flex; justify-content:space-between; gap:16px; color:var(--ink-2); font-size:12px; padding:18px 7px; }
 .labs-context > span:first-child span { margin:0 13px; color:#59666d; }
-.labs-hero { position:relative; border:1px solid var(--line-2); border-radius:14px; padding:26px 36px; background:radial-gradient(ellipse at 100% -10%,rgba(70,177,224,0.16),transparent 58%),linear-gradient(120deg,var(--surface),var(--surface-2)); overflow:hidden; min-height:136px; }
+.labs-hero { position:relative; border:1px solid var(--line-2); border-radius:14px; padding:26px 36px; background:radial-gradient(ellipse at 100% -10%,rgba(70,177,224,0.16),transparent 58%),linear-gradient(120deg,var(--surface),var(--surface-2)); overflow:hidden; min-height:200px; }
 .labs-identity-row { display:flex; align-items:center; gap:13px; position:relative; z-index:1; flex-wrap:wrap; }
 .labs-agent-select { position:relative; display:flex; align-items:center; gap:20px; max-width:100%; }
 .labs-agent-select h1,.labs-hero > h1 { font-size:clamp(27px,3vw,44px); letter-spacing:-.04em; line-height:1.2; font-weight:550; }
@@ -37,7 +37,10 @@
 .labs-chip { font-size:11px; border:1px solid var(--line-2); padding:5px 10px; background:var(--surface-3); border-radius:5px; }
 .labs-hero > p { position:relative; z-index:1; color:#cad7df; margin-top:9px; font-size:13px; }
 .labs-hero-tagline { margin-left:20px; color:#a9bdc8; }
-.labs-carapace { position:absolute; right:40px; bottom:-16px; height:176px; width:300px; pointer-events:none; }
+.labs-carapace { position:absolute; right:56px; top:50%; transform:translateY(-50%); height:250px; width:230px; pointer-events:none;
+  background:var(--accent); opacity:0.72;
+  -webkit-mask:url(/limulus-crab.png) center/contain no-repeat; mask:url(/limulus-crab.png) center/contain no-repeat;
+  filter:drop-shadow(0 0 14px rgba(70,177,224,0.3)); }
 .labs-tabs { display:flex; gap:12px; border-bottom:1px solid var(--line); padding:12px 7px 5px; overflow-x:auto; }
 .labs-tabs a { white-space:nowrap; padding:8px 17px; font-size:13px; color:var(--ink-2); border-bottom:2px solid transparent; }
 .labs-tabs a:hover { color:white; }
