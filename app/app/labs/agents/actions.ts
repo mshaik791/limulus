@@ -12,11 +12,15 @@ const fail = (e: unknown) => (e instanceof ApiError ? e.message : "The engine co
 
 export async function createAgentAction(formData: FormData): Promise<void> {
   const value = str(formData, "authValue");
+  const authType = str(formData, "authType");
+  const header = (str(formData, "authHeader") === "x-api-key" ? "x-api-key" : "authorization") as "authorization" | "x-api-key";
+  // A bearer token in the Authorization header carries the Bearer scheme; an API key is sent raw, whichever header it goes in.
+  const scheme = (authType === "bearer" && header === "authorization" ? "bearer" : "raw") as "bearer" | "raw";
   const body = {
     name: str(formData, "name"),
     workflow: str(formData, "workflow"),
     endpoint: str(formData, "endpoint"),
-    ...(value ? { auth: { header: (str(formData, "authHeader") === "x-api-key" ? "x-api-key" : "authorization") as "authorization" | "x-api-key", scheme: (str(formData, "authScheme") === "raw" ? "raw" : "bearer") as "bearer" | "raw", value } } : {}),
+    ...(authType !== "none" && value ? { auth: { header, scheme, value } } : {}),
     version: {
       label: str(formData, "versionLabel"),
       ...(str(formData, "model") ? { model: str(formData, "model") } : {}),
@@ -38,7 +42,7 @@ export async function createAgentAction(formData: FormData): Promise<void> {
   } catch {
     /* the page shows "not checked" and offers the check again */
   }
-  redirect(`/labs/agents/${id}`);
+  redirect(`/labs/agents/${id}?new=1`);
 }
 
 export async function checkAgentAction(formData: FormData): Promise<void> {

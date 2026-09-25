@@ -247,3 +247,9 @@
 .labs-outline-button { display:inline-flex; align-items:center; padding:7px 14px; border:1px solid var(--accent); border-radius:8px; color:var(--accent-ink)!important; font-size:13px; font-weight:550; }
 .labs-outline-button:hover { background:var(--accent-soft); }
 .labs-agent-actions { align-items:center; }
+.labs-guide-links { display:flex; gap:22px; flex-wrap:wrap; margin-top:12px!important; }
+.labs-auth-block { margin:4px 0 6px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--sunken); }
+.labs-advanced { margin:10px 0; font-size:13px; }
+.labs-advanced > summary { cursor:pointer; color:var(--accent-ink); }
+.labs-helper { font-size:12px; max-width:360px; line-height:1.45; }
+.labs-next.is-verified { border-color:#2f6b7a; }

@@ -159,7 +159,6 @@ export async function createAgent(input: CreateAgentInput): Promise<{ agent: Age
   const workflow = clean(input.workflow);
   const label = clean(input.version?.label, 60);
   if (!name) throw new RegistryError(400, "name is required");
-  if (!workflow) throw new RegistryError(400, "workflow is required");
   if (!label) throw new RegistryError(400, "version.label is required");
   const endpoint = clean(input.endpoint, 2048);
   const valid = await validateEndpoint(endpoint);

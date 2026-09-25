@@ -39,7 +39,7 @@ export default async function AgentPage(props: PageProps<"/labs/agents/[agentId]
       <div>
         <p className="labs-eyebrow"><Link href="/labs/agents">Agents</Link></p>
         <h1>{agent.name}</h1>
-        <p>{agent.workflow} · connected {when(agent.createdAt)}{agent.enabled ? "" : " · disabled"}</p>
+        <p>{agent.workflow ? `${agent.workflow} · ` : ""}connected {when(agent.createdAt)}{agent.enabled ? "" : " · disabled"}</p>
       </div>
       {agent.enabled && latestVersion && !active && (
         <Link href={`/labs/tests/new?agentId=${encodeURIComponent(agent.id)}&versionId=${encodeURIComponent(latestVersion.id)}`} className="labs-primary-button">Run a test<ArrowUpRight size={18} aria-hidden="true" /></Link>
@@ -47,6 +47,22 @@ export default async function AgentPage(props: PageProps<"/labs/agents/[agentId]
       {active && <Link href={`/labs/jobs/${active.id}`} className="labs-primary-button">View progress<ArrowUpRight size={18} aria-hidden="true" /></Link>}
     </div>
     {error && <Note tone="crit">{error}</Note>}
+    {c.state === "connected" && !runs.length && !mine.length && latestVersion && (
+      <section className="labs-next is-verified" aria-label="Next step">
+        <div><strong>Connection verified.</strong><p>{c.lastCheck?.detail}. The endpoint is reachable, authenticated and speaks the protocol. Nothing has been tested yet.</p></div>
+        {!active && <Link href={`/labs/tests/new?agentId=${encodeURIComponent(agent.id)}&versionId=${encodeURIComponent(latestVersion.id)}`} className="labs-primary-button">Run first test<ArrowUpRight size={18} aria-hidden="true" /></Link>}
+      </section>
+    )}
+    {(c.state === "auth_failed" || c.state === "unreachable" || c.state === "incompatible") && (
+      <section className="labs-next is-failed" aria-label="Connection problem">
+        <div>
+          <strong>{CONNECTION_LABEL[c.state]}.</strong>
+          <p>{c.lastCheck?.detail}</p>
+          <p>{c.state === "auth_failed" ? "Fix: the endpoint rejected the credential. Check the token or key, and whether it expects the Authorization or X-API-Key header, under Change endpoint or credential below." : c.state === "unreachable" ? `Fix: the engine could not reach ${host}. Confirm the URL and that the endpoint is running and reachable from the engine's network; a URL on your laptop is only reachable by a local engine.` : "Fix: the endpoint answered but not in the protocol's shape. It must reply to a POSTed turn with one JSON step; see the request/response example below. Redirects are not followed."}</p>
+        </div>
+        <form action={checkAgentAction}><input type="hidden" name="agentId" value={agent.id} /><button type="submit" className="labs-primary-button">Check again</button></form>
+      </section>
+    )}
 
     <div className="labs-two-col">
       <section className="labs-panel labs-block" aria-labelledby="connection-heading">

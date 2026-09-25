@@ -20,10 +20,10 @@ export function StatePill({ tone, children }: { tone: "pass" | "fail" | "warn" |
 }
 
 /** The protocol, shown from the shape the engine actually sends and expects. */
-export function ProtocolExample() {
+export function ProtocolExample({ open = false }: { open?: boolean }) {
   return (
-    <details className="labs-protocol">
-      <summary>The protocol, exactly</summary>
+    <details className="labs-protocol" open={open}>
+      <summary>Request/response example</summary>
       <p>Each step, the engine POSTs one turn to your endpoint as JSON and expects one step back. Your endpoint holds no tools: it proposes, the engine executes every action in a simulated world.</p>
       <pre>{`POST <your endpoint>              (Authorization header if you configure one)
 {
