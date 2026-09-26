@@ -1,6 +1,6 @@
 /* Scoped to /labs: light, document-grade surface. Hairlines over shadows; one accent; success is silent. */
 .labs-modern {
-  min-height:100vh; background:var(--bg); color:var(--ink); padding:0 32px 24px;
+  min-height:100vh; background:transparent; color:var(--ink); padding:0 32px 24px;
 }
 .labs-modern a,.labs-modern button { transition:color .15s, background .15s, border-color .15s; }
 .labs-modern button { cursor:pointer; }

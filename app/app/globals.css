@@ -82,7 +82,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #070b12;
-    --canvas: radial-gradient(1200px 600px at 12% -10%, rgba(56, 189, 248, 0.16), transparent 60%), radial-gradient(900px 500px at 95% 10%, rgba(99, 102, 241, 0.14), transparent 60%), #070b12;
+    --canvas: radial-gradient(1200px 640px at 12% -10%, rgba(56, 189, 248, 0.24), transparent 60%), radial-gradient(900px 560px at 95% 10%, rgba(99, 102, 241, 0.20), transparent 60%), #070b12;
     --sidebar: rgba(255, 255, 255, 0.03);
     --surface: #0f141c;
     --surface-2: #151b25;
