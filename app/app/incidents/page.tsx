@@ -34,11 +34,11 @@ export default async function Incidents() {
       <div className="mb-6 flex flex-wrap gap-x-10 gap-y-3">
         <div>
           <div className="text-[12px] text-ink-3">{env.sandbox ? "Simulated misses" : "Production misses"}</div>
-          <div className={`mt-1 text-[26px] font-semibold leading-none tabular ${misses.length ? "text-crit-ink" : ""}`}>{int(misses.length)}</div>
+          <div className="mt-1 text-[26px] font-semibold leading-none tabular">{int(misses.length)}</div>
         </div>
         <div>
           <div className="text-[12px] text-ink-3">Awaiting review</div>
-          <div className={`mt-1 text-[26px] font-semibold leading-none tabular ${pending.length ? "text-warn-ink" : ""}`}>{int(pending.length)}</div>
+          <div className="mt-1 text-[26px] font-semibold leading-none tabular">{int(pending.length)}</div>
         </div>
         <div>
           <div className="text-[12px] text-ink-3">Became tests</div>
@@ -51,21 +51,21 @@ export default async function Incidents() {
       </div>
 
       {misses.length > 0 && (
-        <Card title={env.sandbox ? "Simulated misses" : "Production misses"} aside={`${int(misses.length)} · from the decision chain`} emphasis="crit" className="mb-5" padded={false}>
+        <Card title={env.sandbox ? "Simulated misses" : "Production misses"} aside={`${int(misses.length)} · from the decision chain`} className="mb-5" padded={false}>
           <ul>
             {misses.slice(0, 12).map(({ r, miss }) => (
               <li key={r.id} className="flex items-center gap-4 border-b border-line px-6 py-3 last:border-0 hover:bg-surface-2">
-                <StateBadge state="INCIDENT" label={env.sandbox ? "SIMULATED MISS" : "INCIDENT"} />
+                <StateBadge state="INCIDENT" label={env.sandbox ? "Simulated miss" : "Incident"} />
                 <div className="min-w-0 flex-1">
                   <Link href={`/decisions/${r.id}`} className="text-[13px] font-medium">
                     {money(r.paymentOrder.amount, r.paymentOrder.currency)} to {r.paymentOrder.payeeName} · {agentDisplay(r.declaration.agentId)}
                   </Link>
-                  <div className="text-[12px] text-crit-ink">
+                  <div className="text-[12px] text-ink-3">
                     Limulus would {r.outcome === "released" ? "release" : r.outcome === "held" ? "hold" : "escalate"} · {miss}
                   </div>
                 </div>
                 <div className="text-[12px] text-ink-3">{ago(r.createdAt)}</div>
-                <LinkButton href={`/decisions/${r.id}`} tone="crit">
+                <LinkButton href={`/decisions/${r.id}`}>
                   Investigate
                 </LinkButton>
               </li>
@@ -88,11 +88,11 @@ export default async function Incidents() {
       ) : (
         <div className="mb-5 grid gap-3">
           {pending.map((c) => (
-            <Card key={c.id} emphasis="warn">
+            <Card key={c.id}>
               <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <StateBadge state="REVIEW" label={c.scenario.severity.toUpperCase()} />
+                    <StateBadge state="REVIEW" label={c.scenario.severity.charAt(0).toUpperCase() + c.scenario.severity.slice(1)} />
                     <span className="text-[12px] text-ink-3">
                       {int(c.count)} signal{c.count === 1 ? "" : "s"} · detected {ago(c.createdAt)}
                     </span>

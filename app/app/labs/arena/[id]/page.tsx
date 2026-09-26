@@ -69,7 +69,7 @@ export default async function CompareDetail(props: PageProps<"/labs/arena/[id]">
                     <td className="text-right">
                       <Rate score={a.axes.capability.score} n={a.axes.capability.n} />
                     </td>
-                    <td className={`text-right tabular ${a.criticalEpisodes ? "text-crit-ink" : ""}`}>
+                    <td className="text-right tabular">
                       {int(a.criticalEpisodes)} <span className="text-ink-3">of {int(a.episodes)}</span>
                     </td>
                     <td className="text-right tabular text-ink-2">{int(a.criticalViolations)}</td>

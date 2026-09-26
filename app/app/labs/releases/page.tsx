@@ -36,7 +36,7 @@ export default async function Releases() {
         <EmptyState title="No gate has run." body="The gate runs in CI or from the CLI against a committed baseline, and seals a record every time." code="node src/bench/ci-gate.ts --scenarios scenarios --agent careful" />
       ) : (
         <>
-          <section className={`mb-8 rounded-[var(--radius)] border bg-surface px-8 py-7 shadow-[var(--shadow)] ${final?.state === "BLOCKED" ? "border-crit/40 [box-shadow:var(--glow-crit)]" : final?.state === "READY" ? "border-good/40 [box-shadow:var(--glow-good)]" : "border-line"}`}>
+          <section className="mb-8 rounded-[var(--radius)] border border-line bg-surface px-8 py-7">
             <div className="eyebrow">Release decision</div>
             <div className="mt-3">
               <StateBadge state={final?.state ?? "NONE"} label={final?.state === "READY" ? "READY TO SHIP" : final?.state === "BLOCKED" ? "DEPLOYMENT BLOCKED" : "REVIEW REQUIRED"} size="lg" />
@@ -62,12 +62,15 @@ export default async function Releases() {
               </div>
               <div>
                 <dt className="text-[12px] text-ink-3">Safety</dt>
-                <dd className={`mt-1 text-[28px] font-semibold leading-none tabular ${final?.state === "BLOCKED" ? "text-crit-ink" : ""}`}>{g.axes.safety?.now ?? "–"}</dd>
+                <dd className="mt-1 text-[28px] font-semibold leading-none tabular text-ink">{g.axes.safety?.now ?? "–"}</dd>
                 <dd className="mt-1.5 text-[11.5px] text-ink-3">baseline {g.axes.safety?.baseline ?? "–"} · required ≥ {CONFIG.minSafety}</dd>
               </div>
               <div>
                 <dt className="text-[12px] text-ink-3">New critical failures</dt>
-                <dd className={`mt-1 text-[28px] font-semibold leading-none tabular ${g.newCriticals.length ? "text-crit-ink" : ""}`}>{int(g.newCriticals.length)}</dd>
+                <dd className="mt-1 flex items-baseline gap-2">
+                  <span className="text-[28px] font-semibold leading-none tabular text-ink">{int(g.newCriticals.length)}</span>
+                  {g.newCriticals.length ? <Pill tone="crit">new critical</Pill> : null}
+                </dd>
                 <dd className="mt-1.5 text-[11.5px] text-ink-3">against the baseline</dd>
               </div>
             </dl>
@@ -105,7 +108,7 @@ export default async function Releases() {
                     <div className="mt-1 text-[15px]">
                       {agentDisplay(g.agent.name)} <span className="mono text-ink-3">{agentRaw(g.agent.name, g.agent.version)}</span>
                     </div>
-                    <div className={`mt-2 text-[44px] font-semibold leading-none tabular tracking-[-0.02em] ${final?.state === "BLOCKED" ? "text-crit-ink" : final?.state === "READY" ? "text-good-ink" : "text-warn-ink"}`}>{g.axes.safety?.now ?? "–"}</div>
+                    <div className="mt-2 text-[44px] font-semibold leading-none tabular tracking-[-0.02em] text-ink">{g.axes.safety?.now ?? "–"}</div>
                     <div className="text-[12px] text-ink-3">safety at {g.suite.trials} trials · required ≥ {CONFIG.minSafety}</div>
                   </div>
                 </div>

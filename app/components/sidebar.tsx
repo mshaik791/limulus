@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Activity, AlertTriangle, Bot, Eye, FileLock2, GitCompare, LayoutGrid, PlayCircle, Shield, ShieldCheck, FileText } from "lucide-react";
 import type { ComponentType } from "react";
+import { LimulusMark } from "./logo";
 
 type Item = { href: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }>; group?: string };
 
@@ -32,7 +33,7 @@ export function Sidebar({ engine, sandbox, rail }: { engine: { ok: boolean; vers
   return (
     <aside className="sticky top-0 flex h-screen w-[236px] shrink-0 flex-col border-r border-line bg-sidebar">
       <div className="flex items-center gap-3 px-5 pb-4 pt-5">
-        <Mark />
+        <LimulusMark size={28} className="text-ink" />
         <div>
           <div className="text-[15px] font-semibold leading-tight">Limulus</div>
           <div className="text-[11px] leading-tight text-ink-3">Financial Agent Assurance</div>
@@ -75,13 +76,15 @@ export function Sidebar({ engine, sandbox, rail }: { engine: { ok: boolean; vers
         <div className="mb-2 flex items-center gap-2">
           {sandbox ? (
             <>
-              <span className="rounded-[4px] bg-warn-soft px-1.5 py-[1px] text-[10px] font-semibold tracking-[0.08em] text-warn-ink">SANDBOX</span>
-              <span className="text-ink-3">No payment rails connected</span>
+              <span aria-hidden className="h-[6px] w-[6px] shrink-0 rounded-full bg-warn" />
+              <span className="font-medium text-ink-2">Sandbox</span>
+              <span className="text-ink-3">· no rails connected</span>
             </>
           ) : (
             <>
-              <span className="rounded-[4px] bg-good-soft px-1.5 py-[1px] text-[10px] font-semibold tracking-[0.08em] text-good-ink">PRODUCTION</span>
-              <span className="text-ink-3">rail {rail}</span>
+              <span aria-hidden className="h-[6px] w-[6px] shrink-0 rounded-full bg-good" />
+              <span className="font-medium text-ink-2">Production</span>
+              <span className="text-ink-3">· rail {rail}</span>
             </>
           )}
         </div>
@@ -91,15 +94,5 @@ export function Sidebar({ engine, sandbox, rail }: { engine: { ok: boolean; vers
         </div>
       </div>
     </aside>
-  );
-}
-
-/** The horseshoe arc. Not a crab. */
-function Mark() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 26 26" aria-hidden>
-      <path d="M4 20 V12 a9 9 0 0 1 18 0 V20" fill="none" stroke="var(--accent)" strokeWidth="3.2" strokeLinecap="round" />
-      <path d="M9 20 V13 a4 4 0 0 1 8 0 V20" fill="none" stroke="var(--cyan)" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
-    </svg>
   );
 }

@@ -10,20 +10,26 @@ specific figure (e.g. IC3 annual BEC losses) could not be fetched, it was omitte
 recalled. Canonical homepages are cited for organisations whose existence is certain; deep
 links were not fabricated.
 
-## Verified (fetched this session)
-- Modern Treasury — ACH Return Code Reference — https://www.moderntreasury.com/learn/ach-return-code-reference — codes/titles/windows in `ach.md`.
+## Verified (fetched)
+- Modern Treasury — ACH Return Code Reference — https://www.moderntreasury.com/learn/ach-return-code-reference — codes/titles/windows in `ach.md`; full R01–R85 catalog transcribed 2026-09-23 into `src/rails/nacha.ts`.
 - Ramp — ACH Return Codes — https://ramp.com/blog/ach-return-codes — 3%/15% return-rate thresholds.
 - OWASP GenAI — Top 10 for LLM Applications 2025 — https://genai.owasp.org/llm-top-10/ — all IDs/titles in `agent-attacks.md`.
+- Nacha — Fraud Monitoring Phase 1/2 rule pages — https://www.nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2 — Phase 2 from June 22 2026 covers ALL non-consumer originators; "False Pretenses" covers BEC. *(2026-09-23)*
+- Cornell LII — UCC Article 4A — https://www.law.cornell.edu/ucc/4A — §4A-202/203/204 framework confirmed. *(2026-09-23)*
+- Federal Reserve Financial Services — Fedwire — https://www.frbservices.org/financial-services/wires — finality confirmed. *(2026-09-23)*
+- The Clearing House — RTP — https://www.theclearinghouse.org/payment-systems/rtp — real-time, 24/7, final settlement, credit-push. *(2026-09-23)*
+- Federal Reserve — FedNow — https://www.federalreserve.gov/paymentsystems/fednow_about.htm — near-real-time, 24×7 business day. *(2026-09-23)*
+- US Treasury — OFAC SDN list — https://www.treasury.gov/ofac/downloads/sdn.csv — vendored (19,391 entries) in `reference/ofac-sdn.tsv`. *(2026-09-23)*
+- ohmyfin.org / validatefin.com — ISO 20022 reject reason codes (secondary references) — meanings in `src/reference/iso20022.ts`. *(2026-09-23)*
 
 ## To verify (unverified-model-recall)
 | # | Claim / source | File | What to check |
 |---|---|---|---|
-| 1 | Nacha Operating Rules — return windows, SEC codes, 2026 non-consumer fraud-monitoring rule | ach.md | Confirm windows, and that the 2026 fraud-monitoring rule exists and applies to non-consumer originators. |
-| 2 | Fedwire finality & account-number reliance (frbservices.org) | wire.md | Confirm finality/no-recall and name-vs-number crediting. |
-| 3 | UCC Article 4A loss allocation (law.cornell.edu/ucc/4A) | wire.md | Confirm the payer generally bears loss on authorised-but-fraudulently-induced credit transfers. |
-| 4 | RTP push-only/irrevocable (theclearinghouse.org) | instant.md | Confirm irrevocability and 24/7. |
-| 5 | FedNow instant/irrevocable/ISO 20022 (federalreserve.gov) | instant.md | Confirm. |
-| 6 | ISO 20022 pacs.008/pacs.002 reason codes | instant.md | Confirm message names and that reject reason codes exist. |
+| 1 | Nacha Operating Rules — return windows, SEC codes (the Rules text itself) | ach.md | Windows corroborated by Modern Treasury; confirm against the Rules if quoted directly. |
+| 2 | Fedwire RTGS wording; account-number reliance (Operating Circular 6; UCC §4A-207) | wire.md | Confirm RTGS and name-vs-number crediting from the primary. |
+| 3 | UCC 4A interpretive claim: authorised-but-fraudulently-induced transfer generally leaves loss with payer | wire.md | **Needs counsel**, not just a fetch, before outward-facing use. |
+| 5 | FedNow finality/irrevocability and ISO 20022 usage | instant.md | Confirm both from Fed materials. |
+| 6 | ISO 20022 External Code Sets (primary spreadsheet) | instant.md, src/reference/iso20022.ts | Confirm the encoded meanings against the primary code list. |
 | 7 | Circle/USDC finality & multi-chain caveats | stablecoin.md | Confirm address-based finality and chain-mismatch loss. |
 | 8 | FBI IC3 Annual Report — BEC magnitude/typologies | bec.md | Confirm typologies; supply the actual figures (deliberately omitted). |
 | 9 | AFP Payments Fraud and Control Survey | bec.md | Confirm BEC/bank-change prevalence figures. |

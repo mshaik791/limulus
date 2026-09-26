@@ -126,8 +126,13 @@ function NextStepStrip({ step }: { step: NonNullable<ReturnType<typeof nextStep>
 }
 
 function Context() { return <div className="labs-context"><span>Local workspace <span aria-hidden="true">/</span> Test</span><span>Sandbox · No real money moves</span></div>; }
-function Arches() { return <div className="labs-arches" aria-hidden="true"><i /><i /><i /></div>; }
+// The mark's namesake — a top-down horseshoe crab (Recraft-generated line illustration,
+// public/limulus-crab.png), painted in hemolymph via a CSS mask so it stays on-palette. The one
+// signature that could not be mistaken for a template.
+function Arches() {
+  return <span className="labs-carapace" aria-hidden="true" />;
+}
 function TextLink({ href, children }: { href: string; children: React.ReactNode }) { return <Link className="labs-text-link" href={href}>{children}<ArrowUpRight size={15} aria-hidden="true" /></Link>; }
 function Requirement({ label, value, status }: { label: string; value: string; status: "pass" | "fail" | "warn" | "unknown" }) {
-  return <li><span className={`labs-check is-${status}`} aria-label={status === "pass" ? "Passed" : status === "fail" ? "Failed" : status === "warn" ? "Needs attention" : "Unknown"}>{status === "pass" ? <Check size={13} /> : status === "fail" ? <X size={13} /> : status === "warn" ? "!" : <Minus size={13} />}</span><span>{label}</span><span className="labs-requirement-value">{value}</span></li>;
+  return <li><span role="img" className={`labs-check is-${status}`} aria-label={status === "pass" ? "Passed" : status === "fail" ? "Failed" : status === "warn" ? "Needs attention" : "Unknown"}>{status === "pass" ? <Check size={13} /> : status === "fail" ? <X size={13} /> : status === "warn" ? "!" : <Minus size={13} />}</span><span>{label}</span><span className="labs-requirement-value">{value}</span></li>;
 }

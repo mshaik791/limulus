@@ -1,38 +1,34 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { Sidebar } from "./sidebar";
 import { CommandBar } from "./command-bar";
+import { SectionNav } from "@/app/labs/labs-ui";
 import "@/app/labs/overview.css";
 
-// The overview and test investigations share the Labs shell.
-export function ShellFrame({ children, engine, agents, sandbox, rail }: {
+// One shell for the whole product. The header bar and the sub-tab row are
+// identical on every route; only the tabs' contents change with the section
+// (Test, Qualify, Monitor, Protect). Moving between sections never swaps the
+// chrome — that is the point.
+export function ShellFrame({ children, engine, agents, sandbox }: {
   children: ReactNode;
   engine: { ok: boolean; version: string; keyed: boolean } | null;
   agents: { key: string; name: string; version: string }[];
   sandbox: boolean;
-  rail: string;
+  rail?: string;
 }) {
   const pathname = usePathname();
-  const investigation = pathname === "/labs/tests" || pathname.startsWith("/labs/tests/") || pathname.startsWith("/labs/jobs/");
+  // Onboarding flows render their own nav inline, so the shell stays out.
   const onboarding = pathname.startsWith("/labs/agents") || pathname === "/labs/tests/new" || pathname.startsWith("/labs/jobs/");
-  const overview = pathname === "/labs" || investigation || onboarding;
-  if (overview) return <div className="labs-modern">
-    <CommandBar agents={agents} engineOk={Boolean(engine?.ok)} sandbox={sandbox} compact />
-    <main id="main-content" className={`labs-main${investigation || onboarding ? " labs-investigation" : ""}`}>
-      {investigation && !onboarding && <nav className="labs-tabs investigation-nav" aria-label="Labs navigation">
-        <Link href="/labs">Overview</Link><Link href="/labs/agents">Agents</Link><Link href="/labs/tests" aria-current="page">Tests</Link><Link href="/labs/arena">Compare models</Link><Link href="/labs/releases">Releases</Link>
-      </nav>}
-      {children}
-    </main>
-  </div>;
-  return <div className="flex min-h-screen">
-    <Sidebar engine={engine} sandbox={sandbox} rail={rail} />
-    <div className="flex min-w-0 flex-1 flex-col">
+  const overview = pathname === "/labs";
+  return (
+    <div className="labs-modern">
       <CommandBar agents={agents} engineOk={Boolean(engine?.ok)} sandbox={sandbox} />
-      <main className="mx-auto w-full max-w-[1600px] min-w-0 flex-1 px-8 py-7">{children}</main>
+      <main id="main-content" className={`labs-main${overview ? "" : " labs-investigation"}`}>
+        {!onboarding && !overview && <SectionNav pathname={pathname} />}
+        {/* Keyed by route so content settles in on navigation — motion answers the click. */}
+        <div key={pathname} className="route-rise">{children}</div>
+      </main>
     </div>
-  </div>;
+  );
 }

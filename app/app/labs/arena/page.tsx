@@ -122,7 +122,7 @@ node src/lab-cli.ts compare "GPT-4.1=http://localhost:9100/agent?model=openai/gp
                   <p className="text-[11.5px] text-ink-3">
                     Routes: {agent.providers.map((p) => p.label).join(", ")}. Every model runs the open pool with the same prompt, tools and gate; a model that gives no usable step is recorded as unanswered, never guessed. Runs take minutes per model.
                   </p>
-                  {agent.problems.length > 0 && <p className="text-[11.5px] text-warn-ink">{agent.problems.join(" · ")}</p>}
+                  {agent.problems.length > 0 && <p className="text-[11.5px] text-ink-3"><span className="text-warn-ink">Note</span> · {agent.problems.join(" · ")}</p>}
                 </form>
               ) : (
                 <div className="grid gap-3 text-[13px]">
@@ -179,7 +179,7 @@ function Hero({ record, mode }: { record: CompareRecord; mode: "models" | "confi
   const ev = evidence(maxEpisodes);
   const pick = record.arms.find((a) => a.label === record.recommendation.label);
   return (
-    <Card title={mode === "models" ? "Which model should you deploy?" : "Which configuration should you deploy?"} aside={`${suiteName(record.suite.id).name} · ${int(record.suite.scenarioCount)} scenarios × ${record.suite.trials} trials · ${when(record.createdAt)}`} emphasis="model">
+    <Card title={mode === "models" ? "Which model should you deploy?" : "Which configuration should you deploy?"} aside={`${suiteName(record.suite.id).name} · ${int(record.suite.scenarioCount)} scenarios × ${record.suite.trials} trials · ${when(record.createdAt)}`}>
       <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
         {record.arms.map((a, i) => {
           const scen = Object.values(a.scenarios ?? {});
@@ -189,7 +189,7 @@ function Hero({ record, mode }: { record: CompareRecord; mode: "models" | "confi
           const armEv = evidence(a.episodes);
           const sub = mode === "models" ? (a.agent.subject.model ? `${modelDisplay(a.agent.subject.model)} · ${a.agent.subject.source === "configured" ? "configured" : "self-reported by the endpoint"}` : "the endpoint reported no model") : a.agent.subject.model ? modelDisplay(a.agent.subject.model, a.agent.subject.source) : `${agentDisplay(a.agent.name)} v${a.agent.version}`;
           return (
-            <div key={a.label} className={`min-w-[240px] rounded-[var(--radius)] border p-4 ${rec ? "border-model/60 bg-model-soft [box-shadow:var(--glow-model)]" : "border-line bg-surface-2"}`}>
+            <div key={a.label} className={`min-w-[240px] rounded-[var(--radius)] border p-4 ${rec ? "border-line-hover bg-surface" : "border-line bg-surface-2"}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="break-words text-[15px] font-semibold leading-snug">
@@ -206,7 +206,7 @@ function Hero({ record, mode }: { record: CompareRecord; mode: "models" | "confi
               <div className="mt-4 grid gap-2.5 text-[12.5px]">
                 <Row label="Safety score" value={<Rate score={a.axes.safety.score} n={a.axes.safety.n} />} pct={a.axes.safety.n ? a.axes.safety.score : null} tone="accent" />
                 <Row label="Pass rate" value={<span className="tabular">{scen.length ? `${pct(passed, scen.length)} · ${ofN(passed, scen.length)} scenarios` : "–"}</span>} pct={scen.length ? (passed / scen.length) * 100 : null} tone="good" />
-                <Row label="Critical failures" value={<span className={`tabular ${a.criticalEpisodes ? "text-crit-ink" : ""}`}>{int(a.criticalEpisodes)} of {int(a.episodes)} episodes</span>} pct={a.episodes ? Math.min(100, (a.criticalEpisodes / a.episodes) * 100) : null} tone="crit" />
+                <Row label="Critical failures" value={<span className="tabular">{int(a.criticalEpisodes)} of {int(a.episodes)} episodes</span>} pct={a.episodes ? Math.min(100, (a.criticalEpisodes / a.episodes) * 100) : null} tone="crit" />
                 <div className="flex justify-between text-ink-3">
                   <span>critical check failures</span>
                   <span className="tabular text-ink-2">{int(a.criticalViolations)}</span>
@@ -248,7 +248,7 @@ function Hero({ record, mode }: { record: CompareRecord; mode: "models" | "confi
           {record.recommendation.label ? <span className="text-model-ink">{record.recommendation.label}</span> : <span className="text-warn-ink">none</span>} · {record.recommendation.reason}
         </p>
         <p className="mt-1 text-[11.5px] text-ink-3">rule: {record.recommendation.rule}</p>
-        {ev !== "eligible" && <p className="mt-1 text-[11.5px] text-warn-ink">Not shown as recommended: the evidence is {ev === "provisional" ? "provisional" : "insufficient"} at this sample size.</p>}
+        {ev !== "eligible" && <p className="mt-1 text-[11.5px] text-ink-3"><span className="text-warn-ink">Not shown as recommended</span> · the evidence is {ev === "provisional" ? "provisional" : "insufficient"} at this sample size.</p>}
       </div>
       <div className="mt-3">
         <Link href={`/labs/arena/${record.id}`} className="text-[13px] text-accent-ink">

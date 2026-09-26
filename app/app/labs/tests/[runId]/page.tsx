@@ -8,7 +8,7 @@ import { findingGroups, findingName, runCounts } from "@/lib/findings";
 import { suiteName } from "@/lib/names";
 import { Radar } from "@/components/charts";
 import { Breadcrumb } from "@/components/shell";
-import { Card, Delta, EmptyState, EnvBar, Hash, KV, LinkButton, Metric, MetricRow, Note, Offline, PageHeader, Pill, Tabs, toneForSeverity, toneForVerdict } from "@/components/ui";
+import { Card, Delta, EmptyState, EnvBar, Hash, KV, LinkButton, Metric, MetricRow, Note, Offline, PageHeader, Pill, StateBadge, Tabs, toneForSeverity, toneForVerdict } from "@/components/ui";
 
 export const metadata = { title: "Test Run" };
 
@@ -87,7 +87,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
         eyebrow={`Test results · ${when(run.createdAt)} · took ${ms(run.durationMs)}`}
         title={identity.name}
         subtitle={`${identity.version} · ${identity.detail} · ${suiteName(run.suite.id).name}`}
-        actions={<>{identity.demo && <Pill>Demo agent</Pill>}{identity.fixture && <Pill tone="warn">Test fixture</Pill>}{run.agent.registry && <LinkButton href={`/labs/agents/${encodeURIComponent(run.agent.registry.agentId)}`}>Connected agent</LinkButton>}<LinkButton href={`/labs?agent=${encodeURIComponent(agentKey(run))}`}>Agent overview</LinkButton></>}
+        actions={<><StateBadge state={ready.state} label={ready.state === "REVIEW" ? "REVIEW REQUIRED" : ready.state === "BLOCKED" ? "BLOCKED" : ready.state === "READY" ? "READY" : "NOT TESTED"} size="lg" />{identity.demo && <Pill>Demo agent</Pill>}{identity.fixture && <Pill tone="warn">Test fixture</Pill>}{run.agent.registry && <LinkButton href={`/labs/agents/${encodeURIComponent(run.agent.registry.agentId)}`}>Connected agent</LinkButton>}<LinkButton href={`/labs?agent=${encodeURIComponent(agentKey(run))}`}>Agent overview</LinkButton></>}
       />
       <div className="investigation-summary" aria-label="Run summary">
         <div><span>Scenarios passed</span><strong>{int(n.scenariosPassed)}<small className="investigation-of"> of {int(n.scenarios)}</small></strong><small>{pct(n.scenariosPassed, n.scenarios)} · a scenario passes when every usable trial took the expected action with no critical failure{n.scenariosPassedWithFindings ? `; ${int(n.scenariosPassedWithFindings)} passed with a lesser finding` : ""}</small></div>
@@ -96,7 +96,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
         <div><span>Safety</span><strong>{run.axes.safety.score}<small className="investigation-of"> / 100</small></strong><small>share of usable trials with no critical failure, weighted by severity · from {int(run.axes.safety.sampleSize)} usable trials</small></div>
       </div>
       <EnvBar />
-      {unusable > 0 && <p className="mb-4 text-sm text-warn-ink">{int(unusable)} of {int(n.trials)} trials were unusable (the endpoint never answered) and are in no count above. <Link href={`${base}?tab=trace`} className="underline">Inspect all trials in Trace</Link>.</p>}
+      {unusable > 0 && <div className="mb-4"><Note tone="warn">{int(unusable)} of {int(n.trials)} trials were unusable (the endpoint never answered) and are in no count above. <Link href={`${base}?tab=trace`} className="underline">Inspect all trials in Trace</Link>.</Note></div>}
       <Tabs
         base={base}
         active={tab}
@@ -125,7 +125,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
               <MetricRow label="Recovery" hint={run.axes.recovery.detail} score={run.axes.recovery.score} n={run.axes.recovery.sampleSize} />
               <MetricRow label="Reliability" hint={run.axes.reliability?.detail} score={run.axes.reliability?.score ?? null} n={run.axes.reliability?.sampleSize ?? 0} />
               <p className="mt-3 text-[12.5px] text-ink-3">{run.axes.levelReason}</p>
-              {run.axes.unusableEpisodes > 0 && <p className="mt-2 text-[12px] text-warn-ink">{int(run.axes.unusableEpisodes)} episode(s) were unusable: the subject never answered. They are in no denominator.</p>}
+              {run.axes.unusableEpisodes > 0 && <p className="mt-2 text-[12px] text-ink-3"><span className="text-warn-ink">Unusable</span> · {int(run.axes.unusableEpisodes)} episode(s) had no answer from the subject. They are in no denominator.</p>}
               <div className="mt-4 border-t border-line pt-3">
                 <ul className="grid gap-1 text-[12.5px]">
                   {ready.absolute?.criteria.map((x) => (
@@ -211,15 +211,18 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
                     .filter((r) => r.criticalCheckFailures > 0)
                     .slice(0, 5)
                     .map((r) => (
-                      <li key={r.scenarioId} className="rounded-[var(--radius-sm)] border border-crit/30 bg-crit-soft/40 px-3 py-2">
+                      <li key={r.scenarioId} className="rounded-[var(--radius-sm)] border border-line px-3 py-2">
                         <div className="flex items-center justify-between gap-2">
-                          <Link href={`${base}/scenarios/${r.scenarioId}?trial=${r.worst.trial}`} className="text-[13px] font-medium">
-                            {titles.get(r.scenarioId) ?? r.scenarioId}
-                          </Link>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-crit-ink">critical</span>
+                            <Link href={`${base}/scenarios/${r.scenarioId}?trial=${r.worst.trial}`} className="text-[13px] font-medium">
+                              {titles.get(r.scenarioId) ?? r.scenarioId}
+                            </Link>
+                          </div>
                           <span className="text-[12px] tabular text-ink-3">{ofN(r.failedTrials, r.trials.length)} trials failed</span>
                         </div>
                         <div className="mt-0.5 text-[12px] text-ink-2">{r.top ? findingName(r.top.code) : ""}</div>
-                        {r.exposure > 0 && <div className="mt-0.5 text-[12px] text-crit-ink">{money(r.exposure)} simulated exposure</div>}
+                        {r.exposure > 0 && <div className="mt-0.5 text-[12px] tabular text-ink-2">{money(r.exposure)} simulated exposure</div>}
                       </li>
                     ))}
                 </ul>
@@ -404,8 +407,8 @@ function FindingCard({ r, base, title, passed }: { r: ReturnType<typeof findingG
           {r.top?.detail && r.top.detail !== r.top.code && <p className="mt-0.5 text-[12.5px] text-ink-2">{r.top.detail}</p>}
           <div className="mt-2 flex flex-wrap gap-3 text-[12px] text-ink-3">
             <span className="tabular">{passed ? `${int(r.trials.length)} trial${r.trials.length === 1 ? "" : "s"} passed` : `${ofN(r.failedTrials, r.trials.length)} trials failed`}</span>
-            {crit && <span className="tabular text-crit-ink">{int(r.criticalCheckFailures)} critical check failure{r.criticalCheckFailures === 1 ? "" : "s"}</span>}
-            {r.exposure > 0 && <span className="text-crit-ink">{money(r.exposure)} simulated exposure</span>}
+            {crit && <span className="tabular text-ink-2">{int(r.criticalCheckFailures)} critical check failure{r.criticalCheckFailures === 1 ? "" : "s"}</span>}
+            {r.exposure > 0 && <span className="tabular text-ink-2">{money(r.exposure)} simulated exposure</span>}
           </div>
           {codeList.length > 0 && (
             <details className="mt-2 text-[12px] text-ink-3">

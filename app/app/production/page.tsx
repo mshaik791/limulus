@@ -12,7 +12,7 @@ export const metadata = { title: "Shadow Mode" };
 // page is onboarding: the flow, three steps, the call. With data it is a
 // dashboard where "held" only ever follows "would have".
 
-const rec = (a: string) => (a === "agree" ? "AGREE" : a === "would_have_held" ? "WOULD HOLD" : a === "would_have_escalated" ? "WOULD ESCALATE" : "WOULD RELEASE");
+const rec = (a: string) => (a === "agree" ? "Agree" : a === "would_have_held" ? "Would hold" : a === "would_have_escalated" ? "Would escalate" : "Would release");
 
 export default async function Shadow(props: PageProps<"/production">) {
   const search = await props.searchParams;

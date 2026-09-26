@@ -83,7 +83,7 @@ export default async function GateDetail(props: PageProps<"/labs/releases/[id]">
             </tbody>
           </table>
           <div className="px-5 py-4">
-            {g.baseline.fingerprint !== g.suite.fingerprint && <p className="mb-2 text-[12px] text-warn-ink">The suite changed since the baseline was written ({g.baseline.fingerprint} → {g.suite.fingerprint}).</p>}
+            {g.baseline.fingerprint !== g.suite.fingerprint && <p className="mb-2 text-[12px] text-ink-3"><span className="text-warn-ink">Suite changed</span> · since the baseline was written ({g.baseline.fingerprint} → {g.suite.fingerprint}).</p>}
             <KV
               dense
               rows={[
@@ -153,7 +153,7 @@ export default async function GateDetail(props: PageProps<"/labs/releases/[id]">
           {g.verdict !== "fail" ? (
             <p className="text-[13px] text-ink-3">Nothing to override.</p>
           ) : !overridable ? (
-            <p className="text-[13px] text-crit-ink">This gate cannot be overridden: it found new critical violations. Fix them, or update the baseline in a commit that says why.</p>
+            <p className="text-[13px] text-ink-2"><span className="text-crit-ink">Cannot be overridden</span> · it found new critical violations. Fix them, or update the baseline in a commit that says why.</p>
           ) : (
             <>
               <p className="text-[13px] text-ink-2">An override is a person accepting exactly these failures for a stated reason. It is written next to the baseline, so the reason is in git with an author; it expires in 14 days, is void if edited, and covers nothing that appears later.</p>

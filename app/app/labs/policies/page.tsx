@@ -98,7 +98,10 @@ export default async function Policies() {
                           </div>
                           <div>
                             <div className="eyebrow">Agent compliance</div>
-                            <div className={`mt-1 text-[22px] font-semibold leading-none tabular ${gs.length ? (crit ? "text-crit-ink" : passed === gs.length ? "text-good-ink" : "text-warn-ink") : "text-ink-3"}`}>{gs.length ? pct(passed, gs.length) : "not evaluated"}</div>
+                            <div className="mt-1 flex items-baseline gap-2">
+                              <div className={`text-[22px] font-semibold leading-none tabular ${gs.length ? "text-ink" : "text-ink-3"}`}>{gs.length ? pct(passed, gs.length) : "not evaluated"}</div>
+                              {gs.length ? <Pill tone={crit ? "crit" : passed === gs.length ? "good" : "warn"}>{crit ? "critical" : passed === gs.length ? "all pass" : "gaps"}</Pill> : null}
+                            </div>
                             <div className="mt-1 text-[11.5px] text-ink-3">
                               {gs.length ? (
                                 <>

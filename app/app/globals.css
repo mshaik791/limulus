@@ -1,61 +1,120 @@
 @import "tailwindcss";
 
 /*
-  Dark is the primary language: deep navy, three card levels, borders that are
-  barely there. Colour has semantic meaning or it is not used. Blue is the
-  system and agent state, cyan is activity on a path, green is verified or
-  released, amber is attention or hold, red is critical or blocked, violet is
-  simulation and model comparison. Nothing glows unless it is a state.
+  Light, document-grade. The reference class for this product (Stripe, Mercury,
+  Vanta, Sentry) is a quiet white ledger: near-white canvas, white surfaces,
+  hairline borders, and semantic colour that appears only in words, dots and
+  figures — never as a filled row, chip or block. Success is silent; red on a
+  screen means exactly one thing: look here, something failed.
 */
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
 
-  --bg: #060a12;
-  --sidebar: #070b13;
-  --surface: #0d1422;
-  --surface-2: #10192a;
-  --surface-3: #121d31;
-  --sunken: #050810;
-  --line: rgba(120, 150, 190, 0.12);
-  --line-2: rgba(120, 150, 190, 0.22);
-  --line-hover: rgba(90, 140, 255, 0.35);
+  --bg: #f7f8fa;
+  --sidebar: #fbfcfd;
+  --surface: #ffffff;
+  --surface-2: #f4f6f8;
+  --surface-3: #eceff3;
+  --sunken: #f6f8fa;
+  --line: #e7e9ee;
+  --line-2: #d8dce3;
+  --line-hover: #b9c4d2;
 
-  --ink: #f4f7fc;
-  --ink-2: #9aa7bc;
-  --ink-3: #66748a;
+  --ink: #191d24;
+  --ink-2: #4d5665;
+  --ink-3: #667084;
 
-  --accent: #4f8cff;
-  --accent-ink: #8fb4ff;
-  --accent-soft: rgba(79, 140, 255, 0.14);
-  --cyan: #4ed8ff;
-  --cyan-soft: rgba(78, 216, 255, 0.12);
+  /* Hemolymph, deepened for a light ground — the single interactive colour. */
+  --accent: #0f6f9e;
+  --accent-ink: #0b5c84;
+  --accent-soft: rgba(15, 111, 158, 0.08);
+  --cyan: #0f6f9e;
+  --cyan-soft: rgba(15, 111, 158, 0.07);
 
-  --good: #39d39f;
-  --good-ink: #6fe3b8;
-  --good-soft: rgba(57, 211, 159, 0.12);
-  --warn: #f5b942;
-  --warn-ink: #f8ca6c;
-  --warn-soft: rgba(245, 185, 66, 0.12);
-  --crit: #ff6174;
-  --crit-ink: #ff8a98;
-  --crit-soft: rgba(255, 97, 116, 0.12);
-  --model: #8d7cff;
-  --model-ink: #ada2ff;
-  --model-soft: rgba(141, 124, 255, 0.12);
+  /* Semantics are text-grade: dark enough for AA as 12px words on white. */
+  --good: #178457;
+  --good-ink: #116b46;
+  --good-soft: rgba(23, 132, 87, 0.08);
+  --warn: #b07c1d;
+  --warn-ink: #8a6116;
+  --warn-soft: rgba(176, 124, 29, 0.09);
+  --crit: #c13548;
+  --crit-ink: #ab2738;
+  --crit-soft: rgba(193, 53, 72, 0.07);
+  --model: #6a58cc;
+  --model-ink: #5647ad;
+  --model-soft: rgba(106, 88, 204, 0.08);
 
-  --arm-1: #4f8cff;
-  --arm-2: #f0834f;
-  --arm-3: #39d39f;
-  --arm-4: #e0a83a;
+  --arm-1: #0f6f9e;
+  --arm-2: #b0652d;
+  --arm-3: #178457;
+  --arm-4: #b07c1d;
 
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.18);
-  --glow-crit: 0 0 0 1px rgba(255, 97, 116, 0.3), 0 0 30px rgba(255, 97, 116, 0.05);
-  --glow-good: 0 0 0 1px rgba(57, 211, 159, 0.3), 0 0 30px rgba(57, 211, 159, 0.05);
-  --glow-warn: 0 0 0 1px rgba(245, 185, 66, 0.3), 0 0 30px rgba(245, 185, 66, 0.05);
-  --glow-accent: 0 0 0 1px rgba(79, 140, 255, 0.3), 0 0 30px rgba(79, 140, 255, 0.06);
-  --glow-model: 0 0 0 1px rgba(141, 124, 255, 0.3), 0 0 30px rgba(141, 124, 255, 0.05);
+  --radius: 8px;
+  --radius-sm: 6px;
+  /* Hairline borders carry the structure; the shadow is barely there. */
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  /* No coloured halos. Kept as variables so old call sites resolve to nothing. */
+  --glow-crit: none;
+  --glow-good: none;
+  --glow-warn: none;
+  --glow-accent: none;
+  --glow-model: none;
+}
+
+/*
+  Night mode follows the OS, the way Chrome and Claude do. Same system, same
+  rules — dot + word status, silent success, hairline structure — on a calm
+  near-black ledger. Only the token values change; the logo is a currentColor
+  mask, so the mark flips to white on its own.
+*/
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1116;
+    --sidebar: #12151b;
+    --surface: #151a21;
+    --surface-2: #1b212a;
+    --surface-3: #232a34;
+    --sunken: #0b0e12;
+    --line: rgba(160, 175, 200, 0.12);
+    --line-2: rgba(160, 175, 200, 0.20);
+    --line-hover: rgba(160, 175, 200, 0.34);
+
+    --ink: #e8ecf1;
+    --ink-2: #a2abba;
+    --ink-3: #8b95a7;
+
+    /* Hemolymph on the dark ground. Fills stay deep enough to carry white
+       button text at AA; text accents use the brighter ink variant. */
+    --accent: #1f7aa8;
+    --accent-ink: #7cc1e4;
+    --accent-soft: rgba(63, 157, 204, 0.12);
+    --cyan: #1f7aa8;
+    --cyan-soft: rgba(63, 157, 204, 0.09);
+
+    --good: #3fa47f;
+    --good-ink: #6cc39f;
+    --good-soft: rgba(63, 164, 127, 0.10);
+    --warn: #c9993f;
+    --warn-ink: #dcb46a;
+    --warn-soft: rgba(201, 153, 63, 0.10);
+    --crit: #d05a6b;
+    --crit-ink: #e4879a;
+    --crit-soft: rgba(208, 90, 107, 0.10);
+    --model: #8a7ce0;
+    --model-ink: #b0a5ec;
+    --model-soft: rgba(138, 124, 224, 0.10);
+
+    --arm-1: #3f9dcc; /* chart series may stay brighter than the fill accent */
+    --arm-2: #cf8b55;
+    --arm-3: #3fa47f;
+    --arm-4: #c9993f;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  }
+  tbody tr.row-link:hover td {
+    background: rgba(63, 157, 204, 0.06);
+  }
 }
 
 @theme inline {
@@ -110,9 +169,21 @@ body {
   font-family: var(--font-mono);
   font-size: 0.92em;
 }
+/* One family throughout — this is an application, not a marketing page.
+   Headings differ from body by weight and size only. */
+h1, h2, h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+/* Figures: tabular so columns of amounts align. Ink, never a semantic colour. */
+.metric {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
 .eyebrow {
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
   font-weight: 500;
@@ -132,20 +203,23 @@ a {
 table {
   border-collapse: collapse;
 }
+/* Column headers: 11px letterspaced caps, the reference-class convention. */
 th {
   font-weight: 500;
   color: var(--ink-3);
   text-align: left;
-  font-size: 11.5px;
-  letter-spacing: 0.02em;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   position: sticky;
   top: 0;
   background: var(--surface);
   z-index: 1;
 }
+/* Rows sized for scanning, not for whitespace: ~38px with 13px body text. */
 td,
 th {
-  padding: 12px 14px;
+  padding: 9px 14px;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
 }
@@ -153,14 +227,14 @@ tr:last-child td {
   border-bottom: 0;
 }
 tbody tr.row-link:hover td {
-  background: rgba(90, 140, 255, 0.05);
+  background: rgba(15, 111, 158, 0.035);
   cursor: pointer;
 }
 
 input,
 select,
 textarea {
-  background: var(--sunken);
+  background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line-2);
   border-radius: var(--radius-sm);
@@ -208,10 +282,37 @@ textarea:focus {
 .rise {
   animation: rise 0.35s ease-out both;
 }
+
+/*
+  Motion answers the user, never performs for them: no scroll theatrics, no
+  ambient loops. Interactive elements ease between states; a pressed button
+  gives a hair of travel; a route change settles in 180ms.
+*/
+a,
+button,
+summary,
+[role="button"] {
+  transition: color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease, opacity 0.12s ease;
+}
+button:not(:disabled):active,
+a.pressable:active {
+  transform: scale(0.985);
+}
+.route-rise {
+  animation: rise 0.18s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .path-flow,
   .running,
-  .rise {
+  .rise,
+  .route-rise {
     animation: none;
+  }
+  a,
+  button,
+  summary,
+  [role="button"] {
+    transition: none;
   }
 }

@@ -10,40 +10,30 @@ import { int } from "@/lib/format";
 
 export type Tone = "neutral" | "accent" | "good" | "warn" | "crit" | "model";
 
-const glow: Record<Tone, string> = {
-  neutral: "",
-  accent: "[box-shadow:var(--glow-accent)]",
-  good: "[box-shadow:var(--glow-good)]",
-  warn: "[box-shadow:var(--glow-warn)]",
-  crit: "[box-shadow:var(--glow-crit)]",
-  model: "",
-};
-
 export function Card({
   title,
   aside,
   children,
   className = "",
   padded = true,
-  emphasis,
 }: {
   title?: ReactNode;
   aside?: ReactNode;
   children: ReactNode;
   className?: string;
   padded?: boolean;
-  /** Only important states glow: blocked, critical, pass, running. */
+  /** Retired: a card never earns attention through a coloured ring. Hierarchy is typographic. */
   emphasis?: Tone;
 }) {
   return (
-    <section className={`min-w-0 rounded-[var(--radius)] border border-line bg-surface shadow-[var(--shadow)] ${emphasis ? glow[emphasis] : ""} ${className}`}>
+    <section className={`min-w-0 rounded-[var(--radius)] border border-line bg-surface ${className}`}>
       {(title || aside) && (
-        <header className="flex items-center justify-between gap-4 px-6 pt-5 pb-1">
-          <h2 className="text-[14px] font-medium text-ink">{title}</h2>
+        <header className="flex items-center justify-between gap-4 px-5 pt-4 pb-1">
+          <h2 className="text-[13px] font-semibold text-ink">{title}</h2>
           {aside && <div className="text-[12px] text-ink-3">{aside}</div>}
         </header>
       )}
-      <div className={padded ? "px-6 pb-6 pt-3" : ""}>{children}</div>
+      <div className={padded ? "px-5 pb-5 pt-2.5" : ""}>{children}</div>
     </section>
   );
 }
@@ -53,43 +43,65 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         {eyebrow && <div className="eyebrow mb-1">{eyebrow}</div>}
-        <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.015em]">{title}</h1>
-        {subtitle && <p className="mt-1 text-[14px] text-ink-2">{subtitle}</p>}
+        <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.01em]">{title}</h1>
+        {subtitle && <p className="mt-0.5 text-[13px] text-ink-3">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
 
-/** The thin environment line under a Labs header. Elegant, not a warning box. */
+/** The persistent sandbox strip. The one place the design spends boldness:
+    every other surface stays quiet so this line is unmissable and unambiguous. */
 export function EnvBar({ children }: { children?: ReactNode }) {
   return (
-    <div className="mb-6 flex items-center gap-3 border-y border-line py-2 text-[12px] text-ink-2">
-      <span className="rounded-[4px] bg-warn-soft px-1.5 py-[1px] text-[10.5px] font-semibold tracking-[0.08em] text-warn-ink">SANDBOX</span>
-      <span>{children ?? "No real payment rail calls. All financial outcomes shown here are simulated."}</span>
+    <div className="mb-6 flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-[color:rgba(176,124,29,0.35)] bg-warn-soft px-3 py-2 text-[12.5px] text-ink-2">
+      <span aria-hidden className="h-[6px] w-[6px] shrink-0 rounded-full bg-warn" />
+      <span className="font-semibold text-ink">Sandbox — no real money moves.</span>
+      <span className="min-w-0">{children ?? "Every financial outcome on this screen is simulated."}</span>
     </div>
   );
 }
 
 // ---- state --------------------------------------------------------------------
 
+// Path steps read as one calm sequence, not a traffic light: quiet outlined
+// steps, the ink carrying only a whisper of state.
 const toneClass: Record<Tone, string> = {
-  neutral: "bg-surface-3 text-ink-2 border-line-2",
-  accent: "bg-accent-soft text-accent-ink border-transparent",
-  good: "bg-good-soft text-good-ink border-transparent",
-  warn: "bg-warn-soft text-warn-ink border-transparent",
-  crit: "bg-crit-soft text-crit-ink border-transparent",
-  model: "bg-model-soft text-model-ink border-transparent",
+  neutral: "bg-surface text-ink-2 border-line",
+  accent: "bg-surface text-accent-ink border-line",
+  good: "bg-surface text-ink-2 border-line",
+  warn: "bg-surface text-ink-2 border-line",
+  crit: "bg-surface text-crit-ink border-line",
+  model: "bg-surface text-ink-2 border-line",
 };
-const toneGlyph: Record<Tone, string> = { neutral: "·", accent: "●", good: "✓", warn: "!", crit: "✕", model: "◆" };
 
-/** A word with its colour and a glyph, so grayscale still reads. */
+// Status is a 6px dot and a plain word — the reference-class convention
+// (Stripe, Mercury, Vanta). Colour appears in the dot and the word only; there
+// is no filled chip, so a screen full of routine states stays quiet and the
+// one failure is the only saturated object on it.
+const dotTone: Record<Tone, string> = {
+  neutral: "bg-ink-3",
+  accent: "bg-accent",
+  good: "bg-good",
+  warn: "bg-warn",
+  crit: "bg-crit",
+  model: "bg-model",
+};
+const wordTone: Record<Tone, string> = {
+  neutral: "text-ink-2",
+  accent: "text-accent-ink",
+  good: "text-good-ink",
+  warn: "text-warn-ink",
+  crit: "text-crit-ink",
+  model: "text-model-ink",
+};
+
+/** A status word with its dot. No fill, no chip — the word carries the meaning. */
 export function Pill({ tone = "neutral", children, mono = false, size = "sm" }: { tone?: Tone; children: ReactNode; mono?: boolean; size?: "sm" | "md" }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border font-medium leading-4 ${size === "md" ? "px-2.5 py-1 text-[12.5px]" : "px-2 py-[2px] text-[11.5px]"} ${toneClass[tone]} ${mono ? "mono" : ""}`}
-    >
-      <span aria-hidden className="text-[10px]">{toneGlyph[tone]}</span>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap font-medium ${size === "md" ? "text-[12.5px]" : "text-[12px]"} ${wordTone[tone]} ${mono ? "mono" : ""}`}>
+      <span aria-hidden className={`h-[6px] w-[6px] shrink-0 rounded-full ${dotTone[tone]}`} />
       {children}
     </span>
   );
@@ -114,19 +126,21 @@ const stateTone: Record<DecisionState, Tone> = {
 
 /** The decision word for a payment outcome, phrased for the environment: in the sandbox nothing was released, it would have been. */
 export const decisionState = (outcome: "released" | "held" | "escalated", sandbox: boolean): { state: DecisionState; label: string } =>
-  outcome === "released" ? { state: "RELEASE", label: sandbox ? "WOULD RELEASE" : "RELEASE" } : outcome === "held" ? { state: "HOLD", label: sandbox ? "WOULD HOLD" : "HOLD" } : { state: "ESCALATE", label: sandbox ? "WOULD ESCALATE" : "ESCALATE" };
+  outcome === "released" ? { state: "RELEASE", label: sandbox ? "Would release" : "Released" } : outcome === "held" ? { state: "HOLD", label: sandbox ? "Would hold" : "Held" } : { state: "ESCALATE", label: sandbox ? "Would escalate" : "Escalated" };
+/** Row-level: dot + word. Page-level (`size="lg"`): the one outlined pill a
+    screen is allowed — white ground, hairline border, dot + word inside. */
 export function StateBadge({ state, label, size = "md" }: { state: DecisionState; label?: string; size?: "md" | "lg" }) {
   const tone = stateTone[state];
-  return (
-    <span
-      className={`inline-flex items-center gap-2 rounded-[6px] border font-semibold tracking-[0.08em] ${size === "lg" ? "px-3 py-1.5 text-[13px]" : "px-2 py-1 text-[11px]"} ${toneClass[tone]} ${
-        state === "BLOCKED" || state === "FAIL" || state === "INCIDENT" ? "[box-shadow:var(--glow-crit)]" : state === "READY" || state === "PASS" || state === "RELEASE" ? "[box-shadow:var(--glow-good)]" : ""
-      }`}
-    >
-      <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${state === "RUNNING" ? "running" : ""}`} style={{ background: `var(--${tone === "neutral" ? "ink-3" : tone})` }} />
-      {label ?? state.replace("_", " ")}
-    </span>
-  );
+  const text = label ?? state.charAt(0) + state.slice(1).toLowerCase();
+  if (size === "lg") {
+    return (
+      <span className={`inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-[12.5px] font-medium ${wordTone[tone]}`}>
+        <span aria-hidden className={`h-[6px] w-[6px] shrink-0 rounded-full ${dotTone[tone]}`} />
+        {text}
+      </span>
+    );
+  }
+  return <Pill tone={tone}>{text}</Pill>;
 }
 
 export const toneForVerdict = (v: string): Tone =>
@@ -154,12 +168,11 @@ export function Rate({ score, n, big = false }: { score: number | null; n: numbe
 }
 
 /** label · value · sub. The value is prominent; the detail is small and muted. */
-export function Metric({ label, value, sub, tone = "neutral", size = "md" }: { label: ReactNode; value: ReactNode; sub?: ReactNode; tone?: Tone; size?: "md" | "lg" }) {
-  const colour = tone === "crit" ? "text-crit-ink" : tone === "warn" ? "text-warn-ink" : tone === "good" ? "text-good-ink" : tone === "model" ? "text-model-ink" : "";
+export function Metric({ label, value, sub, size = "md" }: { label: ReactNode; value: ReactNode; sub?: ReactNode; tone?: Tone; size?: "md" | "lg" }) {
   return (
     <div>
       <div className="text-[12px] text-ink-3">{label}</div>
-      <div className={`mt-1 font-semibold leading-none tracking-[-0.015em] tabular ${size === "lg" ? "text-[40px]" : "text-[28px]"} ${colour}`}>{value}</div>
+      <div className={`metric mt-1 leading-none text-ink ${size === "lg" ? "text-[40px]" : "text-[28px]"}`}>{value}</div>
       {sub && <div className="mt-1.5 text-[12px] text-ink-3">{sub}</div>}
     </div>
   );
@@ -227,9 +240,11 @@ export function Offline() {
   );
 }
 
+/** Contextual prose. Never a coloured box — a warn/crit note gets a 2px left
+    rule in the state colour; the body stays quiet gray text. */
 export function Note({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
-  const cls = tone === "crit" ? "border-crit/30 bg-crit-soft" : tone === "warn" ? "border-warn/30 bg-warn-soft" : tone === "good" ? "border-good/30 bg-good-soft" : "border-line bg-sunken";
-  return <p className={`rounded-[var(--radius-sm)] border px-3 py-2 text-[12.5px] leading-relaxed text-ink-2 ${cls}`}>{children}</p>;
+  const rule = tone === "crit" ? "border-l-2 border-l-crit" : tone === "warn" ? "border-l-2 border-l-warn" : tone === "good" ? "border-l-2 border-l-good" : "";
+  return <p className={`rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-2 text-[12.5px] leading-relaxed text-ink-2 ${rule}`}>{children}</p>;
 }
 
 export function KV({ rows, dense = false }: { rows: [ReactNode, ReactNode][]; dense?: boolean }) {
@@ -261,8 +276,8 @@ const btn = (tone: "neutral" | "accent" | "crit") =>
     tone === "accent"
       ? "border-accent bg-accent text-white hover:brightness-110"
       : tone === "crit"
-        ? "border-crit/40 bg-crit-soft text-crit-ink hover:border-crit"
-        : "border-line-2 bg-surface-2 text-ink hover:border-accent/60"
+        ? "border-line-2 bg-surface text-crit-ink hover:border-crit/50"
+        : "border-line-2 bg-surface text-ink hover:border-line-hover"
   }`;
 
 export function Button({ children, tone = "neutral", type = "submit", disabled }: { children: ReactNode; tone?: "neutral" | "accent" | "crit"; type?: "submit" | "button"; disabled?: boolean }) {

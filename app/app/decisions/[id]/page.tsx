@@ -103,7 +103,7 @@ export default async function TransactionDetail(props: PageProps<"/decisions/[id
         />
       </div>
 
-      <Card padded={false} emphasis={r.outcome === "held" ? "crit" : r.outcome === "escalated" ? "warn" : "good"}>
+      <Card padded={false}>
         <table className="w-full">
           <thead>
             <tr>
@@ -125,12 +125,12 @@ export default async function TransactionDetail(props: PageProps<"/decisions/[id
           </thead>
           <tbody>
             {fields.map((f) => (
-              <tr key={f.label} className={f.mismatch ? (f.mismatch.startsWith("review") ? "bg-warn-soft/30" : "bg-crit-soft/40") : ""}>
+              <tr key={f.label}>
                 <td className="pl-6 text-[12.5px] text-ink-3">{f.label}</td>
                 <td className="text-[13.5px]">{f.auth}</td>
                 <td className="text-[13.5px]">{f.intent}</td>
                 <td className="text-[13.5px]">{f.exec}</td>
-                <td className="pr-6">{f.mismatch ? <Pill tone={f.mismatch.startsWith("review") ? "warn" : "crit"}>{f.mismatch.startsWith("review") ? f.mismatch.toUpperCase() : `MISMATCH · ${f.mismatch}`}</Pill> : <Pill tone="good">match</Pill>}</td>
+                <td className="pr-6">{f.mismatch ? <Pill tone={f.mismatch.startsWith("review") ? "warn" : "crit"}>{f.mismatch.startsWith("review") ? f.mismatch : `mismatch · ${f.mismatch}`}</Pill> : <Pill tone="good">match</Pill>}</td>
               </tr>
             ))}
           </tbody>
@@ -154,7 +154,7 @@ export default async function TransactionDetail(props: PageProps<"/decisions/[id
           </Card>
         </div>
         <div className="grid content-start gap-4 xl:col-span-5">
-          <Card emphasis={r.outcome === "held" ? "crit" : r.outcome === "escalated" ? "warn" : "good"}>
+          <Card>
             <div className="eyebrow">Final decision</div>
             <div className="mt-2">
               <StateBadge state={d.state} label={d.label} size="lg" />
@@ -167,7 +167,7 @@ export default async function TransactionDetail(props: PageProps<"/decisions/[id
             {outcome && (
               <div className="mt-3 border-t border-line pt-3 text-[12.5px] text-ink-2">
                 Observed outcome: <Pill tone={toneForVerdict(outcome.status)}>{outcome.status}</Pill>
-                {miss && <span className="ml-2 text-crit-ink">{miss}</span>}
+                {miss && <span className="ml-2"><span className="text-crit-ink">miss</span> <span className="text-ink-3">· {miss}</span></span>}
               </div>
             )}
           </Card>
