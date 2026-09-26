@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 // payment, and a payment that settled although it was held.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(here, "..", "data");
+const dataDir = process.env.LIMULUS_DATA_DIR ?? join(here, "..", "data");
 const endpointsPath = join(dataDir, "webhooks.json");
 const deliveriesPath = join(dataDir, "webhook-deliveries.jsonl");
 

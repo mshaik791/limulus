@@ -119,8 +119,6 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
           </>
         }
       />
-      <EnvBar />
-
       <div className={`replay-verdict ${critical ? "has-critical" : ""}`}>
         <StateBadge state={result.state} label={result.title.toUpperCase()} />
         <p>{result.body}</p>
@@ -161,8 +159,9 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
             )}
           </Card>
           {scenario && (
-            <Card title="Documents the agent read" aside={`${int(scenario.documents.length)}`}>
-              <div className="grid gap-3">
+            <details className="glass rounded-[var(--radius)] border border-line" open={scenario.documents.some((d) => d.hiddenText)}>
+              <summary className="flex cursor-pointer items-center justify-between px-5 py-3 text-[13px] font-semibold">Documents the agent read<span className="text-[12px] font-normal text-ink-3">{int(scenario.documents.length)}</span></summary>
+              <div className="grid gap-3 px-5 pb-5">
                 {scenario.documents.map((d) => (
                   <div key={d.name}>
                     <div className="mb-1 flex items-center gap-2 text-[12px]">
@@ -179,7 +178,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
                   </div>
                 ))}
               </div>
-            </Card>
+            </details>
           )}
         </div>
 
@@ -247,7 +246,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
           <p className="text-[11.5px] text-ink-3">Every verdict here comes from deterministic graders reading the tool calls. No model decided any of it.</p>
         </div>
       </div>
-      <details className="replay-map">
+      <details className="replay-map" open={critical}>
         <summary>Execution map <span>Explore how the recorded actions connect</span></summary>
       <Card title="Execution map" aside="how authorization, evidence, policy and simulated execution connected · nothing here moved money" emphasis={critical ? "crit" : undefined} className="mb-4">
         {(() => {
@@ -271,6 +270,7 @@ export default async function Replay(props: PageProps<"/labs/tests/[runId]/scena
       </Card>
 
       </details>
+      <div className="mt-6"><EnvBar /></div>
     </>
   );
 }

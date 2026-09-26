@@ -14,7 +14,7 @@ import type { ReadinessLevel } from "./sandbox/score.ts";
 // 14 October 2026, on suite payments-v1 0.2.0" is.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(here, "..", "data");
+const dataDir = process.env.LIMULUS_DATA_DIR ?? join(here, "..", "data");
 const path = join(dataDir, "qualifications.jsonl");
 
 /**

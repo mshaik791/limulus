@@ -18,11 +18,17 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
   const [runs, gt, cmp, shadowRows, cands, chain] = await Promise.all([safe(labRuns()), safe(gates()), safe(compares()), safe(shadowRecords()), safe(candidates()), safe(records())]);
   if (!runs) return <Offline />;
   const feed = activity({ runs, gates: gt ?? [], compares: cmp ?? [], shadow: shadowRows ?? [], candidates: cands ?? [], decisions: chain ?? [] }, 12);
-  const f = { agent: str(search.agent), suite: str(search.suite), gate: str(search.gate), q: str(search.q).toLowerCase() };
+  const f = { agent: str(search.agent), suite: str(search.suite), gate: str(search.gate), q: str(search.q).toLowerCase(), all: str(search.all) === "1" };
+  // Engine selftests seal real runs under a throwaway agent and an ad-hoc pack.
+  // They are evidence about the engine, not about anyone's agent, so the list
+  // leaves them out unless asked; the count says how many are hidden.
+  const isSelftest = (r: (typeof runs)[number]) => r.agent.name === "t" || /selftest/.test(r.suite.id);
+  const hiddenSelftests = f.all ? 0 : runs.filter(isSelftest).length;
   const gateByRun = new Map((gt ?? []).map((g) => [g.runId, g]));
 
   const rows = [...runs]
     .reverse()
+    .filter((r) => f.all || !isSelftest(r))
     .filter((r) => !f.agent || r.agent.name === f.agent)
     .filter((r) => !f.suite || suiteName(r.suite.id).name === f.suite)
     .filter((r) => !f.gate || r.controls.mode === f.gate)
@@ -65,7 +71,7 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
           <div>
             <div className="text-[12px] text-ink-3">Status</div>
             <div className="mt-1.5">
-              <StateBadge state={lastReady.state} label={lastReady.state === "REVIEW" ? "REVIEW REQUIRED" : lastReady.state === "BLOCKED" ? "BLOCKED" : lastReady.state === "READY" ? "READY" : "NOT TESTED"} size="lg" />
+              <StateBadge state={lastReady.state} label={lastReady.state === "REVIEW" ? "Review required" : lastReady.state === "BLOCKED" ? "Blocked" : lastReady.state === "READY" ? "Ready" : "Not tested"} size="lg" />
             </div>
           </div>
         </div>
@@ -101,7 +107,7 @@ export default async function TestRuns(props: PageProps<"/labs/tests">) {
             clear
           </Link>
         )}
-        <span className="ml-auto text-[12px] text-ink-3">{int(rows.length)} run(s)</span>
+        <span className="ml-auto text-[12px] text-ink-3">{int(rows.length)} run(s){hiddenSelftests > 0 && <> · <Link href="/labs/tests?all=1" className="underline">{int(hiddenSelftests)} selftest run(s) hidden</Link></>}{f.all && <> · <Link href="/labs/tests" className="underline">hide selftest runs</Link></>}</span>
       </form>
 
       {rows.length === 0 ? (

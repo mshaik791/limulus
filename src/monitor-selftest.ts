@@ -1,3 +1,4 @@
+import "./selftest-env.ts";
 import { ingestEvent, computeMetrics, generateCandidates, readCandidates, approveCandidate, rejectCandidate, monitorPaths } from "./monitor.ts";
 import { loadScenarioDir } from "./bench/scenario-file.ts";
 import { runSuite } from "./sandbox/lab.ts";

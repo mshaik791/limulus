@@ -16,7 +16,7 @@ import type { DecisionRecord } from "./types.ts";
 //
 // The rule that matters most here is what is NOT approvable.
 
-const dataDir = join(import.meta.dirname, "..", "data");
+const dataDir = process.env.LIMULUS_DATA_DIR ?? join(import.meta.dirname, "..", "data");
 const approvalsPath = join(dataDir, "approvals.jsonl");
 
 export type ApprovalAction = "approved" | "rejected";

@@ -7,53 +7,64 @@
   figures — never as a filled row, chip or block. Success is silent; red on a
   screen means exactly one thing: look here, something failed.
 */
+/*
+  Ocean glass. The canvas is one fixed wash of light behind everything; the
+  cards are sheets of frosted glass over it. Structure is still hairline and
+  status is still a dot and a word; only the material changed. Light mode is
+  the same sheet on a pale ground.
+*/
 :root {
   color-scheme: light dark;
 
-  --bg: #f7f8fa;
-  --sidebar: #fbfcfd;
+  /* The ground: --bg is a plain colour for anything that needs to mix or
+     fall back; --canvas is the wash the page is actually painted with. */
+  --bg: #eef2f9;
+  --canvas: radial-gradient(1100px 600px at 0% 0%, rgba(96, 165, 250, 0.28), transparent 60%), radial-gradient(900px 600px at 100% 20%, rgba(167, 139, 250, 0.22), transparent 60%), linear-gradient(180deg, #eef3fb 0%, #f6f7fb 100%);
+  --sidebar: rgba(255, 255, 255, 0.5);
+  /* Solid surfaces: popovers, inputs, sticky headers. Never see-through. */
   --surface: #ffffff;
-  --surface-2: #f4f6f8;
-  --surface-3: #eceff3;
-  --sunken: #f6f8fa;
-  --line: #e7e9ee;
-  --line-2: #d8dce3;
-  --line-hover: #b9c4d2;
+  --surface-2: #f3f5f9;
+  --surface-3: #e9edf3;
+  --sunken: #f1f4f8;
+  /* The glass sheet itself. */
+  --glass: rgba(255, 255, 255, 0.62);
+  --glass-strong: rgba(255, 255, 255, 0.78);
+  --line: rgba(20, 30, 60, 0.10);
+  --line-2: rgba(20, 30, 60, 0.16);
+  --line-hover: rgba(20, 30, 60, 0.30);
 
-  --ink: #191d24;
-  --ink-2: #4d5665;
-  --ink-3: #667084;
+  --ink: #131a2b;
+  --ink-2: #4a556d;
+  --ink-3: #6b768d;
 
-  /* Hemolymph, deepened for a light ground — the single interactive colour. */
-  --accent: #0f6f9e;
-  --accent-ink: #0b5c84;
-  --accent-soft: rgba(15, 111, 158, 0.08);
-  --cyan: #0f6f9e;
-  --cyan-soft: rgba(15, 111, 158, 0.07);
+  /* Hemolymph: the single interactive colour. */
+  --accent: #2563eb;
+  --accent-ink: #1d4fd8;
+  --accent-soft: rgba(37, 99, 235, 0.10);
+  --cyan: #2563eb;
+  --cyan-soft: rgba(37, 99, 235, 0.08);
 
-  /* Semantics are text-grade: dark enough for AA as 12px words on white. */
-  --good: #178457;
-  --good-ink: #116b46;
-  --good-soft: rgba(23, 132, 87, 0.08);
-  --warn: #b07c1d;
-  --warn-ink: #8a6116;
-  --warn-soft: rgba(176, 124, 29, 0.09);
-  --crit: #c13548;
-  --crit-ink: #ab2738;
-  --crit-soft: rgba(193, 53, 72, 0.07);
-  --model: #6a58cc;
-  --model-ink: #5647ad;
-  --model-soft: rgba(106, 88, 204, 0.08);
+  --good: #159a68;
+  --good-ink: #0f7d54;
+  --good-soft: rgba(21, 154, 104, 0.10);
+  --warn: #c98a15;
+  --warn-ink: #9a6a0f;
+  --warn-soft: rgba(201, 138, 21, 0.12);
+  --crit: #dc3d5a;
+  --crit-ink: #b92b46;
+  --crit-soft: rgba(220, 61, 90, 0.10);
+  --model: #7c5cf5;
+  --model-ink: #6344dc;
+  --model-soft: rgba(124, 92, 245, 0.10);
 
-  --arm-1: #0f6f9e;
+  --arm-1: #2563eb;
   --arm-2: #b0652d;
-  --arm-3: #178457;
-  --arm-4: #b07c1d;
+  --arm-3: #159a68;
+  --arm-4: #c98a15;
 
-  --radius: 8px;
-  --radius-sm: 6px;
-  /* Hairline borders carry the structure; the shadow is barely there. */
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 10px 30px rgba(30, 45, 90, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   /* No coloured halos. Kept as variables so old call sites resolve to nothing. */
   --glow-crit: none;
   --glow-good: none;
@@ -70,50 +81,51 @@
 */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0e1116;
-    --sidebar: #12151b;
-    --surface: #151a21;
-    --surface-2: #1b212a;
-    --surface-3: #232a34;
-    --sunken: #0b0e12;
-    --line: rgba(160, 175, 200, 0.12);
-    --line-2: rgba(160, 175, 200, 0.20);
-    --line-hover: rgba(160, 175, 200, 0.34);
+    --bg: #070b12;
+    --canvas: radial-gradient(1200px 600px at 12% -10%, rgba(56, 189, 248, 0.16), transparent 60%), radial-gradient(900px 500px at 95% 10%, rgba(99, 102, 241, 0.14), transparent 60%), #070b12;
+    --sidebar: rgba(255, 255, 255, 0.03);
+    --surface: #0f141c;
+    --surface-2: #151b25;
+    --surface-3: #1c2330;
+    --sunken: #0a0e15;
+    --glass: rgba(255, 255, 255, 0.045);
+    --glass-strong: rgba(255, 255, 255, 0.07);
+    --line: rgba(255, 255, 255, 0.09);
+    --line-2: rgba(255, 255, 255, 0.16);
+    --line-hover: rgba(255, 255, 255, 0.28);
 
-    --ink: #e8ecf1;
-    --ink-2: #a2abba;
-    --ink-3: #8b95a7;
+    --ink: #eef3f9;
+    --ink-2: #aab6c7;
+    --ink-3: #8592a6;
 
-    /* Hemolymph on the dark ground. Fills stay deep enough to carry white
-       button text at AA; text accents use the brighter ink variant. */
-    --accent: #1f7aa8;
-    --accent-ink: #7cc1e4;
-    --accent-soft: rgba(63, 157, 204, 0.12);
-    --cyan: #1f7aa8;
-    --cyan-soft: rgba(63, 157, 204, 0.09);
+    --accent: #22a6e0;
+    --accent-ink: #7fd3ff;
+    --accent-soft: rgba(56, 189, 248, 0.14);
+    --cyan: #22a6e0;
+    --cyan-soft: rgba(56, 189, 248, 0.10);
 
-    --good: #3fa47f;
-    --good-ink: #6cc39f;
-    --good-soft: rgba(63, 164, 127, 0.10);
-    --warn: #c9993f;
-    --warn-ink: #dcb46a;
-    --warn-soft: rgba(201, 153, 63, 0.10);
-    --crit: #d05a6b;
-    --crit-ink: #e4879a;
-    --crit-soft: rgba(208, 90, 107, 0.10);
-    --model: #8a7ce0;
-    --model-ink: #b0a5ec;
-    --model-soft: rgba(138, 124, 224, 0.10);
+    --good: #34c48b;
+    --good-ink: #7fe0b6;
+    --good-soft: rgba(52, 196, 139, 0.12);
+    --warn: #e0a83a;
+    --warn-ink: #f2c46a;
+    --warn-soft: rgba(224, 168, 58, 0.12);
+    --crit: #f06277;
+    --crit-ink: #ff93a4;
+    --crit-soft: rgba(240, 98, 119, 0.12);
+    --model: #9d8cff;
+    --model-ink: #c2b6ff;
+    --model-soft: rgba(157, 140, 255, 0.12);
 
-    --arm-1: #3f9dcc; /* chart series may stay brighter than the fill accent */
+    --arm-1: #38bdf8;
     --arm-2: #cf8b55;
-    --arm-3: #3fa47f;
-    --arm-4: #c9993f;
+    --arm-3: #34c48b;
+    --arm-4: #e0a83a;
 
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
   tbody tr.row-link:hover td {
-    background: rgba(63, 157, 204, 0.06);
+    background: rgba(56, 189, 248, 0.06);
   }
 }
 
@@ -151,9 +163,13 @@
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-html,
+html {
+  background: var(--canvas);
+  background-attachment: fixed;
+  min-height: 100%;
+}
 body {
-  background: var(--bg);
+  background: transparent;
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 14px;
@@ -227,8 +243,37 @@ tr:last-child td {
   border-bottom: 0;
 }
 tbody tr.row-link:hover td {
-  background: rgba(15, 111, 158, 0.035);
+  background: rgba(37, 99, 235, 0.05);
   cursor: pointer;
+}
+
+/*
+  Glass, with restraint. Only a top-level sheet blurs what is behind it: a
+  card, the hero, a strip. Tables, code and popovers inside a sheet stay
+  solid so text is crisp and nothing shows through twice.
+*/
+.glass,
+.labs-panel,
+.labs-hero,
+.labs-next,
+.investigation-summary,
+.replay-verdict,
+.replay-map {
+  background: var(--glass);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: var(--shadow);
+}
+.labs-hero,
+.labs-next {
+  background: var(--glass-strong);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass, .labs-panel, .labs-hero, .labs-next, .investigation-summary, .replay-verdict, .replay-map {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 input,

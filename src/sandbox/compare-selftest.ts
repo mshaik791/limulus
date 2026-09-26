@@ -1,3 +1,4 @@
+import "../selftest-env.ts";
 import { compareArms, formatCompare, readCompares, verifyCompare } from "./compare.ts";
 import { referenceToolAgents } from "./agents.ts";
 import { scenarios as payments } from "../bench/pack-payments-v1.ts";

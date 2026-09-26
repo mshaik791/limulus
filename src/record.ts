@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import type { DecisionRecord } from "./types.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(here, "..", "data");
+const dataDir = process.env.LIMULUS_DATA_DIR ?? join(here, "..", "data");
 const keyPath = join(dataDir, "signing-key.json");
 const chainPath = join(dataDir, "records.jsonl");
 

@@ -1,3 +1,4 @@
+import "../selftest-env.ts";
 import { createServer, type Server } from "node:http";
 import { mkdtempSync, rmSync, appendFileSync } from "node:fs";
 import { tmpdir } from "node:os";

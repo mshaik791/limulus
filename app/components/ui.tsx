@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { int } from "@/lib/format";
+import { LimulusMark } from "./logo";
 
 // The design-system layer. Pages compose these and add nothing of their own.
 // Two rules hold everywhere: a status colour never appears without its word,
@@ -26,7 +27,7 @@ export function Card({
   emphasis?: Tone;
 }) {
   return (
-    <section className={`min-w-0 rounded-[var(--radius)] border border-line bg-surface ${className}`}>
+    <section className={`glass min-w-0 rounded-[var(--radius)] border border-line bg-surface ${className}`}>
       {(title || aside) && (
         <header className="flex items-center justify-between gap-4 px-5 pt-4 pb-1">
           <h2 className="text-[13px] font-semibold text-ink">{title}</h2>
@@ -210,7 +211,8 @@ export function Delta({ value, upIsGood = true, suffix = "" }: { value: number |
 
 export function EmptyState({ title, body, cta, ctaHref, code }: { title: string; body?: ReactNode; cta?: string; ctaHref?: string; code?: string }) {
   return (
-    <div className="rounded-[var(--radius)] border border-dashed border-line-2 px-6 py-10 text-center">
+    <div className="glass rounded-[var(--radius)] border border-line px-6 py-10 text-center">
+      <LimulusMark size={30} className="mx-auto mb-3 opacity-30" />
       <div className="text-[15px] font-medium">{title}</div>
       {body && <p className="mx-auto mt-1.5 max-w-[46ch] text-[13px] text-ink-3">{body}</p>}
       {code &&

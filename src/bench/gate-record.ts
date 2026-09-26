@@ -29,7 +29,7 @@ import { canonical, publicKeyPem, sha256, signHash, verifySignature } from "../r
 // Git authorship is the audit trail; the hash catches edits after the fact.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(here, "..", "..", "data");
+const dataDir = process.env.LIMULUS_DATA_DIR ?? join(here, "..", "..", "data");
 const gatesPath = join(dataDir, "gates.jsonl");
 
 export type GateVerdict = "pass" | "fail" | "overridden";

@@ -1,3 +1,4 @@
+import "../selftest-env.ts";
 import { generateVariants, fingerprint, abaChecksumValid, makeValidAba, breakAba, OPERATORS } from "./variants.ts";
 import { rngFrom } from "./families.ts";
 import { scenarios as payments } from "./pack-payments-v1.ts";

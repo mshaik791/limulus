@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/ui";
 
 export default function NotFound() {
-  return <EmptyState title="No such record." body="The id in the address does not match anything the engine has sealed." cta="Back to Labs" ctaHref="/labs" />;
+  return <EmptyState title="There is no page at this address." body="Check the link, or go back to Test. A run, scenario or record that cannot be found says so on its own page." cta="Back to Test" ctaHref="/labs" />;
 }

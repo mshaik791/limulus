@@ -4,7 +4,7 @@ import { safe } from "@/lib/safe";
 import { CONFIG } from "@/lib/config";
 import { absoluteQualification, counts, familyAxes, plainReadiness, readiness, regressionGate } from "@/lib/derive";
 import { day, int, when } from "@/lib/format";
-import { agentDisplay, agentRaw, suiteName } from "@/lib/names";
+import { agentDisplay, agentRaw, suiteName, versionLabel } from "@/lib/names";
 import { Card, Delta, EmptyState, LinkButton, Offline, PageHeader, Pill, StateBadge } from "@/components/ui";
 
 export const metadata = { title: "Releases" };
@@ -39,10 +39,10 @@ export default async function Releases() {
           <section className="mb-8 rounded-[var(--radius)] border border-line bg-surface px-8 py-7">
             <div className="eyebrow">Release decision</div>
             <div className="mt-3">
-              <StateBadge state={final?.state ?? "NONE"} label={final?.state === "READY" ? "READY TO SHIP" : final?.state === "BLOCKED" ? "DEPLOYMENT BLOCKED" : "REVIEW REQUIRED"} size="lg" />
+              <StateBadge state={final?.state ?? "NONE"} label={final?.state === "READY" ? "Ready to ship" : final?.state === "BLOCKED" ? "Deployment blocked" : "Review required"} size="lg" />
             </div>
             <div className="mt-4 text-[22px] font-semibold leading-tight tracking-[-0.01em]">
-              {agentDisplay(g.agent.name)} v{g.agent.version}
+              {agentDisplay(g.agent.name)} {versionLabel(g.agent.version) || "· version not reported"}
             </div>
             <div className="mt-1 text-[13px] text-ink-3">
               candidate · {suiteName(g.suite.id).name} · gate run {when(g.createdAt)}
@@ -169,7 +169,7 @@ export default async function Releases() {
             <ol>
               {rows.map((r) => (
                 <li key={r.id} className="flex items-center gap-4 border-b border-line px-6 py-3 last:border-0 hover:bg-surface-2">
-                  <StateBadge state={r.verdict === "pass" ? "PASS" : r.verdict === "fail" ? "FAIL" : "OVERRIDDEN"} label={`GATE ${r.verdict.toUpperCase()}`} />
+                  <StateBadge state={r.verdict === "pass" ? "PASS" : r.verdict === "fail" ? "FAIL" : "OVERRIDDEN"} label={`Gate ${r.verdict === "pass" ? "passed" : r.verdict === "fail" ? "failed" : "overridden"}`} />
                   <div className="min-w-0 flex-1">
                     <Link href={`/labs/releases/${r.id}`} className="text-[13px] font-medium">
                       {agentDisplay(r.agent.name)} <span className="mono font-normal text-ink-3">{agentRaw(r.agent.name, r.agent.version)}</span>

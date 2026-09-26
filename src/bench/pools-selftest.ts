@@ -1,3 +1,4 @@
+import "../selftest-env.ts";
 import { runSuite } from "../sandbox/lab.ts";
 import { referenceToolAgents } from "../sandbox/agents.ts";
 import {

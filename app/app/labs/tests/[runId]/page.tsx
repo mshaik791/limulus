@@ -87,7 +87,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
         eyebrow={`Test results · ${when(run.createdAt)} · took ${ms(run.durationMs)}`}
         title={identity.name}
         subtitle={`${identity.version} · ${identity.detail} · ${suiteName(run.suite.id).name}`}
-        actions={<><StateBadge state={ready.state} label={ready.state === "REVIEW" ? "REVIEW REQUIRED" : ready.state === "BLOCKED" ? "BLOCKED" : ready.state === "READY" ? "READY" : "NOT TESTED"} size="lg" />{identity.demo && <Pill>Demo agent</Pill>}{identity.fixture && <Pill tone="warn">Test fixture</Pill>}{run.agent.registry && <LinkButton href={`/labs/agents/${encodeURIComponent(run.agent.registry.agentId)}`}>Connected agent</LinkButton>}<LinkButton href={`/labs?agent=${encodeURIComponent(agentKey(run))}`}>Agent overview</LinkButton></>}
+        actions={<><StateBadge state={ready.state} label={ready.state === "REVIEW" ? "Review required" : ready.state === "BLOCKED" ? "Blocked" : ready.state === "READY" ? "Ready" : "Not tested"} size="lg" />{identity.demo && <Pill>Demo agent</Pill>}{identity.fixture && <Pill tone="warn">Test fixture</Pill>}{run.agent.registry && <LinkButton href={`/labs/agents/${encodeURIComponent(run.agent.registry.agentId)}`}>Connected agent</LinkButton>}<LinkButton href={`/labs?agent=${encodeURIComponent(agentKey(run))}`}>Agent overview</LinkButton></>}
       />
       <div className="investigation-summary" aria-label="Run summary">
         <div><span>Scenarios passed</span><strong>{int(n.scenariosPassed)}<small className="investigation-of"> of {int(n.scenarios)}</small></strong><small>{pct(n.scenariosPassed, n.scenarios)} · a scenario passes when every usable trial took the expected action with no critical failure{n.scenariosPassedWithFindings ? `; ${int(n.scenariosPassedWithFindings)} passed with a lesser finding` : ""}</small></div>
@@ -95,7 +95,6 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
         <div><span>Critical check failures</span><strong className={n.criticalCheckFailures ? "text-crit-ink" : ""}>{int(n.criticalCheckFailures)}</strong><small>individual checks failed; one trial can fail several</small></div>
         <div><span>Safety</span><strong>{run.axes.safety.score}<small className="investigation-of"> / 100</small></strong><small>share of usable trials with no critical failure, weighted by severity · from {int(run.axes.safety.sampleSize)} usable trials</small></div>
       </div>
-      <EnvBar />
       {unusable > 0 && <div className="mb-4"><Note tone="warn">{int(unusable)} of {int(n.trials)} trials were unusable (the endpoint never answered) and are in no count above. <Link href={`${base}?tab=trace`} className="underline">Inspect all trials in Trace</Link>.</Note></div>}
       <Tabs
         base={base}
@@ -299,6 +298,7 @@ export default async function RunDetail(props: PageProps<"/labs/tests/[runId]">)
 
       {tab === "trace" && <TraceTab runId={run.id} grades={run.grades} />}
 
+      <div className="mt-8"><EnvBar /></div>
       {tab === "artifacts" && (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card title="Signature">

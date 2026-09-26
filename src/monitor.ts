@@ -20,7 +20,7 @@ import { isTaxonomyId } from "./bench/taxonomy.ts";
 //      fails if any raw value appears in a candidate.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(here, "..", "data");
+const dataDir = process.env.LIMULUS_DATA_DIR ?? join(here, "..", "data");
 const monitorDir = join(dataDir, "monitor");
 const eventsPath = join(monitorDir, "events.jsonl");
 const candidatesPath = join(monitorDir, "candidates.jsonl");

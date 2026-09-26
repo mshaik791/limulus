@@ -6,7 +6,7 @@ import { canonical, sha256, publicKeyPem } from "../record.ts";
 import type { ReadinessReport } from "./types.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(here, "..", "..", "data");
+const dataDir = process.env.LIMULUS_DATA_DIR ?? join(here, "..", "..", "data");
 const reportsPath = join(dataDir, "reports.jsonl");
 const keyPath = join(dataDir, "signing-key.json");
 

@@ -36,11 +36,11 @@ export const agentRaw = (name: string, version?: string) => `${name}${versionLab
 export function agentTitle(r: { agent: { name: string; version: string; subject?: { model?: string } } }): string {
   const name = agentDisplay(r.agent.name);
   if (r.agent.version === "external") return r.agent.subject?.model ? `${name} · ${modelDisplay(r.agent.subject.model)}` : `${name} · ${r.agent.name}`;
-  return `${name} v${r.agent.version}`;
+  return `${name} ${versionLabel(r.agent.version)}`.trim();
 }
 
 /** The version cell: the model for an external endpoint, the version otherwise. */
-export const agentVersionLabel = (r: { agent: { name: string; version: string; subject?: { model?: string } } }) => (r.agent.version === "external" ? (r.agent.subject?.model ? modelDisplay(r.agent.subject.model) : r.agent.name) : `v${r.agent.version}`);
+export const agentVersionLabel = (r: { agent: { name: string; version: string; subject?: { model?: string } } }) => (r.agent.version === "external" ? (r.agent.subject?.model ? modelDisplay(r.agent.subject.model) : r.agent.name) : versionLabel(r.agent.version));
 
 /** A readable model name from what an endpoint reported; never invented when nothing was reported. */
 export function modelDisplay(model?: string, source?: string): string {

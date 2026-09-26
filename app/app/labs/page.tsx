@@ -73,7 +73,7 @@ export default async function LabsOverview(props: PageProps<"/labs">) {
       <Arches />
     </section>
     <nav className="labs-tabs" aria-label="Test navigation"><Link href={`/labs?agent=${encodeURIComponent(agentKey(latest))}`} aria-current="page">Overview</Link><Link href="/labs/agents">Agents</Link><Link href="/labs/tests">Test history</Link><Link href="/labs/arena">Compare models</Link><Link href={release}>Release requirements</Link></nav>
-    {step && <NextStepStrip step={step} />}
+    {step && (!step.agentId || step.agentId === latest.agent.registry?.agentId) && <NextStepStrip step={step} />}
     <div className="labs-test-context"><span className="labs-eyebrow">Latest test</span><Link href={run}>{suiteName(latest.suite.id).name}</Link><span>· {identity.version} · {int(c.episodes)} usable tests · {ago(latest.createdAt)}</span></div>
 
     <div className="labs-decision-grid">

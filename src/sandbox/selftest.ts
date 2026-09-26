@@ -1,3 +1,4 @@
+import "../selftest-env.ts";
 import { createServer } from "node:http";
 import { runEpisode, type AgentStep, type AgentTurn } from "./episode.ts";
 import { detectViolations } from "./violations.ts";

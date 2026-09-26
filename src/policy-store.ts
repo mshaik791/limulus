@@ -10,7 +10,7 @@ import type { Authorization } from "./types.ts";
 // document so the MCP tools have something to check against.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(here, "..", "data");
+const dataDir = process.env.LIMULUS_DATA_DIR ?? join(here, "..", "data");
 const policyPath = join(dataDir, "policy.json");
 
 export function loadAuthorization(): Authorization {

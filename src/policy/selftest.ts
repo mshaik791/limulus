@@ -1,3 +1,4 @@
+import "../selftest-env.ts";
 import { readFileSync } from "node:fs";
 import { compilePolicy } from "./compile.ts";
 import { CONTROL_TYPES, parsePolicyProfile, type PolicyProfile } from "./controls.ts";

@@ -1,3 +1,4 @@
+import "./selftest-env.ts";
 import { wilson, profileForConfig, compareProfiles, agentConfigs } from "./failure-profile.ts";
 import { runSuite } from "./sandbox/lab.ts";
 import { referenceToolAgents } from "./sandbox/agents.ts";

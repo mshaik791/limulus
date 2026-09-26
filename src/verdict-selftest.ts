@@ -1,3 +1,4 @@
+import "./selftest-env.ts";
 import { decide } from "./decide.ts";
 import { verdictFor } from "./verdict.ts";
 import { recordSettlement } from "./outcome.ts";
