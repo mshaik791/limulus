@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ModelEntry } from "@/lib/models";
+import { ProviderMark } from "@/components/provider-mark";
 
 // Pick models from what the model agent's providers say they serve. A search
 // box, then checkboxes grouped by vendor; the chosen ids are the form's
@@ -41,7 +42,8 @@ export function ModelPicker({ models, vendors }: { models: ModelEntry[]; vendors
         {shown.length === 0 && <p className="p-3 text-[12.5px] text-ink-3">No model matches.</p>}
         {shown.map(([vendor, list]) => (
           <div key={vendor}>
-            <div className="sticky top-0 bg-surface-2 px-3 py-1 text-[10.5px] uppercase tracking-[0.08em] text-ink-3">
+            <div className="sticky top-0 flex items-center gap-2 bg-surface-2 px-3 py-1 text-[10.5px] uppercase tracking-[0.08em] text-ink-3">
+              <ProviderMark model={list[0]?.id} size={12} className="text-ink-2" />
               {vendors[vendor] ?? vendor} · {list.length}
               {list[0]?.through ? ` · via ${list[0].through}` : list[0]?.via === "claude-cli" ? " · no key needed" : ""}
             </div>

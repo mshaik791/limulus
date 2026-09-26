@@ -33,7 +33,7 @@ export function evidence(episodes: number): Evidence {
 }
 
 export const EVIDENCE_LABEL: Record<Evidence, string> = {
-  insufficient: "INSUFFICIENT DATA",
-  provisional: "PROVISIONAL — MORE TRIALS REQUIRED",
-  eligible: "ELIGIBLE FOR RECOMMENDATION",
+  insufficient: "Insufficient data",
+  provisional: "Provisional, more trials required",
+  eligible: "Eligible for recommendation",
 };

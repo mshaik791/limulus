@@ -185,17 +185,28 @@ body {
   font-family: var(--font-mono);
   font-size: 0.92em;
 }
-/* One family throughout — this is an application, not a marketing page.
-   Headings differ from body by weight and size only. */
-h1, h2, h3, h4 {
+/* Headings and the big figures speak in the display face; body text stays
+   in the neutral sans. Weight and size carry the rest of the hierarchy. */
+h1, h2, h3, h4,
+.metric,
+.investigation-summary strong,
+.labs-safety strong,
+.labs-agent-select,
+.labs-hero h1,
+.labs-decision h2,
+.labs-brand span {
+  font-family: var(--font-display), var(--font-sans);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+}
+h1 {
+  font-size: 24px;
 }
 /* Figures: tabular so columns of amounts align. Ink, never a semantic colour. */
-.metric {
+.metric,
+.investigation-summary strong,
+.labs-safety strong {
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  font-weight: 600;
 }
 .eyebrow {
   font-size: 11px;
@@ -347,11 +358,46 @@ a.pressable:active {
   animation: rise 0.18s ease-out both;
 }
 
+/*
+  The Arena's one piece of motion. Cards settle in one after another, each
+  bar grows to its value, and the mark on the recommended arm breathes once
+  a few seconds. All of it answers the page arriving; none of it loops on
+  the eye's attention, and reduced-motion turns it off.
+*/
+@keyframes grow-bar {
+  from {
+    width: 1%;
+  }
+}
+.arena-card {
+  animation: rise 0.4s ease-out both;
+}
+.bar-grow {
+  animation: grow-bar 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: 0.15s;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--accent-soft);
+  }
+  50% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+.arena-pick .provider-mark {
+  border-radius: 6px;
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .path-flow,
   .running,
   .rise,
-  .route-rise {
+  .route-rise,
+  .arena-card,
+  .bar-grow,
+  .arena-pick .provider-mark {
     animation: none;
   }
   a,

@@ -5,6 +5,7 @@ import { CONFIG, EVIDENCE_LABEL, evidence } from "@/lib/config";
 import { int, ms, ofN, pct, when } from "@/lib/format";
 import { agentDisplay, modelDisplay, suiteName } from "@/lib/names";
 import { ArmSwatch } from "@/components/charts";
+import { ProviderMark, providerOf } from "@/components/provider-mark";
 import { Button, Card, EmptyState, EnvBar, Note, Offline, PageHeader, Pill, Rate, StateBadge, Tabs } from "@/components/ui";
 import { modelAgent, vendorName } from "@/lib/models";
 import { ModelPicker } from "./model-picker";
@@ -78,9 +79,12 @@ node src/lab-cli.ts compare "GPT-4.1=http://localhost:9100/agent?model=openai/gp
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {c.arms.map((a) => (
-                        <Pill key={a.label} tone={a.criticalEpisodes ? "crit" : "good"}>
-                          {a.label} · {int(a.criticalEpisodes)}
-                        </Pill>
+                        <span key={a.label} className="inline-flex items-center gap-1.5 text-[12px] text-ink-2">
+                          <ProviderMark model={a.agent.subject.model} size={13} className="text-ink-2" />
+                          {a.label}
+                          <span className="tabular text-ink-3">· {int(a.criticalEpisodes)} critical</span>
+                          {a.criticalEpisodes > 0 && <span aria-hidden className="h-[6px] w-[6px] rounded-full bg-crit" />}
+                        </span>
                       ))}
                     </div>
                     <div className="mt-1 text-[12px] text-ink-3">engine&apos;s pick {c.recommendation.label ?? "none"}</div>
@@ -187,19 +191,22 @@ function Hero({ record, mode }: { record: CompareRecord; mode: "models" | "confi
           const rec = pick?.label === a.label && ev === "eligible";
           const title = mode === "models" ? (a.agent.subject.model ? a.label : "Unknown model") : a.label;
           const armEv = evidence(a.episodes);
-          const sub = mode === "models" ? (a.agent.subject.model ? `${modelDisplay(a.agent.subject.model)} · ${a.agent.subject.source === "configured" ? "configured" : "self-reported by the endpoint"}` : "the endpoint reported no model") : a.agent.subject.model ? modelDisplay(a.agent.subject.model, a.agent.subject.source) : `${agentDisplay(a.agent.name)} v${a.agent.version}`;
+          const provider = mode === "models" ? providerOf(a.agent.subject.model) : null;
+          const shown = modelDisplay(a.agent.subject.model);
+          const sub = mode === "models" ? (a.agent.subject.model ? `${provider && !shown.toLowerCase().startsWith(provider.name.toLowerCase()) ? `${provider.name} · ` : ""}${shown} · ${a.agent.subject.source === "configured" ? "declared" : "self-reported"}` : "the endpoint reported no model") : a.agent.subject.model ? modelDisplay(a.agent.subject.model, a.agent.subject.source) : `${agentDisplay(a.agent.name)} v${a.agent.version}`;
           return (
-            <div key={a.label} className={`min-w-[240px] rounded-[var(--radius)] border p-4 ${rec ? "border-line-hover bg-surface" : "border-line bg-surface-2"}`}>
+            <div key={a.label} className={`arena-card min-w-[240px] rounded-[var(--radius)] border p-4 ${rec ? "arena-pick border-line-hover bg-surface" : "border-line bg-surface-2"}`} style={{ animationDelay: `${i * 70}ms` }}>
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="break-words text-[15px] font-semibold leading-snug">
-                    <ArmSwatch index={i} /> <span className="ml-1">{title}</span>
+                <div className="flex min-w-0 items-start gap-3">
+                  {provider ? <ProviderMark provider={provider} size={26} className="mt-0.5 text-ink" /> : <span className="mt-2"><ArmSwatch index={i} /></span>}
+                  <div className="min-w-0">
+                    <div className="break-words text-[15px] font-semibold leading-snug">{title}</div>
+                    <div className="break-words text-[11.5px] text-ink-3">{sub}</div>
                   </div>
-                  <div className="break-words text-[11.5px] text-ink-3">{sub}</div>
                 </div>
                 {rec && (
                   <span className="shrink-0">
-                    <StateBadge state="READY" label="RECOMMENDED" />
+                    <StateBadge state="READY" label="Recommended" />
                   </span>
                 )}
               </div>
@@ -229,7 +236,7 @@ function Hero({ record, mode }: { record: CompareRecord; mode: "models" | "confi
                 </div>
                 <div className="flex justify-between text-ink-3">
                   <span>evidence</span>
-                  <span className={armEv === "eligible" ? "text-good-ink" : armEv === "provisional" ? "text-warn-ink" : "text-warn-ink"}>{armEv === "eligible" ? "sufficient" : armEv === "provisional" ? "provisional" : "insufficient"}</span>
+                  <Pill tone={armEv === "eligible" ? "good" : "warn"}>{armEv === "eligible" ? "sufficient" : armEv === "provisional" ? "provisional" : "insufficient"}</Pill>
                 </div>
               </div>
             </div>
@@ -266,7 +273,7 @@ function Row({ label, value, pct: p, tone }: { label: string; value: React.React
         <span className="text-ink-3">{label}</span>
         <span>{value}</span>
       </div>
-      <div className="mt-1 h-[4px] overflow-hidden rounded-full bg-surface-3">{p !== null && <div className="h-full rounded-full" style={{ width: `${Math.max(1, p)}%`, background: `var(--${tone})` }} />}</div>
+      <div className="mt-1 h-[4px] overflow-hidden rounded-full bg-surface-3">{p !== null && <div className="bar-grow h-full rounded-full" style={{ width: `${Math.max(1, p)}%`, background: `var(--${tone})` }} />}</div>
     </div>
   );
 }

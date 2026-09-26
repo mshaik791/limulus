@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
+import { Bricolage_Grotesque, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Shell } from "@/components/shell";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-// Display face: a technical grotesque for headings and instrument readouts — the assurance
-// instrument's voice, distinct from the neutral body sans.
-const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
+// Three voices. Inter for everything read at 12 to 14px: neutral, dense,
+// tabular figures. JetBrains Mono for ids, hashes and payloads. Bricolage
+// Grotesque for headings and the big figures: a grotesque with a jaw, so a
+// verdict reads like a statement and not like a template.
+const body = Inter({ variable: "--font-geist-sans", subsets: ["latin"] });
+const mono = JetBrains_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const display = Bricolage_Grotesque({ variable: "--font-display", subsets: ["latin"], weight: ["500", "600", "700"] });
 
 const DESCRIPTION = "Test financial agents before you trust them — continuous, signed, deterministic assurance with no model in the control path.";
 
@@ -24,7 +26,7 @@ export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${display.variable} h-full antialiased`}>
+    <html lang="en" className={`${body.variable} ${mono.variable} ${display.variable} h-full antialiased`}>
       <body className="min-h-full">
         <Shell>{children}</Shell>
       </body>

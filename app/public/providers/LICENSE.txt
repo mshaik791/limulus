@@ -1,0 +1,4 @@
+Provider marks in this directory come from the simple-icons collection
+(https://simpleicons.org, CC0 1.0). The marks themselves are trademarks of
+their owners: OpenAI, Anthropic, Google, DeepSeek, Meta, Mistral AI, Alibaba.
+They are shown here only to identify which provider served a model.
